@@ -1,4 +1,28 @@
-# @goodandready/dsh-opencode-provider
+# 📦 @goodandready/dsh-opencode-provider
+
+<div align="center">
+
+<h3>OpenCode Console & OpenCode Go LLM Provider for DeepSeek Harness</h3>
+
+<p>
+  <a href="https://goodandready.app/"><img src="https://img.shields.io/badge/🌐_DSH_Hub-goodandready.app-ff4500.svg?style=for-the-badge&labelColor=1a1a2e" alt="GoodAndReady Showcase"></a>
+  <a href="https://www.npmjs.com/package/@goodandready/dsh-opencode-provider"><img src="https://img.shields.io/npm/v/@goodandready/dsh-opencode-provider?style=for-the-badge&color=crimson&logo=npm" alt="npm version"></a>
+  <a href="https://github.com/GooDAnDReaDY/dsh-opencode-provider/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="License"></a>
+</p>
+
+</div>
+
+<table align="center">
+  <tr>
+    <td align="center">
+      ⭐ <strong>If you like this plugin, please star it on GitHub</strong> — it shows me that the plugin is useful to you and motivates me to keep developing it.
+      <br><br>
+      🐛 <strong>If you find a bug or would like to request a feature</strong>, open a GitHub issue in any language — I will review your proposal and implement useful suggestions in a future plugin version.
+    </td>
+  </tr>
+</table>
+
+---
 
 OpenCode / OpenCode Go provider plugin for [DeepSeek Harness](https://deepseek-harness.github.io/deepseek-harness/) (dsh).
 
@@ -10,6 +34,42 @@ It registers two native LLM routes:
 | `opencode-go` | OpenCode Go / Go Plus subscription | `https://opencode.ai/inference/go` |
 
 Requests resolve the key per call, so a changed credential reaches the next request without a restart.
+
+## Architecture
+
+```mermaid
+graph LR
+    subgraph DSH["DeepSeek Harness Core"]
+        Agent["DSH Agent / Chat"]
+        Creds["Credentials / auth.json"]
+    end
+
+    subgraph Plugin["dsh-opencode-provider"]
+        Router{"Route Selector"}
+        Pool["Multi-Account Pool<br/>(Auto-Rotation & Cooldowns)"]
+        Heatmap["Heatmap & Quota Telemetry<br/>(5h / Week / Month)"]
+        
+        subgraph Transports["4 Wire Transports"]
+            T1["OpenAI Chat"]
+            T2["Anthropic Messages<br/>(Thinking Signatures)"]
+            T3["OpenAI Responses"]
+            T4["Google GenAI<br/>(thoughtSignature Replay)"]
+        end
+    end
+
+    subgraph OpenCode["OpenCode Gateway"]
+        Console["opencode (Console / Zen)"]
+        Go["opencode-go (Go / Go Plus)"]
+    end
+
+    Agent --> Router
+    Creds -.-> Pool
+    Router -->|opencode| Pool
+    Router -->|opencode-go| Pool
+    Pool --> Heatmap
+    Pool --> Transports
+    T1 & T2 & T3 & T4 --> Console & Go
+```
 
 ## What works
 
@@ -32,7 +92,6 @@ Requests resolve the key per call, so a changed credential reaches the next requ
 - **Per-model subscription limits** from the OpenCode Go pricing table: monthly dollar allowance plus estimated requests for the 5-hour, weekly and monthly windows, for both Go and Go Plus. Shown in the model picker and the settings page; estimates only — the gateway remains the authority.
 - **`/opencode` command** for status, usage, accounts, models, rules, and `test [model]`.
 - **TUI settings section** for the terminal profile (`/settings → OpenCode`) with the key, endpoints, allowlist, active account and timeouts.
-- **Models-page key card** in Settings → Models.
 - **One-click plugin update** in Settings → OpenCode: current/latest version, an update badge, and an **Update now** button that installs the exact npm version through the DSH CLI and asks for a restart. The host endpoint is `GET/POST /dsh-opencode/update`.
 - **Plan-aware Go picker**: hides models outside the Go table unless turned off; descriptions carry `Go`, `Console` or `FREE`.
 - **Request-wide image budget** (newest images win, oldest become an omitted placeholder) and **object-root tool-schema normalization** for MCP/third-party tools.
@@ -59,12 +118,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.0
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.1
 ```
 
 Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
@@ -83,20 +142,19 @@ Tested against DSH Desktop **0.2.1-rc.2**:
 - the live catalog returned 37 models with prices and Go limits;
 - quota windows returned `rolling / weekly / monthly`;
 - `/dsh-opencode/analytics` scanned 7 local sessions (0 OpenCode sessions yet, as expected before the first OpenCode chat);
-- `/dsh-opencode/test` against `deepseek-v4.1-flash` returned `{"ok":true,"text":"OK"}`;
+- `/dsh-opencode/test` against the default flash model returned `{"ok":true,"text":"OK"}`;
 - a second Go account was added, the default key was temporarily replaced with an invalid one, and `/test` rotated to the second account and still returned `OK`;
-- the second account was already at ~98% of its monthly allowance; the rotation test pushed it over, so a later run surfaced `QUOTA`, marked the default as `invalid-credential` and `Go #2` as `quota` until its reset (22 Oct 08:21), with no active account;
-- per-account usage returned `default` 1% / 5% / 2% and `Go #2` 9% / 4% / **100%** monthly (`rate-limited`, reset 22 Oct 08:21), so the exhausted account is visible without a failed request;
+- the second account was already at ~98% of its monthly allowance; the rotation test pushed it over, so a later run surfaced `QUOTA`, marked the default as `invalid-credential` and `Go #2` as `quota` until its reset, with no active account;
+- per-account usage returned `default` 1% / 5% / 2% and `Go #2` 9% / 4% / **100%** monthly (`rate-limited`), so the exhausted account is visible without a failed request;
 - two `/test` requests produced `Tue 13:00 = 2` in the heatmap and two lines in `requests.jsonl`; the 24-hour strip shows the same value at 13:00;
-- a third request with `minimax-m3.1-flash-free` added a second per-model series (`deepseek-v4.1-flash` 2, `minimax-m3.1-flash-free` 1), so the model selector is populated;
-- after restarting Desktop, `Go #2` still showed its persisted `quota` cooldown (until 22 Oct 08:21) while the restored default key was active;
+- a third request with a free-tier model added a second per-model series, so the model selector is populated;
+- after restarting Desktop, `Go #2` still showed its persisted `quota` cooldown while the restored default key was active;
 - setting `*free* → Go #2` through `/config` returned the normalized rule from `/state`, and clearing it returned `[]`; the account list stayed unchanged;
-- the redesigned sidebar card was checked in Desktop: `OpenCode Go` with a 5% ring, `5-Hour Window 99% remaining · 3h`, `Weekly Window 95% remaining · 6d`, `Monthly Window 98% remaining · 29d`; it uses the DSH theme variables and matches the clinebot meter's row/ring layout;
-- a real chat produced two OpenCode sessions: `deepseek-v4.1-flash` (4105 in / 243 out, ≈$0.00079) and `beam-free` (10670 in / 171 out, Free); the heatmap counted 6 main requests (the two title calls and exact duplicates are filtered);
+- the redesigned sidebar card was checked in Desktop: `OpenCode Go` with a 5% ring, `5-Hour Window 99% remaining · 3h`, `Weekly Window 95% remaining · 6d`, `Monthly Window 98% remaining · 29d`; it uses the DSH theme variables and matches the meter's row/ring layout;
+- a real chat produced two OpenCode sessions: one standard flash model (4105 in / 243 out, ≈$0.00079) and one free model (10670 in / 171 out, Free); the heatmap counted 6 main requests (the two title calls and exact duplicates are filtered);
 - the renderer loaded the client bundle (`settings.opencode` is present in its code cache).
 
-Open **Settings → OpenCode** and enable *Show the quota card in the sidebar* if you want the
-sidebar meter.
+Open **Settings → OpenCode** and enable *Show the quota card in the sidebar* if you want the sidebar meter.
 
 ## Configure
 
@@ -111,7 +169,7 @@ sidebar meter.
     streamIdleTimeoutMs: 300000
     visibleModels: []
     modelTransports: {}
-    # contextWindowOverrides: { deepseek-v4-pro: 65536 }
+    # contextWindowOverrides: { model-id: 65536 }
     # maxOutputTokens: 32768
     accounts:
       - label: Go #2
@@ -150,7 +208,7 @@ Configure them in **Settings → OpenCode → Model → account rules**, or in Y
 modelAccountRules:
   - pattern: "*free*"
     account: "free"
-  - pattern: "deepseek-*"
+  - pattern: "your-provider-*"
     account: "go"
 ```
 
@@ -199,19 +257,7 @@ Captured from the exact 0.5.0 release candidate in DSH Desktop in the dark theme
 /opencode accounts          # labels, source, active/cooling, 5h/wk/mo
 /opencode models            # ids, FREE/Go limits
 /opencode rules             # model → account rules
-/opencode test [model]      # minimal real request (default deepseek-v4.1-flash)
-```
-
-Example:
-
-```
-OpenCode provider
-- opencode-go: 1 account(s) · auth.json:opencode-go
-- opencode: 1 account(s) · auth.json:opencode-go
-5h     : [░░░░░░░░░░] 1% · resets 2026-10-19 22:05Z
-weekly : [░░░░░░░░░░] 1% · resets 2026-10-26 00:00Z
-monthly: [░░░░░░░░░░] 0% · resets 2026-11-18 13:38Z
-Auth: opencode-go · OPENCODE_API_KEY
+/opencode test [model]      # minimal real request
 ```
 
 ## Verified API facts
@@ -219,8 +265,8 @@ Auth: opencode-go · OPENCODE_API_KEY
 - `GET /inference/go/v1/models` is public and returns the live Go roster.
 - `GET /zen/go/v1/usage` returns `rolling` (5h), `weekly`, `monthly` with `percent` and `resetsAt`. It is undocumented; the plugin treats it as fail-open.
 - The unified `POST /zen/go/v1/chat/completions` accepts OpenAI-compatible **and** Anthropic-backed models, but **not** Responses-only or Google models.
-- Responses-only models (GPT, Grok, Muse) and Gemini need their native endpoints, which the plugin uses.
-- Gemini 4 requires replaying `thoughtSignature` on historical function calls; the Google transport stores it in dsh's replay state.
+- Responses-only models and Gemini need their native endpoints, which the plugin uses.
+- Gemini requires replaying `thoughtSignature` on historical function calls; the Google transport stores it in dsh's replay state.
 - `x-opencode-session` is mandatory. A stable opaque value is enough for a Go key; the canonical `ses_*` shape and CLI impersonation are only needed for the anonymous free lane, which this plugin deliberately does not implement.
 - Free-tier anonymous keys are rejected with `403 FreeTierError`; free models work normally with an active Go subscription.
 
@@ -237,20 +283,6 @@ npm run sync:models   # regenerate src/models.generated.ts from models.dev
 
 GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflows/ci.yml`).
 
-Live smoke scripts (read your Go key from `auth.json`; no key is stored):
-
-```bash
-node scripts/smoke.mjs                 # OpenAI Chat text/reasoning/usage
-node scripts/smoke-tools.mjs           # OpenAI Chat tool call
-node scripts/smoke-transports.mjs      # all four transports, text
-node scripts/smoke-transport-tools.mjs # all four transports, tool call
-node scripts/smoke-tool-loop.mjs       # full tool loop, including Gemini replay
-node scripts/smoke-images.mjs          # vision on all four transports
-node scripts/smoke-rotation.mjs        # invalid key → valid key rotation
-node scripts/smoke-command.mjs         # /opencode output
-node scripts/smoke-client.mjs          # client bundle loader + slot registration
-```
-
 ## Limitations
 
 - Verbatim file attachments are not forwarded yet; images are.
@@ -266,4 +298,5 @@ node scripts/smoke-client.mjs          # client bundle loader + slot registratio
 
 ## License
 
-MIT. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
+MIT © [GooDAnDReaDY](https://github.com/GooDAnDReaDY). See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
+
