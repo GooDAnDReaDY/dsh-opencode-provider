@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import type { Context } from '@deepseek-ai/cordis'
 
-import { TUI_ACCOUNT_AUTO, buildOpenCodeTuiSection, type OpenCodeTuiSettingsDeps } from '../src/tui-settings.ts'
+import { TUI_ACCOUNT_AUTO, applyOpenCodeTuiSettings, buildOpenCodeTuiSection, type OpenCodeTuiSettingsDeps } from '../src/tui-settings.ts'
 
 function deps(): OpenCodeTuiSettingsDeps {
   return {
@@ -42,6 +43,35 @@ test('active account supports auto and explicit labels', () => {
   assert.ok(field.options?.some((option) => option.value === 'Go #2'))
   assert.deepEqual(field.parse?.('auto'), { kind: 'clear' })
   assert.deepEqual(field.parse?.('Go #2'), { kind: 'set', value: 'Go #2' })
+})
+
+test('refreshes the section when settings change outside the TUI', async () => {
+  let apiKeyRef = 'FIRST_REF'
+  let registrations = 0
+  let cleanup: (() => void) | undefined
+  const service = {
+    register: () => {
+      registrations += 1
+      return () => {}
+    },
+  }
+  const ctx = {
+    get: (name: string) => name === 'tuiSettingsSections' ? service : undefined,
+    effect: (factory: () => () => void) => { cleanup = factory() },
+  } as unknown as Context
+
+  const refresh = applyOpenCodeTuiSettings(ctx, {
+    ...deps(),
+    apiKeyRef: () => apiKeyRef,
+    refreshMs: 5,
+  })
+  assert.ok(refresh)
+  assert.equal(registrations, 1)
+
+  apiKeyRef = 'SECOND_REF'
+  await new Promise((resolve) => setTimeout(resolve, 20))
+  assert.ok(registrations >= 2)
+  cleanup?.()
 })
 
 test('invalid timeouts are rejected', () => {

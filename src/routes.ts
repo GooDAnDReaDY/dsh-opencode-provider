@@ -437,6 +437,29 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     }
   })
 
+  route('/dsh-opencode/health', async (req, res) => {
+    if (req.method !== 'GET') {
+      json(res, 405, { error: 'GET required' })
+      return
+    }
+    if (!allowedOrigin(req)) {
+      json(res, 403, { error: 'cross-origin request refused' })
+      return
+    }
+    try {
+      const config = deps.config()
+      const models = await deps.adapter.listModels('opencode-go', { unfiltered: true }).catch(() => [])
+      json(res, 200, {
+        ok: true,
+        providers: ['opencode', 'opencode-go'],
+        accounts: config.accounts.length + 1,
+        models: models.length,
+      })
+    } catch (error) {
+      json(res, 500, { error: error instanceof Error ? error.message : 'health failed' })
+    }
+  })
+
   route('/dsh-opencode/analytics', async (req, res) => {
     if (req.method !== 'GET') {
       json(res, 405, { error: 'GET required' })

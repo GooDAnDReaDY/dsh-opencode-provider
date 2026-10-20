@@ -32,3 +32,11 @@ test('leaves a small unique list in order', () => {
   assert.equal(limitTools(undefined), undefined)
   assert.deepEqual(limitTools([]), [])
 })
+
+test('keeps core tools when a large MCP set hits the cap', () => {
+  const tools = Array.from({ length: 130 }, (_, index) => tool(`mcp-${index}`))
+  tools.push(tool('read'))
+  const limited = limitTools(tools)
+  assert.equal(limited?.length, 128)
+  assert.equal(limited?.[0]?.name, 'read')
+})

@@ -52,6 +52,8 @@ export interface OpenCodeTuiSettingsDeps {
   readonly visibleModels: () => readonly string[]
   readonly activeAccount: () => string
   readonly filterModelsByPlan: () => boolean
+  /** Poll interval for settings changed from inside the terminal UI. */
+  readonly refreshMs?: number
 }
 
 export const TUI_ACCOUNT_AUTO = 'auto'
@@ -210,6 +212,15 @@ export function applyOpenCodeTuiSettings(
   let disposed = false
   let remove: (() => void) | undefined
 
+  const signature = (): string => JSON.stringify({
+    apiKeyRef: deps.apiKeyRef(),
+    accounts: deps.accountSlots().map((slot) => [slot.id, slot.label]),
+    visibleModels: deps.visibleModels(),
+    activeAccount: deps.activeAccount(),
+    filterModelsByPlan: deps.filterModelsByPlan(),
+  })
+  let lastSignature = signature()
+
   const refresh = (): void => {
     if (disposed) return
     remove?.()
@@ -221,8 +232,15 @@ export function applyOpenCodeTuiSettings(
   }
 
   refresh()
+  const timer = setInterval(() => {
+    const next = signature()
+    if (next === lastSignature) return
+    lastSignature = next
+    refresh()
+  }, deps.refreshMs ?? 2000)
   ctx.effect(() => () => {
     disposed = true
+    clearInterval(timer)
     remove?.()
     remove = undefined
   }, 'dsh-opencode-provider: tui settings section')

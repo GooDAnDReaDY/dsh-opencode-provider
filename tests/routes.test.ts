@@ -331,6 +331,17 @@ test('non-loopback writes are refused', async () => {
   assert.equal(result.status, 403)
 })
 
+test('health route reports provider registration', async () => {
+  const { routes } = harness()
+  const result = await call(routes.get('/dsh-opencode/health')!, { path: '/dsh-opencode/health' })
+  assert.equal(result.status, 200)
+  const body = result.body as Record<string, unknown>
+  assert.equal(body.ok, true)
+  assert.deepEqual(body.providers, ['opencode', 'opencode-go'])
+  assert.equal(body.accounts, 1)
+  assert.equal(body.models, 1)
+})
+
 test('analytics route returns aggregated model rows', async () => {
   const { routes } = harness()
   const result = await call(routes.get('/dsh-opencode/analytics')!, {

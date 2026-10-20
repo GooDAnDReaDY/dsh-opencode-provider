@@ -15,6 +15,11 @@
 - TUI settings refresh after `/config` account changes; analytics requests have an error state and a generation guard against the 7/30/90 race.
 - Projection analytics reads run with bounded parallelism; `.commandcode/` is ignored; provider registration logs at boot.
 - Tool-result images are replaced with an offload placeholder instead of failing the whole request in every transport.
+- Core harness tools (`read`, `write`, `edit`, `bash`, `glob`, `grep`, …) survive the 128-tool cap even when a large MCP set is present.
+- `GET /dsh-opencode/health` reports provider registration, account count and model count for startup diagnostics.
+- The TUI settings section polls live config, so accounts/allowlist changes made from the terminal refresh without a restart.
+- Client colors moved to DSH theme variables; the `zh` dictionary is a real translation; settings draft logic moved to `settings-draft.ts`.
+- Tests grew to 84, including TUI polling, health, core-tool preservation and tool-result image placeholders.
 - Rotation now also triggers on quota/usage-limit bodies (400/402/403/429), with a 10-minute or `Retry-After` cooldown for quota rejections.
 - The last account is marked on rejection as well; account rows expose `mark`/`coolingUntil`, show a cooldown badge, and the active marker follows the first non-cooling key.
 - Per-account quota reads: `/state.accounts[].usage` is fetched for each distinct key (`UsageReader` caches per key), the active account drives the sidebar and quota panel, Accounts rows show 5h/week/month chips, and the panel has an accounts table. Verified live: `default` 1/5/2 and `Go #2` 9/4/100 with `rate-limited` monthly until 22 Oct 08:21.

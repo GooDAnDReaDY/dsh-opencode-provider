@@ -43,7 +43,8 @@ Requests resolve the key per call, so a changed credential reaches the next requ
   - **Sidebar quota card** (off by default): a ring with the active account and the highest window, then 5-hour / weekly / monthly rows with remaining quota, reset countdown and bars; clicking opens the full quota panel in the center column. The panel scrolls internally, so the heatmap and usage table below the fold stay reachable.
   - **Session cost** in the composer: a compact `≈ $0.0123` estimate from the published model rates, using the session's durable token buckets and the model that served them.
   - Model price badges in the settings page; the OpenCode auth-entry field autocompletes from `auth.json`.
-  - Host routes under `/dsh-opencode/*` serve state and accept writes only from a loopback Host with same-origin and JSON checks.
+  - Host routes under `/dsh-opencode/*` serve state and accept writes only from a loopback Host with same-origin and JSON checks; `GET /dsh-opencode/health` reports provider registration, accounts and model count.
+  - The provider keeps core harness tools (`read`, `write`, `edit`, `bash`, `glob`, `grep`, …) when a large MCP set is trimmed to OpenCode's 128-tool limit.
 
 ## Install
 
