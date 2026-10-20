@@ -2,8 +2,12 @@
 
 ## 0.5.0
 
-- **Parity release**: TUI settings section, Models-page key card, plan-aware Go picker, per-request cost projection, request-wide image budget and tool-schema normalization.
-- **Usage analytics dashboard** in the quota panel: KPI grid, 7/30/90 window, and Models / Days / Sessions tables; success/errors show `—` because the local projection does not expose failed attempts.
+- **Parity release**: TUI settings section, Models-page key card, plan-aware Go picker, request-wide image budget and tool-schema normalization.
+- Package identity is now scoped: `@goodandready/dsh-opencode-provider` (unscoped npm name belongs to an unrelated package).
+- Custom composer cost pill and custom analytics cost columns removed; cost is shown only by DSH's native display.
+- One-click plugin update in Settings → OpenCode: registry status, badge, exact `dsh plugin add`, restart notice, loopback/same-origin POST guard.
+- English, Chinese and Russian READMEs and a visual-verification asset ship in the package and GitHub tree.
+- **Usage analytics dashboard** in the quota panel: KPI grid, 7/30/90 window, and Models / Days / Sessions tables; success/errors show `—` because the local projection does not expose failed attempts. Cost is not duplicated: DSH's native display is the only cost surface.
 - **Tool limit fix**: tools are deduplicated by name and capped at OpenCode's 128-item maximum before every transport, fixing `HTTP 400: maximum number of items is 128` in tool-heavy profiles.
 - **Test connection** button in the key card: pick a model, run a minimal real request, see latency and the reply.
 - `POST /dsh-opencode/test` Host route with a 60-second budget.

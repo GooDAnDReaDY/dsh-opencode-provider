@@ -1,7 +1,7 @@
 export const CSS_ID = 'dsh-opencode-provider'
 
 export const CSS = `
-:where(.oc-page, .oc-panel, .oc-card, .oc-foot, .oc-railButton, .oc-dock-cost) {
+:where(.oc-page, .oc-panel, .oc-card, .oc-foot, .oc-railButton) {
   --oc-border: var(--dsw-alias-border-l3, rgba(127,127,127,0.25));
   --oc-border-strong: var(--dsw-alias-border-l3, rgba(127,127,127,0.35));
   --oc-border-soft: var(--dsw-alias-border-l3, rgba(127,127,127,0.18));
@@ -112,7 +112,6 @@ export const CSS = `
 .oc-ring { flex: none; display: inline-flex; }
 .oc-panel { display: flex; flex-direction: column; gap: 14px; padding: 18px; max-width: 760px; margin: 0 auto; height: 100%; max-height: calc(100vh - 56px); min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .oc-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.oc-dock-cost { font-size: 11px; opacity: 0.78; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--oc-border); white-space: nowrap; }
 .oc-limits { margin-top: 8px; }
 .oc-limits summary { cursor: pointer; font-size: 12px; font-weight: 600; padding: 4px 0; }
 .oc-table { width: 100%; border-collapse: collapse; font-size: 12px; }
