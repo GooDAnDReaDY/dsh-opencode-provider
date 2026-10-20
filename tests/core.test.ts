@@ -135,6 +135,17 @@ test('images are rendered per transport', () => {
   assert.deepEqual(googleParts?.[1], { inlineData: { mimeType: 'image/png', data: 'AAAA' } })
 })
 
+test('tool-result images become a placeholder instead of failing the request', () => {
+  const messages = buildMessages(options({
+    messages: [{
+      role: 'tool',
+      toolCallId: 'call-1',
+      content: [{ type: 'image', attachment: { attachmentId: 'img-1', name: 'screenshot.png' } as never }],
+    }],
+  } as unknown as GenerateOptions))
+  assert.match(String(messages[0]?.content), /image omitted: screenshot\.png/)
+})
+
 test('images are rejected with a clear code', () => {
   assert.throws(
     () => buildMessages(options({

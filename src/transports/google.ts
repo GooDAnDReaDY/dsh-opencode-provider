@@ -18,12 +18,8 @@ function textOnly(content: readonly ContentBlock[]): string {
   const parts: string[] = []
   for (const block of content) {
     if (block.type === 'text') parts.push(block.text)
-    else if (block.type === 'image' || block.type === 'file') {
-      throw new LlmError(
-        'llm-opencode: image and file attachments are only supported in user and tool content.',
-        'UNSUPPORTED_CONTENT',
-      )
-    }
+    else if (block.type === 'image') parts.push(offloadPlaceholder(block.attachment))
+    else if (block.type === 'file') parts.push('[file omitted: tool-result files are not supported]')
   }
   return parts.join('')
 }
