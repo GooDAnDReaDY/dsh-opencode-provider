@@ -110,12 +110,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.0
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.1
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode** 或 **OpenCode Go** 即可。
@@ -156,12 +156,6 @@ modelAccountRules:
     account: "go"
 ```
 
-## 界面与视觉验收
-
-![OpenCode 配额与分析仪表盘](media/visual-verification.png)
-
-截取自 DSH Desktop（暗黑主题）中的 0.5.0 正式候选版本。
-
 ## 常用指令
 
 ```bash
@@ -181,3 +175,4 @@ modelAccountRules:
 ## 许可证
 
 MIT © [GooDAnDReaDY](https://github.com/GooDAnDReaDY)。详见 [LICENSE](./LICENSE) 与 [NOTICE](./NOTICE)。
+

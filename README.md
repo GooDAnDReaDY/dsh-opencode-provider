@@ -92,7 +92,6 @@ graph LR
 - **Per-model subscription limits** from the OpenCode Go pricing table: monthly dollar allowance plus estimated requests for the 5-hour, weekly and monthly windows, for both Go and Go Plus. Shown in the model picker and the settings page; estimates only — the gateway remains the authority.
 - **`/opencode` command** for status, usage, accounts, models, rules, and `test [model]`.
 - **TUI settings section** for the terminal profile (`/settings → OpenCode`) with the key, endpoints, allowlist, active account and timeouts.
-- **Models-page key card** in Settings → Models.
 - **One-click plugin update** in Settings → OpenCode: current/latest version, an update badge, and an **Update now** button that installs the exact npm version through the DSH CLI and asks for a restart. The host endpoint is `GET/POST /dsh-opencode/update`.
 - **Plan-aware Go picker**: hides models outside the Go table unless turned off; descriptions carry `Go`, `Console` or `FREE`.
 - **Request-wide image budget** (newest images win, oldest become an omitted placeholder) and **object-root tool-schema normalization** for MCP/third-party tools.
@@ -119,12 +118,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.0
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.1
 ```
 
 Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
@@ -300,3 +299,4 @@ GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflow
 ## License
 
 MIT © [GooDAnDReaDY](https://github.com/GooDAnDReaDY). See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).
+

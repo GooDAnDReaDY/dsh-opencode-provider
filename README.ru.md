@@ -114,12 +114,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.0
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.1
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode** или **OpenCode Go** в списке моделей.
@@ -180,12 +180,6 @@ modelAccountRules:
 - **Connection**: таймауты, базовые URL и переключатель карточки сайдбара.
 - **Plugin update**: статус версии и кнопка **Update now**.
 
-## Визуальная верификация
-
-![Панель квот и аналитики OpenCode](media/visual-verification.png)
-
-Снимок реального релиз-кандидата 0.5.0 в интерфейсе DSH Desktop (темная тема).
-
 ## Команды CLI
 
 ```bash
@@ -206,3 +200,4 @@ modelAccountRules:
 ## Лицензия
 
 MIT © [GooDAnDReaDY](https://github.com/GooDAnDReaDY). См. [LICENSE](./LICENSE) и [NOTICE](./NOTICE).
+
