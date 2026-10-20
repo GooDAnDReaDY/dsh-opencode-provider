@@ -1,0 +1,125 @@
+{
+  "name": "@goodandready/dsh-opencode-provider",
+  "version": "0.5.0",
+  "description": "OpenCode / OpenCode Go LLM provider plugin for DeepSeek Harness (dsh).",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib",
+    "!lib/**/*.map",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh.md",
+    "README.ru.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "NOTICE",
+    "media/visual-verification.png"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GooDAnDReaDY/dsh-opencode-provider.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GooDAnDReaDY/dsh-opencode-provider/issues"
+  },
+  "homepage": "https://github.com/GooDAnDReaDY/dsh-opencode-provider#readme",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    },
+    "compatibility": {
+      "dshReleases": {
+        "0.2.0-rc.2": "compatible",
+        "0.2.1-rc.2": "compatible"
+      },
+      "dsh": "0.2.0-rc.2 || 0.2.1-rc.2"
+    }
+  },
+  "engines": {
+    "node": ">=22",
+    "dsh": "0.2.0-rc.2 || 0.2.1-rc.2"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepare": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/tools.test.ts tests/plugin-updater.test.ts",
+    "check": "npm run typecheck && npm test && npm run build",
+    "release": "npm run check && npm pack",
+    "sync:models": "node scripts/sync-models.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "opencode",
+    "opencode-go",
+    "llm-provider"
+  ],
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.0.4 || ~4.0.5",
+    "@deepseek-ai/dsh-attachment": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-commands": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-credentials": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-launch-environment": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/dsh-settings": "0.2.0-rc.2 || 0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.4 || ~3.18.5",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-api-remotes": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-attachment": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-locale": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-renderer": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-settings": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-commands": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-credentials": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.1-rc.2",
+    "@deepseek-ai/dsh-launch-environment": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-settings": "0.2.1-rc.2",
+    "@deepseek-ai/schemastery": "~3.18.5",
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.1",
+    "react": "^18.3.1",
+    "tsdown": "^0.22.2",
+    "tsx": "^4.23.12",
+    "typescript": "^5.7.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

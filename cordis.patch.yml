@@ -1,0 +1,11 @@
+# dsh-opencode-provider bundle layer.
+# Registers the `opencode` (Console/Zen) and `opencode-go` (Go subscription)
+# provider routes. All fields are optional — schema defaults apply.
+#
+# `name` must be the FULL package specifier as installed in the profile's
+# node_modules. Quote it: an unquoted YAML scalar starting with `@` fails.
+- insert:
+    - id: llm-opencode
+      name: "@goodandready/dsh-opencode-provider"
+      config:
+        apiKeyEnv: OPENCODE_API_KEY
