@@ -1,0 +1,15 @@
+dsh-opencode-provider
+=====================
+
+This project is an unofficial community integration. It is not affiliated
+with OpenCode, Anomaly, or DeepSeek Harness.
+
+Architectural ideas and wire-contract research were informed by these MIT
+projects:
+
+- dsh-commandcode-provider — https://github.com/Mars-Sea/dsh-commandcode-provider
+- dsh-clinebot — https://github.com/GooDAnDReaDY/dsh-clinebot
+- opencode2dsh — https://github.com/FishBottle7/opencode2dsh (reference for the
+  anonymous free-lane header requirements; that bypass is not implemented here)
+
+Model metadata is generated from https://models.dev.

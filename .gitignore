@@ -1,0 +1,11 @@
+node_modules/
+lib/
+coverage/
+.commandcode/
+.tmp/
+.research/
+*.tsbuildinfo
+*.log
+*.tgz
+.env
+.env.*
