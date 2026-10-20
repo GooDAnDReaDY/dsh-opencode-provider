@@ -18,7 +18,7 @@
 - Core harness tools (`read`, `write`, `edit`, `bash`, `glob`, `grep`, …) survive the 128-tool cap even when a large MCP set is present.
 - `GET /dsh-opencode/health` reports provider registration, account count and model count for startup diagnostics.
 - The TUI settings section polls live config, so accounts/allowlist changes made from the terminal refresh without a restart.
-- Client colors moved to DSH theme variables; the `zh` dictionary is a real translation; settings draft logic moved to `settings-draft.ts`.
+- Client colors moved to DSH theme variables; the `zh` dictionary is a real translation; draft/route/widget helpers moved to `settings-draft.ts`, `settings-widgets.tsx`, `routes-public.ts` and `routes-values.ts`; quota triggers expose real `aria-expanded` panel state.
 - Tests grew to 84, including TUI polling, health, core-tool preservation and tool-result image placeholders.
 - Rotation now also triggers on quota/usage-limit bodies (400/402/403/429), with a 10-minute or `Retry-After` cooldown for quota rejections.
 - The last account is marked on rejection as well; account rows expose `mark`/`coolingUntil`, show a cooldown badge, and the active marker follows the first non-cooling key.

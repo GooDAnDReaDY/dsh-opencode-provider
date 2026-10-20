@@ -6,6 +6,25 @@ import { RequestHeatmapView } from './heatmap.tsx'
 import { UsageAnalyticsView } from './usage-analytics.tsx'
 import { UsageBars } from './usage-bars.tsx'
 
+const PANEL_EVENT = 'dsh-opencode-panel-state'
+
+function broadcastPanel(open: boolean): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent<boolean>(PANEL_EVENT, { detail: open }))
+}
+
+function usePanelOpen(): boolean {
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    const onChange = (event: Event): void => {
+      if (event instanceof CustomEvent) setOpen(event.detail === true)
+    }
+    window.addEventListener(PANEL_EVENT, onChange)
+    return () => window.removeEventListener(PANEL_EVENT, onChange)
+  }, [])
+  return open
+}
+
 function useHostState(intervalMs: number): HostState | null {
   const [state, setState] = useState<HostState | null>(null)
   useEffect(() => {
@@ -109,6 +128,7 @@ export function QuotaCard(props: {
 }): ReactNode {
   const { t } = props
   const state = useHostState(60_000)
+  const expanded = usePanelOpen()
   if (state === null || state.config.showSidebarQuota !== true) return null
 
   const windows = state.usage?.report?.windows
@@ -133,7 +153,10 @@ export function QuotaCard(props: {
     return `${row.label}: ${remaining(row.window)}% ${t('remaining')}${reset === '' ? '' : ` · ${reset}`}${status}`
   }).join(' · ')
   const title = `${name} — ${detail === '' ? (state.usage?.error ?? t('noUsage')) : detail}`
-  const open = (): void => props.open?.()
+  const open = (): void => {
+    broadcastPanel(true)
+    props.open?.()
+  }
 
   if (props.wide === false) {
     return (
@@ -143,6 +166,7 @@ export function QuotaCard(props: {
         title={title}
         aria-label={title}
         aria-haspopup="dialog"
+        aria-expanded={expanded}
         onClick={open}
       >
         <MiniRing percent={worst} warn={warn} size={20} />
@@ -157,6 +181,7 @@ export function QuotaCard(props: {
       title={title}
       aria-label={title}
       aria-haspopup="dialog"
+      aria-expanded={expanded}
       onClick={open}
     >
       <span className="oc-footTop">
@@ -242,6 +267,8 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
     }
   }, [days])
 
+  useEffect(() => () => broadcastPanel(false), [])
+
   const activeAccount = state?.accounts.find((account) => account.active)
 
   const refresh = (): void => {
@@ -272,7 +299,7 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
           <button type="button" className="oc-button" disabled={busy} onClick={refresh}>
             {busy ? t('loading') : t('refresh')}
           </button>
-          <button type="button" className="oc-button" onClick={() => props.close?.()}>
+          <button type="button" className="oc-button" onClick={() => { broadcastPanel(false); props.close?.() }}>
             {t('close')}
           </button>
         </div>

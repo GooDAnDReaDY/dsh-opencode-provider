@@ -10,14 +10,15 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type { OpenCodeAdapter } from './adapter.ts'
 import { effectiveModel, modelVisible, clearCatalogCache } from './catalog.ts'
 import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
-import { NS, type Config, type ResolvedConfig, type TransportId } from './config.ts'
+import { NS, type Config, type ResolvedConfig } from './config.ts'
+import { publicConfig } from './routes-public.ts'
+import { cleanAccounts, cleanBooleanRecord, cleanModelAccountRules, cleanNumberRecord, cleanStringArray, cleanTransports } from './routes-values.ts'
 import { readOpenCodeAuthKey, listOpenCodeAuthEntries, type KeyPool } from './credentials.ts'
 import type { RequestHeatmap } from './request-log.ts'
 import { limitsFor } from './subscription-limits.ts'
 import type { UsageReader } from './usage.ts'
 
 const MAX_BODY_BYTES = 256 * 1024
-const TRANSPORTS = new Set<TransportId>(['openai-chat', 'openai-responses', 'anthropic', 'google'])
 
 export interface RouteDeps {
   readonly config: () => ResolvedConfig
@@ -30,60 +31,6 @@ export interface RouteDeps {
 }
 
 type UsageValue = Awaited<ReturnType<UsageReader>> | null
-
-interface PublicConfig {
-  apiKeyEnv: string
-  apiBase: string
-  goApiBase: string
-  goZenBase: string
-  usageUrl: string
-  openCodeAuthEntry: string
-  requestTimeoutMs: number
-  streamIdleTimeoutMs: number
-  visibleModels: readonly string[]
-  modelVisibility: Readonly<Record<string, boolean>>
-  filterModelsByPlan: boolean
-  modelTransports: Readonly<Record<string, TransportId>>
-  contextWindow: number | null
-  contextWindowOverrides: Readonly<Record<string, number>>
-  maxOutputTokens: number | null
-  accounts: ReadonlyArray<{ label: string; apiKeyEnv: string }>
-  modelAccountRules: ReadonlyArray<{ pattern: string; account: string }>
-  activeAccount: string
-  showSidebarQuota: boolean
-  userAgent: string
-}
-
-function publicConfig(config: ResolvedConfig): PublicConfig {
-  return {
-    apiKeyEnv: config.apiKeyEnv,
-    apiBase: config.apiBase,
-    goApiBase: config.goApiBase,
-    goZenBase: config.goZenBase,
-    usageUrl: config.usageUrl,
-    openCodeAuthEntry: config.openCodeAuthEntry,
-    requestTimeoutMs: config.requestTimeoutMs,
-    streamIdleTimeoutMs: config.streamIdleTimeoutMs,
-    visibleModels: config.visibleModels,
-    modelVisibility: config.modelVisibility,
-    filterModelsByPlan: config.filterModelsByPlan,
-    modelTransports: config.modelTransports,
-    contextWindow: config.contextWindow ?? null,
-    contextWindowOverrides: config.contextWindowOverrides,
-    maxOutputTokens: config.maxOutputTokens ?? null,
-    accounts: config.accounts.map((account) => ({
-      label: typeof account.label === 'string' ? account.label : '',
-      apiKeyEnv: typeof account.apiKeyEnv === 'string' ? account.apiKeyEnv : '',
-    })),
-    modelAccountRules: config.modelAccountRules.map((rule) => ({
-      pattern: rule.pattern,
-      account: rule.account,
-    })),
-    activeAccount: config.activeAccount,
-    showSidebarQuota: config.showSidebarQuota,
-    userAgent: config.userAgent,
-  }
-}
 
 function json(res: ServerResponse, status: number, value: unknown): void {
   res.statusCode = status
@@ -186,65 +133,6 @@ function settingsRevision(ctx: Context): number | undefined {
   } catch {
     return undefined
   }
-}
-
-function cleanAccounts(value: unknown): Array<{ label: string; apiKeyEnv: string }> {
-  if (!Array.isArray(value)) return []
-  const out: Array<{ label: string; apiKeyEnv: string }> = []
-  for (const entry of value) {
-    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) continue
-    const record = entry as Record<string, unknown>
-    const label = typeof record.label === 'string' ? record.label.trim() : ''
-    const apiKeyEnv = typeof record.apiKeyEnv === 'string' ? record.apiKeyEnv.trim() : ''
-    if (label === '' && apiKeyEnv === '') continue
-    out.push({ label: label === '' ? `account-${out.length + 2}` : label, apiKeyEnv })
-  }
-  return out
-}
-
-function cleanStringArray(value: unknown): string[] {
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === 'string' && entry !== '')
-    : []
-}
-
-function cleanModelAccountRules(value: unknown): Array<{ pattern: string; account: string }> {
-  if (!Array.isArray(value)) return []
-  const out: Array<{ pattern: string; account: string }> = []
-  for (const entry of value) {
-    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) continue
-    const record = entry as Record<string, unknown>
-    const pattern = typeof record.pattern === 'string' ? record.pattern.trim() : ''
-    const account = typeof record.account === 'string' ? record.account.trim() : ''
-    if (pattern === '' || account === '') continue
-    out.push({ pattern, account })
-  }
-  return out
-}
-
-function cleanBooleanRecord(value: unknown): Record<string, boolean> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
-  const out: Record<string, boolean> = {}
-  for (const [key, entry] of Object.entries(value)) if (typeof entry === 'boolean') out[key] = entry
-  return out
-}
-
-function cleanNumberRecord(value: unknown): Record<string, number> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
-  const out: Record<string, number> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (typeof entry === 'number' && Number.isInteger(entry) && entry > 0) out[key] = entry
-  }
-  return out
-}
-
-function cleanTransports(value: unknown): Record<string, TransportId> {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
-  const out: Record<string, TransportId> = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (typeof entry === 'string' && TRANSPORTS.has(entry as TransportId)) out[key] = entry as TransportId
-  }
-  return out
 }
 
 function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset'; path: string[]; value?: unknown }> {
