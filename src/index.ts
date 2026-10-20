@@ -8,9 +8,9 @@ import { OpenCodeAdapter } from './adapter.ts'
 import { applyCommands } from './commands.ts'
 import { Config, NS, resolveConfig, unwrapVolatileConfig } from './config.ts'
 import { createKeyPool, openCodeAuthPath } from './credentials.ts'
+import { registerPluginUpdater } from './plugin-updater.ts'
 import { applyRoutes } from './routes.ts'
 import { readRequestHeatmap } from './request-log.ts'
-import { installOpenCodeCostProjection } from './cost-projection.ts'
 import { applyOpenCodeTuiSettings } from './tui-settings.ts'
 import { createUsageReader } from './usage.ts'
 
@@ -73,8 +73,6 @@ export function apply(ctx: Context, config: Config): void {
     applyCommands(commandCtx, { config: current, pool: keys, usage, adapter })
   })
 
-  installOpenCodeCostProjection(ctx)
-
   let refreshTuiSettings: (() => void) | undefined
   ctx.inject(['tuiSettingsSections'], (tuiCtx) => {
     refreshTuiSettings = applyOpenCodeTuiSettings(tuiCtx, {
@@ -107,5 +105,10 @@ export function apply(ctx: Context, config: Config): void {
       heatmap: readRequestHeatmap,
       refreshTui: () => refreshTuiSettings?.(),
     })
+    webCtx.effect(() => registerPluginUpdater(webCtx, {
+      endpoint: '/dsh-opencode/update',
+      packageName: '@goodandready/dsh-opencode-provider',
+      manifestUrl: new URL('../package.json', import.meta.url),
+    }), 'dsh-opencode-provider: plugin updater')
   })
 }

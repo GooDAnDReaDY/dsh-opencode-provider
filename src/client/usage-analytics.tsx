@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import type { AnalyticsReport, DayUsageRow, ModelUsageRow, SessionUsageRow } from './api.ts'
-import { formatMoney } from './session-cost.ts'
 
 type Tab = 'models' | 'days' | 'sessions'
 
@@ -15,12 +14,6 @@ function compact(value: number): string {
 
 function ms(value: number | null): string {
   return value === null || !Number.isFinite(value) ? '—' : `${Math.round(value)} ms`
-}
-
-function costText(cost: number, free: boolean, priced: boolean, partial: boolean): string {
-  if (!priced) return '—'
-  if (free) return 'Free'
-  return `${partial ? '≥' : '≈'}${formatMoney(cost)}`
 }
 
 function Kpi(props: { label: string; value: string; title?: string | undefined }): ReactNode {
@@ -42,7 +35,6 @@ function modelRows(report: AnalyticsReport, t: (key: string) => string): ReactNo
             <th>{t('model')}</th>
             <th>{t('requests')}</th>
             <th>{t('tokens')}</th>
-            <th>{t('estimatedCost')}</th>
             <th>{t('avgTtft')}</th>
           </tr>
         </thead>
@@ -52,7 +44,6 @@ function modelRows(report: AnalyticsReport, t: (key: string) => string): ReactNo
               <td>{row.model}</td>
               <td>{row.steps}</td>
               <td>{compact(row.inputTokens + row.outputTokens)}</td>
-              <td>{costText(row.cost, row.free, row.priced, row.partial)}</td>
               <td>{ms(row.ttftSteps > 0 ? row.ttftMs / row.ttftSteps : null)}</td>
             </tr>
           ))}
@@ -73,7 +64,6 @@ function dayRows(report: AnalyticsReport, t: (key: string) => string): ReactNode
             <th>{t('sessions')}</th>
             <th>{t('requests')}</th>
             <th>{t('tokens')}</th>
-            <th>{t('estimatedCost')}</th>
             <th>{t('avgTtft')}</th>
           </tr>
         </thead>
@@ -84,7 +74,6 @@ function dayRows(report: AnalyticsReport, t: (key: string) => string): ReactNode
               <td>{row.sessions}</td>
               <td>{row.requests}</td>
               <td>{compact(row.tokens)}</td>
-              <td>{costText(row.cost, row.free, row.priced, row.partial)}</td>
               <td>{ms(row.avgTtftMs)}</td>
             </tr>
           ))}
@@ -105,7 +94,6 @@ function sessionRows(report: AnalyticsReport, t: (key: string) => string): React
             <th>{t('model')}</th>
             <th>{t('requests')}</th>
             <th>{t('tokens')}</th>
-            <th>{t('estimatedCost')}</th>
             <th>{t('avgTtft')}</th>
           </tr>
         </thead>
@@ -116,7 +104,6 @@ function sessionRows(report: AnalyticsReport, t: (key: string) => string): React
               <td>{row.model}</td>
               <td>{row.requests}</td>
               <td>{compact(row.tokens)}</td>
-              <td>{costText(row.cost, row.free, row.priced, row.partial)}</td>
               <td>{ms(row.avgTtftMs)}</td>
             </tr>
           ))}
@@ -171,11 +158,6 @@ export function UsageAnalyticsView(props: {
       <div className="oc-kpi-grid">
         <Kpi label={t('requests')} value={String(summary.requests)} />
         <Kpi label={t('tokens')} value={compact(summary.tokens)} />
-        <Kpi
-          label={t('estimatedCost')}
-          value={costText(summary.cost, summary.free, summary.priced, summary.partial)}
-          title={summary.partial ? 'Includes unpriced tokens; the value is a lower bound.' : undefined}
-        />
         <Kpi
           label={t('successRate')}
           value={summary.successRate === null ? '—' : `${Math.round(summary.successRate)}%`}

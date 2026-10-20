@@ -1,4 +1,4 @@
-# dsh-opencode-provider
+# @goodandready/dsh-opencode-provider
 
 OpenCode / OpenCode Go provider plugin for [DeepSeek Harness](https://deepseek-harness.github.io/deepseek-harness/) (dsh).
 
@@ -33,15 +33,15 @@ Requests resolve the key per call, so a changed credential reaches the next requ
 - **`/opencode` command** for status, usage, accounts, models, rules, and `test [model]`.
 - **TUI settings section** for the terminal profile (`/settings → OpenCode`) with the key, endpoints, allowlist, active account and timeouts.
 - **Models-page key card** in Settings → Models.
+- **One-click plugin update** in Settings → OpenCode: current/latest version, an update badge, and an **Update now** button that installs the exact npm version through the DSH CLI and asks for a restart. The host endpoint is `GET/POST /dsh-opencode/update`.
 - **Plan-aware Go picker**: hides models outside the Go table unless turned off; descriptions carry `Go`, `Console` or `FREE`.
-- **Per-request cost projection** for the composer: durable groups by model, so switching models or reopening a session does not reprice earlier requests.
 - **Request-wide image budget** (newest images win, oldest become an omitted placeholder) and **object-root tool-schema normalization** for MCP/third-party tools.
-- **Usage analytics dashboard** in the quota panel: KPI cards (requests, tokens, cost, success, input/output, reasoning, cache, TTFT, latency, errors), a 7/30/90 selector, and Models / Days / Sessions tables. Success and error cards show `—`: the local projection does not expose failed attempts or reasoning tokens.
-- **Usage by model** from the local session projection cache: sessions, tokens, and estimated cost per OpenCode model. Only numeric metadata is read; titles and message content stay local.
+- **Usage analytics dashboard** in the quota panel: KPI cards (requests, tokens, success, input/output, reasoning, cache, TTFT, latency, errors), a 7/30/90 selector, and Models / Days / Sessions tables. Success and error cards show `—`: the local projection does not expose failed attempts or reasoning tokens.
+- **Usage by model** from the local session projection cache: sessions and tokens per OpenCode model. Only numeric metadata is read; titles and message content stay local.
 - **Browser UI**:
   - **Settings → OpenCode**: key status, paste/import/clear, quota bars, accounts, model allowlist, per-model transport overrides, connection settings.
   - **Sidebar quota card** (off by default): a ring with the active account and the highest window, then 5-hour / weekly / monthly rows with remaining quota, reset countdown and bars; clicking opens the full quota panel in the center column. The panel scrolls internally, so the heatmap and usage table below the fold stay reachable.
-  - **Session cost** in the composer: a compact `≈ $0.0123` estimate from the published model rates, using the session's durable token buckets and the model that served them.
+  - **Cost** is shown only by DSH's native cost display; the plugin does not add a second composer pill.
   - Model price badges in the settings page; the OpenCode auth-entry field autocompletes from `auth.json`.
   - Host routes under `/dsh-opencode/*` serve state and accept writes only from a loopback Host with same-origin and JSON checks; `GET /dsh-opencode/health` reports provider registration, accounts and model count.
   - The provider keeps core harness tools (`read`, `write`, `edit`, `bash`, `glob`, `grep`, …) when a large MCP set is trimmed to OpenCode's 128-tool limit.
@@ -59,9 +59,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+
+# Or install the published package:
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.0
 ```
 
 Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
@@ -99,7 +102,7 @@ sidebar meter.
 
 ```yaml
 - id: llm-opencode
-  name: "dsh-opencode-provider"
+  name: "@goodandready/dsh-opencode-provider"
   config:
     apiKeyEnv: OPENCODE_API_KEY   # default
     # apiKey: oc_sk_...           # composition only, never commit
@@ -166,10 +169,27 @@ Open **Settings → OpenCode**:
 - **Accounts** — add extra accounts by credential reference, set each account's key from the page, see whether it is configured, pin one, or return to automatic rotation.
 - **Models** — search, refresh the live catalog, uncheck models to build an allowlist, override the wire transport per model, and see each model's input/output price plus its Go request estimate (`Go 34.7K/5h`). Hover the estimate for the full Go / Go Plus monthly allowance and 5h/week/month request counts; expand **Subscription limits** for a table of every model with both plans.
 - **Connection** — API bases, usage endpoint, timeouts, output cap, context override, sidebar-card switch. The OpenCode auth-entry field autocompletes from the keys present in `auth.json`.
+- **Plugin update** — current/latest version, update badge, and **Update now**. It installs the exact registry version through the normal `dsh plugin add` path, blocks a second click while installing, and reports when DSH must be restarted.
 
 The sidebar quota card is **off by default**. Enable *Show the quota card in the sidebar* in the settings page; clicking the card opens the full quota panel, which also carries the **Usage by model** table (7/30/90-day window).
 
-The Host serves `/dsh-opencode/state`, `/analytics`, `/config`, `/key`, `/key/clear`, `/auth-import`, `/refresh`, `/models/refresh` and `/test`. Writes require JSON, are refused for cross-origin requests, and are restricted to loopback (`127.0.0.1` / `::1`); reads stay same-origin. This keeps key and configuration writes off a LAN-exposed web server until the host's own auth token can be integrated.
+The Host serves `/dsh-opencode/state`, `/health`, `/analytics`, `/config`, `/key`, `/key/clear`, `/auth-import`, `/refresh`, `/models/refresh`, `/test` and `/update`. Writes require JSON, are refused for cross-origin requests, and are restricted to loopback (`127.0.0.1` / `::1`); reads stay same-origin. This keeps key and configuration writes off a LAN-exposed web server until the host's own auth token can be integrated.
+
+## Updates
+
+The **Plugin update** card in Settings → OpenCode calls `GET /dsh-opencode/update`, which compares the installed `package.json` with the npm registry. When a newer version exists, **Update now** sends the same-origin request with `x-dsh-plugin-update: 1`; the Host runs the normal DSH CLI:
+
+```text
+dsh plugin --profile <profile> add --config.minimumReleaseAge=0 @goodandready/dsh-opencode-provider@<exact-version>
+```
+
+The update is blocked while another update is running, never uses `--force`, and never installs from a worktree or a `file:` path. The card reports that DSH must be restarted after a successful install. If the runtime does not expose the CLI entry, the card says that automatic update is unavailable and points to the DSH plugin manager; the status check still works.
+
+## Visual verification
+
+![OpenCode quota and analytics panel](media/visual-verification.png)
+
+Captured from the exact 0.5.0 release candidate in DSH Desktop in the dark theme.
 
 ## Command
 
@@ -235,7 +255,8 @@ node scripts/smoke-client.mjs          # client bundle loader + slot registratio
 
 - Verbatim file attachments are not forwarded yet; images are.
 - The usage endpoint is unofficial and may change; chat never depends on it.
-- Session cost is an estimate from the generated models.dev snapshot. Cumulative token buckets are priced at the last-used model's rates, so a session that switched models shows an approximation (marked `≈`); unpriced cache-write tokens make it a lower bound (`≥`).
+- Cost is displayed only by DSH's native cost display; this plugin has no second composer cost pill.
+- Automatic update requires the DSH CLI entry in the runtime. When it is not exposed, the update card shows the current/latest status and directs the user to the DSH plugin manager.
 - Subscription request counts are OpenCode's published estimates, not enforced quotas. They can change when OpenCode updates the Go pricing table; the gateway is the final authority.
 - Usage-by-model aggregates the local projection cache and attributes a whole session to its last-used model; a session that switched models is therefore approximate. It never reads prompt text or titles.
 - `opencode` (Console) billing shows no per-model allowance; the Go route is the primary target.

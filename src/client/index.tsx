@@ -9,7 +9,6 @@ import type {} from './slots.ts'
 
 import { dictionaries, NS } from './locales.ts'
 import { QuotaCard, QuotaPanel } from './quota-card.tsx'
-import { OpenCodeSessionCost } from './session-cost-view.tsx'
 import { OpenCodeProviderCard } from './provider-card.tsx'
 import { OpenCodeSettingsPage } from './settings-page.tsx'
 import { CSS, CSS_ID } from './styles.ts'
@@ -91,11 +90,4 @@ export function apply(ctx: Context): void {
     }, QuotaCard))
   })
 
-  // The composer dock contribution: a compact session-cost estimate. It
-  // renders nothing when the session used another provider, has no usage yet,
-  // or the model is absent from the price snapshot.
-  ctx.slots.inject('conversation.composer.dock', () => slots.register({
-    name: 'conversation.composer.dock',
-    id: 'opencode-cost',
-  }, OpenCodeSessionCost))
 }

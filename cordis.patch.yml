@@ -6,6 +6,6 @@
 # node_modules. Quote it: an unquoted YAML scalar starting with `@` fails.
 - insert:
     - id: llm-opencode
-      name: "dsh-opencode-provider"
+      name: "@goodandready/dsh-opencode-provider"
       config:
         apiKeyEnv: OPENCODE_API_KEY

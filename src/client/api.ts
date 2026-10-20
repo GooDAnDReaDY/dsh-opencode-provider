@@ -111,6 +111,30 @@ export function saveConfig(patch: Record<string, unknown>): Promise<{ ok: true }
   return call('/dsh-opencode/config', { method: 'POST', body: JSON.stringify({ patch }) })
 }
 
+export interface UpdateStatus {
+  packageName: string
+  currentVersion: string
+  latestVersion?: string
+  latestCheckFailed: boolean
+  updateAvailable: boolean
+  profileName: string
+  canAutoUpdate: boolean
+  updatedVersion?: string
+  restartRequired?: boolean
+}
+
+export function fetchUpdate(): Promise<UpdateStatus> {
+  return call<UpdateStatus>('/dsh-opencode/update')
+}
+
+export function installUpdate(): Promise<UpdateStatus> {
+  return call<UpdateStatus>('/dsh-opencode/update', {
+    method: 'POST',
+    headers: { 'x-dsh-plugin-update': '1' },
+    body: '{}',
+  })
+}
+
 export function saveKey(ref: string, key: string): Promise<{ ok: true }> {
   return call('/dsh-opencode/key', { method: 'POST', body: JSON.stringify({ ref, key }) })
 }

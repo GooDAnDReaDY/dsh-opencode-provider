@@ -1,5 +1,5 @@
 {
-  "name": "dsh-opencode-provider",
+  "name": "@goodandready/dsh-opencode-provider",
   "version": "0.5.0",
   "description": "OpenCode / OpenCode Go LLM provider plugin for DeepSeek Harness (dsh).",
   "license": "MIT",
@@ -22,10 +22,24 @@
     "!lib/**/*.map",
     "cordis.patch.yml",
     "README.md",
+    "README.zh.md",
+    "README.ru.md",
     "CHANGELOG.md",
     "LICENSE",
-    "NOTICE"
+    "NOTICE",
+    "media/visual-verification.png"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GooDAnDReaDY/dsh-opencode-provider.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GooDAnDReaDY/dsh-opencode-provider/issues"
+  },
+  "homepage": "https://github.com/GooDAnDReaDY/dsh-opencode-provider#readme",
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -54,7 +68,7 @@
     "build": "tsdown",
     "prepare": "tsdown",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/session-cost.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/cost-projection.test.ts tests/tools.test.ts",
+    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/tools.test.ts tests/plugin-updater.test.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "release": "npm run check && npm pack",
     "sync:models": "node scripts/sync-models.mjs"

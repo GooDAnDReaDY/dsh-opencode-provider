@@ -18,6 +18,7 @@ import {
 import { UsageBars } from './usage-bars.tsx'
 import { draftOf, patchOf, safeSame, type Draft } from './settings-draft.ts'
 import { Field, accountMark, limitsCell, usageChip } from './settings-widgets.tsx'
+import { PluginUpdateCard } from './update-card.tsx'
 import { describeLimitsFull, formatRequests } from '../subscription-limits.ts'
 
 export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?: () => void }): ReactNode {
@@ -193,6 +194,8 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
 
       {error === null ? null : <div className="oc-error">{error}</div>}
       {notice === null ? null : <div className="oc-notice">{notice}</div>}
+
+      <PluginUpdateCard t={t} />
 
       <section className="oc-card">
         <h3 className="oc-card-title">

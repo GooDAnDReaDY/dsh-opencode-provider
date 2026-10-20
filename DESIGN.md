@@ -22,7 +22,7 @@
 - `/opencode` со статусом и окнами квот;
 - Host HTTP-маршруты `/dsh-opencode/*` (same-origin, JSON-only);
 - browser UI: settings-страница, карточка квот в сайдбаре (off by default), панель квот в центре;
-- session-cost в composer (локальный расчёт по прайсу models.dev, `≈`/`≥`/`Free`);
+- стоимость показывает только встроенный DSH; отдельной composer-пилюли нет;
 - лимиты подписки по каждой модели: месячный $ и оценки запросов 5ч/нед/мес для Go и Go Plus (в picker и settings);
 - управление ключами extra-аккаунтов из UI, статус configured/missing, обновление каталога, предупреждения квот 80/95%, таблица лимитов по моделям, test connection;
 - write-маршруты ограничены loopback; клиентский бандл и Host-плагин проверены в живом DSH Desktop 0.2.1-rc.2 (state 200, test OK, 37 моделей, квоты);
