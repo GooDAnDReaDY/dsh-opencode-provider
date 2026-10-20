@@ -9,7 +9,6 @@ import type {} from './slots.ts'
 
 import { dictionaries, NS } from './locales.ts'
 import { QuotaCard, QuotaPanel } from './quota-card.tsx'
-import { OpenCodeProviderCard } from './provider-card.tsx'
 import { OpenCodeSettingsPage } from './settings-page.tsx'
 import { CSS, CSS_ID } from './styles.ts'
 
@@ -54,15 +53,6 @@ export function apply(ctx: Context): void {
     label: () => t('nav'),
     locale: NS,
   }, OpenCodeSettingsPage))
-
-  // The Models page dispatches a keyed card per adapter family. Registering
-  // under the settings namespace puts a compact key card beside the provider's
-  // model list, where a first-run user lands.
-  ctx.slots.inject('settings.models.provider-card', () => slots.register({
-    name: 'settings.models.provider-card',
-    key: 'llm-opencode',
-    locale: NS,
-  }, OpenCodeProviderCard))
 
   // The center-column panel the sidebar card opens. `main` is declared by
   // dsh-client-ui-layout; when that slot is absent this inject never fires.
