@@ -123,12 +123,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.4.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.4.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.3
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.4
 ```
 
 Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
@@ -231,11 +231,12 @@ Open **Settings → OpenCode**:
 - **Quota** — 5-hour, weekly and monthly bars with reset dates, plus warning banners at 80% and 95%.
 - **Accounts** — add extra accounts by credential reference, set each account's key from the page, see whether it is configured, pin one, or return to automatic rotation. **Import all from auth.json** copies every OpenCode key into its own credential ref and adds an account for it; **Check all accounts** refreshes the per-account quota/health rows.
 - **Models** — search, refresh the live catalog, uncheck models to build an allowlist, override the wire transport per model, and see each model's input/output price plus its Go request estimate (`Go 34.7K/5h`). Hover the estimate for the full Go / Go Plus monthly allowance and 5h/week/month request counts; expand **Subscription limits** for a table of every model with both plans.
-- **Connection** — API bases, usage endpoint, timeouts, output cap, context override, sidebar-card switch. The OpenCode auth-entry field autocompletes from the keys present in `auth.json`.
+- **Connection** — API bases, usage endpoint, timeouts, output cap, context override. The OpenCode auth-entry field autocompletes from the keys present in `auth.json`.
+- **Sidebar** — show or hide the quota card. The card refreshes immediately after saving and otherwise every 60 seconds.
 - **Plugin update** — current/latest version, update badge, and **Update now**. It installs the exact registry version through the normal `dsh plugin add` path, blocks a second click while installing, and reports when DSH must be restarted.
 - **Routing** — sticky account per conversation and the free fallback model used after a Go quota error. The quota panel shows the last routing decisions with their reason.
 
-The sidebar quota card is **off by default**. Enable *Show the quota card in the sidebar* in the settings page; clicking the card opens the full quota panel, which also carries the **Usage by model** table (7/30/90-day window).
+The sidebar quota card is **off by default**. Enable *Show the quota card in the sidebar* under **Sidebar**; the card appears immediately after saving, and clicking it opens the full quota panel with the **Usage by model** table (7/30/90-day window).
 
 The Host serves `/dsh-opencode/state`, `/health`, `/analytics`, `/config`, `/key`, `/key/clear`, `/auth-import`, `/refresh`, `/models/refresh`, `/test` and `/update`. Writes require JSON, are refused for cross-origin requests, and are restricted to loopback (`127.0.0.1` / `::1`); reads stay same-origin. This keeps key and configuration writes off a LAN-exposed web server until the host's own auth token can be integrated.
 

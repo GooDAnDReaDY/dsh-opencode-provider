@@ -54,6 +54,7 @@ export interface OpenCodeTuiSettingsDeps {
   readonly filterModelsByPlan: () => boolean
   readonly quotaFallbackModel: () => string
   readonly stickySession: () => boolean
+  readonly showSidebarQuota: () => boolean
   /** Poll interval for settings changed from inside the terminal UI. */
   readonly refreshMs?: number
 }
@@ -90,6 +91,7 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
       { id: 'connection', title: 'Connection' },
       { id: 'models', title: 'Models' },
       { id: 'advanced', title: 'Advanced' },
+      { id: 'sidebar', title: 'Sidebar' },
     ],
     fields: [
       {
@@ -170,6 +172,15 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
       },
       {
+        path: ['showSidebarQuota'],
+        group: 'sidebar',
+        kind: 'boolean',
+        label: 'Show quota card in sidebar',
+        hint: 'Card visibility updates on the next sidebar refresh.',
+        format: (value) => String(value === undefined ? deps.showSidebarQuota() : value === true),
+        parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
+      },
+      {
         path: ['activeAccount'],
         group: 'advanced',
         kind: 'text',
@@ -240,6 +251,7 @@ export function applyOpenCodeTuiSettings(
     filterModelsByPlan: deps.filterModelsByPlan(),
     quotaFallbackModel: deps.quotaFallbackModel(),
     stickySession: deps.stickySession(),
+    showSidebarQuota: deps.showSidebarQuota(),
   })
   let lastSignature = signature()
 

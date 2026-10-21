@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { fetchAnalytics, fetchState, refreshState, type AccountRow, type AnalyticsReport, type HostState, type UsageWindow } from './api.ts'
+import { CONFIG_CHANGED_EVENT } from './events.ts'
 import { RequestHeatmapView } from './heatmap.tsx'
 import { UsageAnalyticsView } from './usage-analytics.tsx'
 import { UsageBars } from './usage-bars.tsx'
@@ -35,7 +36,13 @@ function useHostState(intervalMs: number): HostState | null {
     }
     load()
     const timer = setInterval(load, intervalMs)
-    return () => { cancelled = true; clearInterval(timer) }
+    const onConfigChanged = (): void => { load() }
+    window.addEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      window.removeEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
+    }
   }, [intervalMs])
   return state
 }
@@ -285,8 +292,11 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
     load()
     loadAnalytics(days)
     const timer = setInterval(load, 60_000)
+    const onConfigChanged = (): void => { load() }
+    window.addEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
     return () => {
       clearInterval(timer)
+      window.removeEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
       analyticsSeq.current += 1
     }
   }, [days])

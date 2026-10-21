@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.4
+
+- **Sidebar settings**: the quota-card switch moved out of Connection into its own **Sidebar** section in Settings → OpenCode and into the TUI; saving now refreshes the sidebar card immediately instead of waiting for the 60-second poll.
+- 85 tests.
+
 ## 0.5.3
 
 - **Per-account runway**: the quota panel estimates time to exhaustion for each account from the 5-hour, weekly and monthly burn rate and flags the first window projected to run out before its reset. The estimate is intentionally approximate; only the current percentage and reset time are exposed by the usage endpoint.

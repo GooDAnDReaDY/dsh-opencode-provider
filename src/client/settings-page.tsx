@@ -16,6 +16,7 @@ import {
   type ModelRow,
 } from './api.ts'
 import { UsageBars } from './usage-bars.tsx'
+import { CONFIG_CHANGED_EVENT } from './events.ts'
 import { draftOf, patchOf, safeSame, type Draft } from './settings-draft.ts'
 import { Field, accountMark, limitsCell, usageChip } from './settings-widgets.tsx'
 import { PluginUpdateCard } from './update-card.tsx'
@@ -67,6 +68,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     setError(null)
     try {
       await saveConfig(patchOf(draft))
+      window.dispatchEvent(new CustomEvent(CONFIG_CHANGED_EVENT))
       setNotice(t('saved'))
       setState(null)
       setDraft(null)
@@ -663,6 +665,10 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <Field label={t('maxOutputTokens')} type="number" value={draft.maxOutputTokens} onChange={(value) => update({ maxOutputTokens: value })} />
           <Field label={t('contextWindow')} type="number" value={draft.contextWindow} onChange={(value) => update({ contextWindow: value })} />
         </div>
+      </section>
+
+      <section className="oc-card">
+        <h3 className="oc-card-title">{t('sidebar')}</h3>
         <label className="oc-row">
           <input
             type="checkbox"
@@ -671,6 +677,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           />
           <span>{t('showSidebarQuota')}</span>
         </label>
+        <p className="oc-hint">{t('showSidebarQuotaHint')}</p>
       </section>
 
       <div className="oc-row">

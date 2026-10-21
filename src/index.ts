@@ -95,6 +95,7 @@ export function apply(ctx: Context, config: Config): void {
       filterModelsByPlan: () => current().filterModelsByPlan,
       quotaFallbackModel: () => current().quotaFallbackModel,
       stickySession: () => current().stickySession,
+      showSidebarQuota: () => current().showSidebarQuota,
     })
   })
 

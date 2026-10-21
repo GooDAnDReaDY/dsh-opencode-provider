@@ -88,6 +88,7 @@ graph LR
   - Автоматический переход на следующий аккаунт при 401/403/429 или ответах о превышении квот (400/402/403/429).
   - Недействительный ключ охлаждается 24 часа, превышение квоты — 10 минут (или по заголовку `Retry-After`), rate limit — 60 секунд (или по `Retry-After`).
   - Если запрос уже начал стриминг, он не переключается посреди ответа; следующий запрос берёт следующий готовый ключ.
+- **Sidebar-карточка квот**: отдельный переключатель в разделе **Sidebar** (и в TUI); после сохранения карточка появляется/исчезает сразу, без ожидания 60-секундного polling.
 - **Квоты по каждому аккаунту**: отображение индивидуального расхода за 5 часов, неделю и месяц; активный аккаунт управляет сайдбаром и панелью.
 - **Runway по каждому аккаунту**: оценка времени до исчерпания по среднему темпу каждого окна; отмечается первое окно, которое закончится раньше сброса. Оценка приблизительная: API отдаёт только текущий процент и время сброса.
 - **Онбординг аккаунтов**: **Import all from auth.json** переносит все ключи OpenCode в отдельные credential ref и добавляет аккаунты; **Check all accounts** обновляет квоты и health по каждому аккаунту.
@@ -120,12 +121,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.4.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.4.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.3
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.4
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode** или **OpenCode Go** в списке моделей.

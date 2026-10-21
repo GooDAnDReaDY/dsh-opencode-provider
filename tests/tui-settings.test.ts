@@ -14,6 +14,7 @@ function deps(): OpenCodeTuiSettingsDeps {
     filterModelsByPlan: () => true,
     quotaFallbackModel: () => '',
     stickySession: () => true,
+    showSidebarQuota: () => true,
   }
 }
 
@@ -90,6 +91,19 @@ test('exposes quota fallback and sticky routing settings', () => {
   assert.ok(sticky)
   assert.equal(sticky.format?.(false), 'false')
   assert.deepEqual(sticky.parse?.('true'), { kind: 'set', value: true })
+})
+
+test('exposes the sidebar quota toggle', () => {
+  const section = buildOpenCodeTuiSection({
+    ...deps(),
+    showSidebarQuota: () => false,
+  })
+  const field = section.fields.find((entry) => entry.path[0] === 'showSidebarQuota')
+  assert.ok(field)
+  assert.equal(field.group, 'sidebar')
+  assert.equal(field.format?.(undefined), 'false')
+  assert.deepEqual(field.parse?.('true'), { kind: 'set', value: true })
+  assert.deepEqual(field.parse?.('false'), { kind: 'set', value: false })
 })
 
 test('invalid timeouts are rejected', () => {
