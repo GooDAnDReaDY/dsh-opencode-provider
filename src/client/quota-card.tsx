@@ -5,6 +5,7 @@ import { fetchAnalytics, fetchState, refreshState, type AccountRow, type Analyti
 import { RequestHeatmapView } from './heatmap.tsx'
 import { UsageAnalyticsView } from './usage-analytics.tsx'
 import { UsageBars } from './usage-bars.tsx'
+import { accountRunway, type RunwaySummary } from '../quota-runway.ts'
 
 const PANEL_EVENT = 'dsh-opencode-panel-state'
 
@@ -60,6 +61,20 @@ function resetIn(iso: string | undefined): string {
 
 function usagePercent(window: UsageWindow | undefined): string {
   return window === undefined ? '—' : `${Math.round(window.percentUsed)}%`
+}
+
+function runwayText(summary: RunwaySummary): string {
+  if (summary.kind === 'safe') return 'safe'
+  if (summary.kind === 'unknown') return '—'
+  if (summary.etaMs <= 0) return 'now'
+  const hours = summary.etaMs / 3_600_000
+  if (hours >= 24) return `~${Math.round(hours / 24)}d`
+  if (hours >= 1) return `~${Math.round(hours)}h`
+  return `~${Math.max(1, Math.round(hours * 60))}m`
+}
+
+function runwayTitle(summary: RunwaySummary, t: (key: string) => string): string {
+  return summary.kind === 'eta' ? `${t('runway')}: ${summary.window}` : ''
 }
 
 function accountStatus(account: AccountRow, t: (key: string) => string): string | undefined {
@@ -335,11 +350,13 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
                 <th>{t('fiveHour')}</th>
                 <th>{t('weekly')}</th>
                 <th>{t('monthly')}</th>
+                <th>{t('runway')}</th>
               </tr>
             </thead>
             <tbody>
               {state.accounts.map((account) => {
                 const accountWindows = account.usage?.report?.windows
+                const runway = accountRunway(accountWindows)
                 const status = accountStatus(account, t)
                 return (
                   <tr key={account.label}>
@@ -362,6 +379,9 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
                     <td>{usagePercent(accountWindows?.fiveHour)}</td>
                     <td>{usagePercent(accountWindows?.weekly)}</td>
                     <td>{usagePercent(accountWindows?.monthly)}</td>
+                    <td title={runwayTitle(runway, t)}>
+                      {runway.kind === 'safe' ? t('runwaySafe') : runwayText(runway)}
+                    </td>
                   </tr>
                 )
               })}

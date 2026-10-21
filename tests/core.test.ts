@@ -8,6 +8,7 @@ import { buildChatBody, buildMessages } from '../src/messages.ts'
 import { buildAnthropicBody } from '../src/transports/anthropic.ts'
 import { buildGoogleBody } from '../src/transports/google.ts'
 import { buildResponsesBody } from '../src/transports/responses.ts'
+import { accountRunway, estimateRunway } from '../src/quota-runway.ts'
 import { endpointFor } from '../src/routing.ts'
 import { openCodeSessionId } from '../src/session-id.ts'
 import { normalizeUsage } from '../src/usage.ts'
@@ -133,6 +134,53 @@ test('images are rendered per transport', () => {
   const google = buildGoogleBody(imageOptions, effectiveModel('gemini-4-argon-contributor', resolved()), resolved(), images)
   const googleParts = (google.contents as Array<{ parts: Array<Record<string, unknown>> }>)[0]?.parts
   assert.deepEqual(googleParts?.[1], { inlineData: { mimeType: 'image/png', data: 'AAAA' } })
+})
+
+test('estimates quota runway and flags exhaustion before reset', () => {
+  const now = Date.parse('2026-01-01T00:00:00Z')
+  const hour = 3_600_000
+  const fiveHour = estimateRunway({
+    percentUsed: 50,
+    resetsAt: new Date(now + 3 * hour).toISOString(),
+  }, 5 * hour, now)
+  assert.ok(fiveHour)
+  assert.equal(Math.round((fiveHour?.etaMs ?? 0) / hour), 2)
+  assert.equal(fiveHour?.exhaustsBeforeReset, true)
+
+  const safe = estimateRunway({
+    percentUsed: 10,
+    resetsAt: new Date(now + 4 * hour).toISOString(),
+  }, 5 * hour, now)
+  assert.equal(safe?.exhaustsBeforeReset, false)
+
+  const exhausted = estimateRunway({
+    percentUsed: 100,
+    resetsAt: new Date(now + hour).toISOString(),
+  }, 5 * hour, now)
+  assert.equal(exhausted?.etaMs, 0)
+  assert.equal(exhausted?.exhaustsBeforeReset, true)
+
+  assert.equal(estimateRunway({ percentUsed: 10 }, 5 * hour, now), undefined)
+})
+
+test('account runway picks the first window projected to run out', () => {
+  const now = Date.parse('2026-01-01T00:00:00Z')
+  const hour = 3_600_000
+  const day = 24 * hour
+  const summary = accountRunway({
+    fiveHour: { percentUsed: 50, resetsAt: new Date(now + 3 * hour).toISOString() },
+    weekly: { percentUsed: 20, resetsAt: new Date(now + 3 * day).toISOString() },
+  }, now)
+  assert.equal(summary.kind, 'eta')
+  if (summary.kind === 'eta') {
+    assert.equal(summary.window, 'fiveHour')
+    assert.equal(Math.round(summary.etaMs / hour), 2)
+  }
+
+  assert.deepEqual(accountRunway({}, now), { kind: 'unknown' })
+  assert.deepEqual(accountRunway({
+    fiveHour: { percentUsed: 10, resetsAt: new Date(now + 4 * hour).toISOString() },
+  }, now), { kind: 'safe' })
 })
 
 test('file attachments become DSH handle text on every transport', () => {

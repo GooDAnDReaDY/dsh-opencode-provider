@@ -89,6 +89,7 @@ graph LR
   - Недействительный ключ охлаждается 24 часа, превышение квоты — 10 минут (или по заголовку `Retry-After`), rate limit — 60 секунд (или по `Retry-After`).
   - Если запрос уже начал стриминг, он не переключается посреди ответа; следующий запрос берёт следующий готовый ключ.
 - **Квоты по каждому аккаунту**: отображение индивидуального расхода за 5 часов, неделю и месяц; активный аккаунт управляет сайдбаром и панелью.
+- **Runway по каждому аккаунту**: оценка времени до исчерпания по среднему темпу каждого окна; отмечается первое окно, которое закончится раньше сброса. Оценка приблизительная: API отдаёт только текущий процент и время сброса.
 - **Онбординг аккаунтов**: **Import all from auth.json** переносит все ключи OpenCode в отдельные credential ref и добавляет аккаунты; **Check all accounts** обновляет квоты и health по каждому аккаунту.
 - **Правила «модель ➔ аккаунт»**: сопоставление по glob-паттернам закрепляет предпочтительный аккаунт за моделью; остальные аккаунты остаются в резерве.
 - **Квотный fallback**: выберите бесплатную модель в настройках; при ошибке квоты Go тот же запрос один раз повторяется через Console/Zen. Если fallback тоже не сработал, возвращается исходная ошибка квоты.
@@ -119,12 +120,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.2
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.3
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode** или **OpenCode Go** в списке моделей.

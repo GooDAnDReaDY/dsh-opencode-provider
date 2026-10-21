@@ -86,6 +86,7 @@ graph LR
   - Gemini `thoughtSignature` on historical function calls.
 - **Multi-account rotation** before a stream starts: 401/403/429 and quota/usage-limit bodies (400/402/403/429). An invalid key cools down for 24h, a quota rejection for 10 minutes or `Retry-After`, a rate limit for 60s or `Retry-After`. A request already streaming is never replayed on another account; the next request uses the next usable key.
 - **Per-account quotas**: each account row shows its own 5-hour / weekly / monthly usage, the active account drives the sidebar and quota panel, and the panel lists every account side by side.
+- **Per-account runway**: estimates time to exhaustion from the average burn rate of each window and marks the first window projected to run out before its reset; approximate because the API exposes only the current percentage and reset time.
 - **Model → account rules**: first matching glob pins a preferred account for that model; the other accounts remain fallbacks if it fails or is cooling.
 - **Request heatmap** in the quota panel: a Monday-first weekday × hour grid in local time, plus a 24-hour aggregate strip underneath. Selectors switch between all requests, any single model, and any single account. The adapter appends `{at, provider, model, purpose?, account, reason}` to `~/.dsh/storages/dsh-opencode/requests.jsonl`; no prompt, response or key is stored. Auxiliary `session-title`/`compaction` calls are excluded from the heatmap and exact duplicate records collapse. The log compacts at 2 MB to the newest 5000 lines. Collection starts with this build — the projection cache only has `lastPromptAt`, not per-request timestamps.
 - **Stable `x-opencode-session`** derived from the durable session id, so retries and every turn of a conversation reuse the same routing key.
@@ -122,12 +123,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.2
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.3
 ```
 
 Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.

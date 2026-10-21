@@ -90,6 +90,7 @@ graph LR
   - 无效密钥冷却 24 小时，超额冷却 10 分钟（或遵循 `Retry-After`），速率限制冷却 60 秒。
   - 正在流式传输中的请求不会被打断，下一个请求会自动使用下一个可用密钥。
 - **多账户额度与健康监控**：每行独立展示 5 小时、每周与每月使用情况，活跃账户驱动侧边栏与配额面板。
+- **每账户预计可用时长**：按各窗口的平均消耗速度估算耗尽时间，并标记在重置前最先耗尽的窗口；API 仅提供当前百分比与重置时间，因此为近似值。
 - **模型 ➔ 账户路由规则**：支持 Glob 通配符（如 `*free*`、`deepseek-*`）将模型优先绑定至特定账户，其他账户保留为备用。
 - **配额回退**：在设置中选择免费模型；Go 返回配额错误时，同一请求通过 Console/Zen 重试一次。若回退也失败，返回原始配额错误。
 - **会话粘性账户**：同一会话优先使用上次成功的账户；显式模型规则、固定账户和配额回退优先。
@@ -116,12 +117,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.3.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.2
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.3
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode** 或 **OpenCode Go** 即可。

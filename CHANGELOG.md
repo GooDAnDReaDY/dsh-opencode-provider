@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+- **Per-account runway**: the quota panel estimates time to exhaustion for each account from the 5-hour, weekly and monthly burn rate and flags the first window projected to run out before its reset. The estimate is intentionally approximate; only the current percentage and reset time are exposed by the usage endpoint.
+- 84 tests.
+
 ## 0.5.2
 
 - **Quota fallback**: choose a free model in Settings → OpenCode. A Go quota rejection retries the same request once on Console/Zen with that model; failures surface the original quota error.
