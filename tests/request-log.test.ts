@@ -35,6 +35,36 @@ test('aggregates requests per account', async () => {
   }
 })
 
+test('aggregates per-account errors and latency', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'dsh-opencode-stats-'))
+  const previous = process.env.DSH_HOME
+  process.env.DSH_HOME = home
+  const at = new Date(2026, 0, 5, 14, 30).getTime()
+  try {
+    recordRequest('opencode-go', 'm', at, undefined, 'default', 'rotation', {
+      ok: false,
+      latencyMs: 100,
+      error: 'QUOTA',
+    })
+    recordRequest('opencode-go', 'm', at + 1, undefined, 'default', 'rotation', {
+      ok: true,
+      latencyMs: 300,
+      ttftMs: 120,
+    })
+    await flushRequestLog()
+    const heatmap = await readRequestHeatmap(7, at + 200_000)
+    const account = heatmap.accounts.find((entry) => entry.account === 'default')
+    assert.equal(account?.total, 2)
+    assert.equal(account?.errors, 1)
+    assert.equal(account?.avgLatencyMs, 200)
+    assert.equal(account?.avgTtftMs, 120)
+  } finally {
+    if (previous === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = previous
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
 test('records requests and builds a local weekday/hour heatmap', async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-opencode-log-'))
   const previous = process.env.DSH_HOME

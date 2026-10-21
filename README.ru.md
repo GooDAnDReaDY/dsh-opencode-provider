@@ -96,7 +96,8 @@ graph LR
 - **Квотный fallback**: выберите бесплатную модель в настройках; при ошибке квоты Go тот же запрос один раз повторяется через Console/Zen. Если fallback тоже не сработал, возвращается исходная ошибка квоты.
 - **Липкий аккаунт**: последний успешный аккаунт предпочитается в том же диалоге; явные правила модели, закреплённый аккаунт и квотный fallback имеют приоритет.
 - **Трассировка маршрутизации**: панель квот показывает последние решения (`rule`, `sticky`, `rotation`, `quota-fallback`) без промптов и ключей.
-- **Почасовой Heatmap запросов**: сетка «день недели × час» в локальном времени плюс суточная полоса агрегации. Фильтры переключают отображение между всеми запросами, конкретной моделью и аккаунтом. Лог `~/.dsh/storages/dsh-opencode/requests.jsonl` хранит только метаданные `{at, provider, model, purpose, account, reason}` (промпты и ответы не сохраняются).
+- **Статистика по аккаунтам**: в request log пишутся `ok`, `latencyMs`, `ttftMs` и `error`; heatmap показывает таблицу запросов, ошибок и средних latency/TTFT по каждому аккаунту.
+- **Почасовой Heatmap запросов**: сетка «день недели × час» в локальном времени плюс суточная полоса агрегации. Фильтры переключают отображение между всеми запросами, конкретной моделью и аккаунтом. Лог `~/.dsh/storages/dsh-opencode/requests.jsonl` хранит только метаданные `{at, provider, model, purpose, account, reason, ok, latencyMs, ttftMs, error}` (промпты и ответы не сохраняются).
 - **Стабильный заголовок `x-opencode-session`**: вычисляется из устойчивого ID сессии DSH, обеспечивая одинаковый ключ маршрутизации при повторах и диалоге.
 - **Живой каталог моделей**: автоматическое чтение `/v1/models` с резервным fallback из `models.dev`.
 - **Оценки лимитов подписки OpenCode Go**: долларовый лимит и расчетное число запросов для окон 5h, недели и месяца для планов Go и Go Plus.
@@ -121,12 +122,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.4.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.5.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.4.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.5.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.4
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.5
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode** или **OpenCode Go** в списке моделей.

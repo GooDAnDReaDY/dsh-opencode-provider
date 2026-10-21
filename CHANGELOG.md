@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.5
+
+- **Per-account request stats**: every upstream attempt now records its outcome, latency and TTFT in the local request log; the heatmap adds a per-account table with requests, errors and average latency/TTFT. No prompt or response content is stored.
+- 87 tests.
+
 ## 0.5.4
 
 - **Sidebar settings**: the quota-card switch moved out of Connection into its own **Sidebar** section in Settings → OpenCode and into the TUI; saving now refreshes the sidebar card immediately instead of waiting for the 60-second poll.

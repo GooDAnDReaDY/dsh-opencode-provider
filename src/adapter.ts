@@ -34,7 +34,7 @@ import { classifyResponseError } from './errors.ts'
 import { hasImages, resolveImages, type ImageMap } from './images.ts'
 import { buildChatBody } from './messages.ts'
 import { endpointFor, isGoProvider } from './routing.ts'
-import { recordRequest as defaultRecordRequest } from './request-log.ts'
+import { recordRequest as defaultRecordRequest, type RequestOutcome } from './request-log.ts'
 import { openCodeSessionId } from './session-id.ts'
 import { limitTools, MAX_TOOLS } from './tools.ts'
 import { buildAnthropicBody, parseAnthropicStream } from './transports/anthropic.ts'
@@ -68,6 +68,7 @@ export interface OpenCodeAdapterDeps {
     purpose?: string,
     account?: string,
     reason?: string,
+    outcome?: RequestOutcome,
   ) => void
   /** Test seam; defaults to ~/.dsh/storages/dsh-opencode/cooldowns.json. */
   readonly cooldownPath?: string
@@ -182,9 +183,10 @@ export class OpenCodeAdapter extends LlmAdapter {
 
   private async *run(options: GenerateOptions, fallback: boolean): AsyncIterable<StreamChunk> {
     const record = this.deps.recordRequest
-      ?? ((provider: string, model: string, purpose?: string, account?: string, reason?: string) =>
-        defaultRecordRequest(provider, model, Date.now(), purpose, account, reason))
+      ?? ((provider: string, model: string, purpose?: string, account?: string, reason?: string, outcome?: RequestOutcome) =>
+        defaultRecordRequest(provider, model, outcome?.at ?? Date.now(), purpose, account, reason, outcome))
     const config = this.deps.config()
+    const runStartedAt = Date.now()
     const model = effectiveModel(options.model, config)
     const sessionId = openCodeSessionId(options)
     const rawKeys = orderKeysForModel(
@@ -212,15 +214,6 @@ export class OpenCodeAdapter extends LlmAdapter {
       }
     }
     const initial = keys.find((entry) => fallback || !this.coolingDown(entry.key)) ?? keys[0]
-    if (initial !== undefined) {
-      record(
-        options.provider,
-        options.model,
-        options.purpose,
-        initial.label ?? 'default',
-        reason,
-      )
-    }
     const url = endpointFor(options.provider, model.transport, options.model, config)
     let images: ImageMap | undefined
     if (hasImages(options)) {
@@ -255,12 +248,37 @@ export class OpenCodeAdapter extends LlmAdapter {
 
     let lastError: LlmError | undefined
     let lastAccount = initial?.label ?? 'default'
+    let loggedAny = false
     for (const [index, entry] of keys.entries()) {
       if (!fallback && this.coolingDown(entry.key)) continue
       lastAccount = entry.label ?? 'default'
       const attemptReason: RoutingReason = index === 0 ? reason : 'rotation'
+      const attemptStartedAt = Date.now()
       let started = false
       let responseFailure = false
+      let firstChunkAt: number | undefined
+      let logged = false
+      const logAttempt = (ok: boolean, errorCode?: string): void => {
+        if (logged) return
+        logged = true
+        loggedAny = true
+        record(
+          options.provider,
+          options.model,
+          options.purpose,
+          entry.label ?? 'default',
+          attemptReason,
+          {
+            at: attemptStartedAt,
+            ok,
+            latencyMs: Math.max(0, Date.now() - attemptStartedAt),
+            ...(firstChunkAt === undefined
+              ? {}
+              : { ttftMs: Math.max(0, firstChunkAt - attemptStartedAt) }),
+            ...(errorCode === undefined ? {} : { error: errorCode }),
+          },
+        )
+      }
       try {
         const response = await this.send(
           url,
@@ -275,6 +293,7 @@ export class OpenCodeAdapter extends LlmAdapter {
           const text = await response.text().catch(() => '')
           const error = classifyResponseError(response.status, text, response.headers)
           lastError = error
+          logAttempt(false, error.code)
           const canRotate = index < keys.length - 1
           const retryable = error.code === 'INVALID_CREDENTIAL'
             || error.code === 'RATE_LIMIT'
@@ -300,17 +319,20 @@ export class OpenCodeAdapter extends LlmAdapter {
           ok: true,
         })
         for await (const chunk of this.parse(response, model.transport, config, options.signal)) {
+          if (firstChunkAt === undefined) firstChunkAt = Date.now()
           started = true
           yield chunk
         }
+        logAttempt(true)
         return
       } catch (error) {
-        if (started || options.signal?.aborted === true) throw error
         const classified = error instanceof LlmError ? error : new LlmError(
           error instanceof Error ? error.message : 'OpenCode request failed',
           'TRANSPORT',
           { cause: error },
         )
+        logAttempt(false, classified.code)
+        if (started || options.signal?.aborted === true) throw error
         lastError = classified
         const transient = this.isTransient(classified)
         if (transient && !responseFailure && !fallback) this.markCooldown(entry.key, 0)
@@ -330,6 +352,21 @@ export class OpenCodeAdapter extends LlmAdapter {
       'llm-opencode: every configured account is cooling down after provider rejections',
       'RATE_LIMIT',
     )
+    if (!loggedAny) {
+      record(
+        options.provider,
+        options.model,
+        options.purpose,
+        lastAccount,
+        reason,
+        {
+          at: runStartedAt,
+          ok: false,
+          latencyMs: 0,
+          error: finalError.code,
+        },
+      )
+    }
     this.pushTrace({
       at: Date.now(),
       provider: options.provider,

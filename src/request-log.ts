@@ -7,6 +7,15 @@ const MAX_LOG_BYTES = 2 * 1024 * 1024
 const KEEP_LINES = 5_000
 const COMPACT_EVERY = 200
 
+export interface RequestOutcome {
+  ok: boolean
+  latencyMs: number
+  /** Request start; the log uses it as the event timestamp. */
+  at?: number
+  ttftMs?: number
+  error?: string
+}
+
 export interface RequestRecord {
   at: number
   provider: string
@@ -14,6 +23,10 @@ export interface RequestRecord {
   purpose?: string
   account?: string
   reason?: string
+  ok?: boolean
+  latencyMs?: number
+  ttftMs?: number
+  error?: string
 }
 
 export interface ModelRequestHeatmap {
@@ -27,6 +40,9 @@ export interface ModelRequestHeatmap {
 export interface AccountRequestHeatmap {
   account: string
   total: number
+  errors: number
+  avgLatencyMs: number | null
+  avgTtftMs: number | null
   hours: number[]
   grid: number[][]
 }
@@ -61,6 +77,7 @@ export function recordRequest(
   purpose?: string,
   account?: string,
   reason?: string,
+  outcome?: RequestOutcome,
 ): void {
   const line = `${JSON.stringify({
     at,
@@ -69,6 +86,14 @@ export function recordRequest(
     ...(purpose === undefined ? {} : { purpose }),
     ...(account === undefined ? {} : { account }),
     ...(reason === undefined ? {} : { reason }),
+    ...(outcome === undefined
+      ? {}
+      : {
+          ok: outcome.ok,
+          latencyMs: outcome.latencyMs,
+          ...(outcome.ttftMs === undefined ? {} : { ttftMs: outcome.ttftMs }),
+          ...(outcome.error === undefined ? {} : { error: outcome.error }),
+        }),
   })}\n`
   queue = queue.then(async () => {
     try {
@@ -117,6 +142,13 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
   const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0))
   const models = new Map<string, ModelRequestHeatmap>()
   const accounts = new Map<string, AccountRequestHeatmap>()
+  const accountMetrics = new Map<string, {
+    errors: number
+    latencySum: number
+    latencyCount: number
+    ttftSum: number
+    ttftCount: number
+  }>()
   const seen = new Set<string>()
   let total = 0
   let firstAt: number | null = null
@@ -189,12 +221,31 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
       accountEntry = {
         account,
         total: 0,
+        errors: 0,
+        avgLatencyMs: null,
+        avgTtftMs: null,
         hours: Array.from({ length: 24 }, () => 0),
         grid: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
       }
       accounts.set(account, accountEntry)
     }
     accountEntry.total += 1
+    let metrics = accountMetrics.get(account)
+    if (metrics === undefined) {
+      metrics = { errors: 0, latencySum: 0, latencyCount: 0, ttftSum: 0, ttftCount: 0 }
+      accountMetrics.set(account, metrics)
+    }
+    if ((parsed as { ok?: unknown }).ok === false) metrics.errors += 1
+    const latency = (parsed as { latencyMs?: unknown }).latencyMs
+    if (typeof latency === 'number' && Number.isFinite(latency) && latency >= 0) {
+      metrics.latencySum += latency
+      metrics.latencyCount += 1
+    }
+    const ttft = (parsed as { ttftMs?: unknown }).ttftMs
+    if (typeof ttft === 'number' && Number.isFinite(ttft) && ttft >= 0) {
+      metrics.ttftSum += ttft
+      metrics.ttftCount += 1
+    }
     accountEntry.hours[hour] = (accountEntry.hours[hour] ?? 0) + 1
     const accountRow = accountEntry.grid[day]
     if (accountRow !== undefined) accountRow[hour] = (accountRow[hour] ?? 0) + 1
@@ -212,6 +263,20 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
     firstAt,
     lastAt,
     models: [...models.values()].sort((a, b) => b.total - a.total || a.model.localeCompare(b.model)),
-    accounts: [...accounts.values()].sort((a, b) => b.total - a.total || a.account.localeCompare(b.account)),
+    accounts: [...accounts.values()]
+      .map((entry) => {
+        const metrics = accountMetrics.get(entry.account)
+        return {
+          ...entry,
+          errors: metrics?.errors ?? 0,
+          avgLatencyMs: metrics !== undefined && metrics.latencyCount > 0
+            ? metrics.latencySum / metrics.latencyCount
+            : null,
+          avgTtftMs: metrics !== undefined && metrics.ttftCount > 0
+            ? metrics.ttftSum / metrics.ttftCount
+            : null,
+        }
+      })
+      .sort((a, b) => b.total - a.total || a.account.localeCompare(b.account)),
   }
 }

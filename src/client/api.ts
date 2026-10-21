@@ -255,6 +255,9 @@ export interface ModelRequestHeatmap {
 export interface AccountRequestHeatmap {
   account: string
   total: number
+  errors: number
+  avgLatencyMs: number | null
+  avgTtftMs: number | null
   hours: number[]
   grid: number[][]
 }

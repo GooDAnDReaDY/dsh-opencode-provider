@@ -8,6 +8,7 @@ import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 
 import { OpenCodeAdapter } from '../src/adapter.ts'
 import { resolveConfig, type Config } from '../src/config.ts'
+import type { RequestOutcome } from '../src/request-log.ts'
 
 const testDir = mkdtempSync(join(tmpdir(), 'dsh-opencode-adapter-'))
 let cooldownSeq = 0
@@ -24,7 +25,14 @@ function streamOf(text = 'OK'): string {
 
 function adapterWith(
   fetchImpl: typeof fetch,
-  recordRequest?: (provider: string, model: string) => void,
+  recordRequest?: (
+    provider: string,
+    model: string,
+    purpose?: string,
+    account?: string,
+    reason?: string,
+    outcome?: RequestOutcome,
+  ) => void,
   cooldownPath = testCooldownPath(),
   warn?: (message: string) => void,
   overrides: Partial<Config> = {},
@@ -248,6 +256,25 @@ test('falls back once to the configured free model on a Go quota error', async (
   const trace = adapter.routingTrace()
   assert.ok(trace.some((entry) => entry.reason === 'quota-fallback' && entry.ok))
   assert.ok(trace.some((entry) => !entry.ok && entry.error === 'QUOTA'))
+})
+
+test('records success latency and TTFT for the request log', async () => {
+  const outcomes: RequestOutcome[] = []
+  const adapter = adapterWith(
+    (async () => new Response(streamOf(), {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    })) as typeof fetch,
+    (_provider, _model, _purpose, _account, _reason, outcome) => {
+      if (outcome !== undefined) outcomes.push(outcome)
+    },
+  )
+  await collect(adapter)
+  assert.equal(outcomes.length, 1)
+  assert.equal(outcomes[0]?.ok, true)
+  assert.ok((outcomes[0]?.latencyMs ?? -1) >= 0)
+  assert.ok((outcomes[0]?.ttftMs ?? -1) >= 0)
+  assert.equal(outcomes[0]?.error, undefined)
 })
 
 test('prefers the last successful account for the same conversation', async () => {

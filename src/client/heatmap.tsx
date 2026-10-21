@@ -19,6 +19,12 @@ function pad(hour: number): string {
   return String(hour).padStart(2, '0')
 }
 
+function formatMs(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}s`
+  return `${Math.round(value)}ms`
+}
+
 export function RequestHeatmapView(props: {
   heatmap: RequestHeatmap | undefined
   t: (key: string) => string
@@ -85,6 +91,32 @@ export function RequestHeatmapView(props: {
           ? null
           : <span className="oc-hint">{t('heatmapPeak')}: {pad(peakHour)}:00 · {peak}</span>}
       </div>
+      {accounts.length === 0 ? null : (
+        <div className="oc-table-scroll" style={{ marginTop: 8 }}>
+          <table className="oc-table">
+            <thead>
+              <tr>
+                <th>{t('accountLabel')}</th>
+                <th>{t('requests')}</th>
+                <th>{t('errors')}</th>
+                <th>{t('latency')}</th>
+                <th>{t('ttft')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((entry) => (
+                <tr key={entry.account}>
+                  <td>{entry.account}</td>
+                  <td>{entry.total}</td>
+                  <td>{entry.errors}</td>
+                  <td>{formatMs(entry.avgLatencyMs)}</td>
+                  <td>{formatMs(entry.avgTtftMs)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div className="oc-heat-scroll">
         <div className="oc-heat">
           <span />

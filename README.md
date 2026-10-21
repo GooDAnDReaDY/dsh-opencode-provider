@@ -88,7 +88,7 @@ graph LR
 - **Per-account quotas**: each account row shows its own 5-hour / weekly / monthly usage, the active account drives the sidebar and quota panel, and the panel lists every account side by side.
 - **Per-account runway**: estimates time to exhaustion from the average burn rate of each window and marks the first window projected to run out before its reset; approximate because the API exposes only the current percentage and reset time.
 - **Model → account rules**: first matching glob pins a preferred account for that model; the other accounts remain fallbacks if it fails or is cooling.
-- **Request heatmap** in the quota panel: a Monday-first weekday × hour grid in local time, plus a 24-hour aggregate strip underneath. Selectors switch between all requests, any single model, and any single account. The adapter appends `{at, provider, model, purpose?, account, reason}` to `~/.dsh/storages/dsh-opencode/requests.jsonl`; no prompt, response or key is stored. Auxiliary `session-title`/`compaction` calls are excluded from the heatmap and exact duplicate records collapse. The log compacts at 2 MB to the newest 5000 lines. Collection starts with this build — the projection cache only has `lastPromptAt`, not per-request timestamps.
+- **Request heatmap** in the quota panel: a Monday-first weekday × hour grid in local time, plus a 24-hour aggregate strip underneath. Selectors switch between all requests, any single model, and any single account. A per-account table shows requests, errors and average latency/TTFT. The adapter appends `{at, provider, model, purpose?, account, reason, ok, latencyMs, ttftMs?, error?}` to `~/.dsh/storages/dsh-opencode/requests.jsonl`; no prompt, response or key is stored. Auxiliary `session-title`/`compaction` calls are excluded from the heatmap and exact duplicate records collapse. The log compacts at 2 MB to the newest 5000 lines. Collection starts with this build — the projection cache only has `lastPromptAt`, not per-request timestamps.
 - **Stable `x-opencode-session`** derived from the durable session id, so retries and every turn of a conversation reuse the same routing key.
 - **Live catalog** from `/v1/models` with a generated `models.dev` fallback.
 - **Per-model subscription limits** from the OpenCode Go pricing table: monthly dollar allowance plus estimated requests for the 5-hour, weekly and monthly windows, for both Go and Go Plus. Shown in the model picker and the settings page; estimates only — the gateway remains the authority.
@@ -123,12 +123,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.4.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.5.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.4.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.5.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.4
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.5
 ```
 
 Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
