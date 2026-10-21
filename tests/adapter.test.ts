@@ -11,9 +11,13 @@ import { resolveConfig, type Config } from '../src/config.ts'
 import type { RequestOutcome } from '../src/request-log.ts'
 
 const testDir = mkdtempSync(join(tmpdir(), 'dsh-opencode-adapter-'))
+process.env.DSH_HOME = testDir
 let cooldownSeq = 0
 function testCooldownPath(): string {
   return join(testDir, `cooldowns-${cooldownSeq++}.json`)
+}
+function testStickyPath(): string {
+  return join(testDir, `sticky-${cooldownSeq++}.json`)
 }
 after(() => { rmSync(testDir, { recursive: true, force: true }) })
 
@@ -36,6 +40,7 @@ function adapterWith(
   cooldownPath = testCooldownPath(),
   warn?: (message: string) => void,
   overrides: Partial<Config> = {},
+  stickyPath = testStickyPath(),
 ) {
   const config = resolveConfig({
     apiKeyEnv: 'OPENCODE_TEST_KEY',
@@ -55,6 +60,7 @@ function adapterWith(
     fetchImpl,
     recordRequest: recordRequest ?? (() => {}),
     cooldownPath,
+    stickyPath,
     ...(warn === undefined ? {} : { warn }),
   })
 }
@@ -256,6 +262,47 @@ test('falls back once to the configured free model on a Go quota error', async (
   const trace = adapter.routingTrace()
   assert.ok(trace.some((entry) => entry.reason === 'quota-fallback' && entry.ok))
   assert.ok(trace.some((entry) => !entry.ok && entry.error === 'QUOTA'))
+})
+
+test('persists the sticky account across adapter instances', async () => {
+  const seen: string[] = []
+  const stickyPath = testStickyPath()
+  const fetchImpl = (async (_url: string, init?: RequestInit) => {
+    const headers = init?.headers as Record<string, string>
+    const auth = headers.authorization ?? ''
+    seen.push(auth)
+    if (auth === 'Bearer bad') {
+      return new Response(JSON.stringify({
+        error: { type: 'quota_exceeded', message: 'Monthly usage limit reached' },
+      }), { status: 400, headers: { 'content-type': 'application/json' } })
+    }
+    return new Response(streamOf(), {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    })
+  }) as typeof fetch
+
+  const first = adapterWith(
+    fetchImpl,
+    undefined,
+    testCooldownPath(),
+    undefined,
+    {},
+    stickyPath,
+  )
+  await collect(first)
+  await first.flushSticky()
+
+  const second = adapterWith(
+    fetchImpl,
+    undefined,
+    testCooldownPath(),
+    undefined,
+    {},
+    stickyPath,
+  )
+  await collect(second)
+  assert.deepEqual(seen, ['Bearer bad', 'Bearer good', 'Bearer good'])
 })
 
 test('records success latency and TTFT for the request log', async () => {

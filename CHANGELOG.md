@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.6
+
+- **Persistent sticky routing**: the last successful account/model per conversation survives adapter and Desktop restarts. `~/.dsh/storages/dsh-opencode/sticky.json` stores hashed session ids and key fingerprints only (no keys or prompt text), keeps 500 entries for 14 days.
+- 88 tests.
+
 ## 0.5.5
 
 - **Per-account request stats**: every upstream attempt now records its outcome, latency and TTFT in the local request log; the heatmap adds a per-account table with requests, errors and average latency/TTFT. No prompt or response content is stored.

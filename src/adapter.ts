@@ -72,6 +72,8 @@ export interface OpenCodeAdapterDeps {
   ) => void
   /** Test seam; defaults to ~/.dsh/storages/dsh-opencode/cooldowns.json. */
   readonly cooldownPath?: string
+  /** Test seam; defaults to ~/.dsh/storages/dsh-opencode/sticky.json. */
+  readonly stickyPath?: string
   /** Receives a one-time warning when the provider tool limit drops tools. */
   readonly warn?: (message: string) => void
 }
@@ -81,10 +83,17 @@ function defaultCooldownPath(): string {
   return join(home, 'storages', 'dsh-opencode', 'cooldowns.json')
 }
 
+function defaultStickyPath(): string {
+  const home = process.env.DSH_HOME?.trim() || join(homedir(), '.dsh')
+  return join(home, 'storages', 'dsh-opencode', 'sticky.json')
+}
+
 export class OpenCodeAdapter extends LlmAdapter {
   private readonly fetchImpl: typeof fetch
   private readonly cooldownPath: string
+  private readonly stickyPath: string
   private cooldownWrites: Promise<void> = Promise.resolve()
+  private stickyWrites: Promise<void> = Promise.resolve()
   /** key fingerprint → cooldown deadline and the rejection that caused it. */
   private readonly cooldowns = new Map<string, { until: number; reason: string }>()
   private readonly sticky = new Map<string, {
@@ -101,7 +110,9 @@ export class OpenCodeAdapter extends LlmAdapter {
     super()
     this.fetchImpl = deps.fetchImpl ?? fetch
     this.cooldownPath = deps.cooldownPath ?? defaultCooldownPath()
+    this.stickyPath = deps.stickyPath ?? defaultStickyPath()
     this.loadCooldowns()
+    this.loadSticky()
   }
 
   override providerInfo(provider: string): LlmProviderInfo {
@@ -410,6 +421,62 @@ export class OpenCodeAdapter extends LlmAdapter {
       model: options.model,
       at: Date.now(),
     })
+    this.persistSticky()
+  }
+
+  /** Await pending sticky persistence writes (tests and shutdown). */
+  async flushSticky(): Promise<void> {
+    await this.stickyWrites
+  }
+
+  private loadSticky(): void {
+    try {
+      const parsed = JSON.parse(readFileSync(this.stickyPath, 'utf8')) as { sticky?: unknown }
+      const entries = parsed.sticky
+      if (typeof entries !== 'object' || entries === null || Array.isArray(entries)) return
+      for (const [sessionId, value] of Object.entries(entries as Record<string, unknown>)) {
+        if (typeof value !== 'object' || value === null || Array.isArray(value)) continue
+        const record = value as Record<string, unknown>
+        const fingerprint = record.fingerprint
+        const label = record.label
+        const provider = record.provider
+        const model = record.model
+        const at = record.at
+        if (typeof fingerprint !== 'string' || !/^[0-9a-f]{16}$/.test(fingerprint)) continue
+        if (typeof label !== 'string' || label === '') continue
+        if (typeof provider !== 'string' || provider === '') continue
+        if (typeof model !== 'string' || model === '') continue
+        if (typeof at !== 'number' || !Number.isFinite(at)) continue
+        this.sticky.set(sessionId, { fingerprint, label, provider, model, at })
+      }
+      this.pruneSticky()
+    } catch {
+      // Missing or corrupt state is ignored; sticky routing is an optimization.
+    }
+  }
+
+  private pruneSticky(): void {
+    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000
+    for (const [sessionId, entry] of this.sticky) {
+      if (entry.at < cutoff) this.sticky.delete(sessionId)
+    }
+    const overflow = this.sticky.size - 500
+    if (overflow <= 0) return
+    const oldest = [...this.sticky.entries()]
+      .sort((a, b) => a[1].at - b[1].at)
+      .slice(0, overflow)
+    for (const [sessionId] of oldest) this.sticky.delete(sessionId)
+  }
+
+  private persistSticky(): void {
+    this.pruneSticky()
+    const payload = JSON.stringify({ sticky: Object.fromEntries(this.sticky) })
+    this.stickyWrites = this.stickyWrites
+      .then(async () => {
+        await mkdir(dirname(this.stickyPath), { recursive: true })
+        await writeFile(this.stickyPath, payload, 'utf8')
+      })
+      .catch(() => {})
   }
 
   private pushTrace(entry: RoutingTraceEntry): void {

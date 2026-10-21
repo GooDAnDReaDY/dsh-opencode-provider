@@ -94,7 +94,7 @@ graph LR
 - **Онбординг аккаунтов**: **Import all from auth.json** переносит все ключи OpenCode в отдельные credential ref и добавляет аккаунты; **Check all accounts** обновляет квоты и health по каждому аккаунту.
 - **Правила «модель ➔ аккаунт»**: сопоставление по glob-паттернам закрепляет предпочтительный аккаунт за моделью; остальные аккаунты остаются в резерве.
 - **Квотный fallback**: выберите бесплатную модель в настройках; при ошибке квоты Go тот же запрос один раз повторяется через Console/Zen. Если fallback тоже не сработал, возвращается исходная ошибка квоты.
-- **Липкий аккаунт**: последний успешный аккаунт предпочитается в том же диалоге; явные правила модели, закреплённый аккаунт и квотный fallback имеют приоритет.
+- **Липкий аккаунт**: последний успешный аккаунт предпочитается в том же диалоге и сохраняется между перезапусками в локальном `sticky.json` (только хешированные session id и fingerprint ключей); явные правила модели, закреплённый аккаунт и квотный fallback имеют приоритет.
 - **Трассировка маршрутизации**: панель квот показывает последние решения (`rule`, `sticky`, `rotation`, `quota-fallback`) без промптов и ключей.
 - **Статистика по аккаунтам**: в request log пишутся `ok`, `latencyMs`, `ttftMs` и `error`; heatmap показывает таблицу запросов, ошибок и средних latency/TTFT по каждому аккаунту.
 - **Почасовой Heatmap запросов**: сетка «день недели × час» в локальном времени плюс суточная полоса агрегации. Фильтры переключают отображение между всеми запросами, конкретной моделью и аккаунтом. Лог `~/.dsh/storages/dsh-opencode/requests.jsonl` хранит только метаданные `{at, provider, model, purpose, account, reason, ok, latencyMs, ttftMs, error}` (промпты и ответы не сохраняются).
@@ -122,12 +122,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.5.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.5.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.5
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.6
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode** или **OpenCode Go** в списке моделей.

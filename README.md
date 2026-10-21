@@ -95,7 +95,7 @@ graph LR
 - **`/opencode` command** for status, usage, accounts, models, rules, and `test [model]`.
 - **TUI settings section** for the terminal profile (`/settings → OpenCode`) with the key, endpoints, allowlist, active account, fallback model, sticky routing and timeouts.
 - **Quota fallback**: choose a free model in Settings → OpenCode; a Go quota rejection retries once through Console/Zen.
-- **Sticky account**: the last successful account is preferred for the same conversation; explicit model rules and pinned accounts win.
+- **Sticky account**: the last successful account is preferred for the same conversation and survives restarts via a local `sticky.json` (hashed session ids and key fingerprints only); explicit model rules and pinned accounts win.
 - **Routing trace** in the quota panel and per-account heatmap filter.
 - **One-click plugin update** in Settings → OpenCode: current/latest version, an update badge, and an **Update now** button that installs the exact npm version through the DSH CLI and asks for a restart. The host endpoint is `GET/POST /dsh-opencode/update`.
 - **Plan-aware Go picker**: hides models outside the Go table unless turned off; descriptions carry `Go`, `Console` or `FREE`.
@@ -123,12 +123,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.5.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.5.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.5
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.6
 ```
 
 Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
