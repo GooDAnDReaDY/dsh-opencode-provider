@@ -27,7 +27,7 @@ import {
   sortForPicker,
   type EffectiveModel,
 } from './catalog.ts'
-import { orderKeysForModel } from './account-rules.ts'
+import { matchModelAccount, orderKeysForModel } from './account-rules.ts'
 import type { ResolvedConfig } from './config.ts'
 import type { KeyResolver, ResolvedKey } from './credentials.ts'
 import { classifyResponseError } from './errors.ts'
@@ -42,6 +42,19 @@ import { buildGoogleBody, parseGoogleStream } from './transports/google.ts'
 import { parseChatStream } from './transports/openai-chat.ts'
 import { buildResponsesBody, parseResponsesStream } from './transports/responses.ts'
 
+export type RoutingReason = 'rule' | 'sticky' | 'pinned' | 'default' | 'rotation' | 'quota-fallback'
+
+export interface RoutingTraceEntry {
+  readonly at: number
+  readonly provider: string
+  readonly model: string
+  readonly account: string
+  readonly reason: RoutingReason
+  readonly fallback: boolean
+  readonly ok: boolean
+  readonly error?: string
+}
+
 export interface OpenCodeAdapterDeps {
   readonly config: () => ResolvedConfig
   readonly resolveKey: KeyResolver
@@ -49,7 +62,13 @@ export interface OpenCodeAdapterDeps {
   readonly resolveAttachments?: () => AttachmentStore | undefined
   readonly fetchImpl?: typeof fetch
   /** Test seam; defaults to the local append-only request log. */
-  readonly recordRequest?: (provider: string, model: string, purpose?: string) => void
+  readonly recordRequest?: (
+    provider: string,
+    model: string,
+    purpose?: string,
+    account?: string,
+    reason?: string,
+  ) => void
   /** Test seam; defaults to ~/.dsh/storages/dsh-opencode/cooldowns.json. */
   readonly cooldownPath?: string
   /** Receives a one-time warning when the provider tool limit drops tools. */
@@ -67,6 +86,14 @@ export class OpenCodeAdapter extends LlmAdapter {
   private cooldownWrites: Promise<void> = Promise.resolve()
   /** key fingerprint → cooldown deadline and the rejection that caused it. */
   private readonly cooldowns = new Map<string, { until: number; reason: string }>()
+  private readonly sticky = new Map<string, {
+    fingerprint: string
+    label: string
+    provider: string
+    model: string
+    at: number
+  }>()
+  private readonly routing: RoutingTraceEntry[] = []
   private warnedTools = false
 
   constructor(private readonly deps: OpenCodeAdapterDeps) {
@@ -119,6 +146,11 @@ export class OpenCodeAdapter extends LlmAdapter {
     })
   }
 
+  /** Recent routing decisions, newest first; no keys or prompt content. */
+  routingTrace(): readonly RoutingTraceEntry[] {
+    return [...this.routing]
+  }
+
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     const config = this.deps.config()
     const meta = effectiveModel(model, config)
@@ -145,24 +177,50 @@ export class OpenCodeAdapter extends LlmAdapter {
   }
 
   stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
-    return this.run(options)
+    return this.run(options, false)
   }
 
-  private async *run(options: GenerateOptions): AsyncIterable<StreamChunk> {
+  private async *run(options: GenerateOptions, fallback: boolean): AsyncIterable<StreamChunk> {
     const record = this.deps.recordRequest
-      ?? ((provider: string, model: string, purpose?: string) =>
-        defaultRecordRequest(provider, model, Date.now(), purpose))
-    record(options.provider, options.model, options.purpose)
+      ?? ((provider: string, model: string, purpose?: string, account?: string, reason?: string) =>
+        defaultRecordRequest(provider, model, Date.now(), purpose, account, reason))
     const config = this.deps.config()
     const model = effectiveModel(options.model, config)
-    const keys = orderKeysForModel(
+    const sessionId = openCodeSessionId(options)
+    const rawKeys = orderKeysForModel(
       this.deps.resolveKeys !== undefined
         ? await this.deps.resolveKeys(options.provider)
         : [await this.deps.resolveKey(options.provider)],
       options.model,
       config.modelAccountRules,
     )
-    const sessionId = openCodeSessionId(options)
+    const rule = matchModelAccount(options.model, config.modelAccountRules)
+    let keys = rawKeys
+    let reason: RoutingReason = rule === undefined ? 'default' : 'rule'
+    if (fallback) {
+      reason = 'quota-fallback'
+    } else if (config.activeAccount !== '') {
+      reason = 'pinned'
+    } else if (config.stickySession && rule === undefined) {
+      const previous = this.sticky.get(sessionId)
+      if (previous !== undefined) {
+        const preferred = rawKeys.find((entry) => this.keyId(entry.key) === previous.fingerprint)
+        if (preferred !== undefined) {
+          keys = [preferred, ...rawKeys.filter((entry) => entry !== preferred)]
+          reason = 'sticky'
+        }
+      }
+    }
+    const initial = keys.find((entry) => fallback || !this.coolingDown(entry.key)) ?? keys[0]
+    if (initial !== undefined) {
+      record(
+        options.provider,
+        options.model,
+        options.purpose,
+        initial.label ?? 'default',
+        reason,
+      )
+    }
     const url = endpointFor(options.provider, model.transport, options.model, config)
     let images: ImageMap | undefined
     if (hasImages(options)) {
@@ -196,8 +254,11 @@ export class OpenCodeAdapter extends LlmAdapter {
           : buildGoogleBody(bodyOptions, model, config, images)
 
     let lastError: LlmError | undefined
+    let lastAccount = initial?.label ?? 'default'
     for (const [index, entry] of keys.entries()) {
-      if (this.coolingDown(entry.key)) continue
+      if (!fallback && this.coolingDown(entry.key)) continue
+      lastAccount = entry.label ?? 'default'
+      const attemptReason: RoutingReason = index === 0 ? reason : 'rotation'
       let started = false
       let responseFailure = false
       try {
@@ -221,13 +282,23 @@ export class OpenCodeAdapter extends LlmAdapter {
           if (retryable) {
             // Mark even the last account: its rejection is the reason the turn
             // ends, and the next request (and the UI) must see the cooldown.
-            this.markCooldown(entry.key, response.status, response.headers, error.code)
+            if (!fallback) this.markCooldown(entry.key, response.status, response.headers, error.code)
             responseFailure = true
             if (canRotate) continue
           }
           throw error
         }
 
+        this.rememberSticky(sessionId, options, entry)
+        this.pushTrace({
+          at: Date.now(),
+          provider: options.provider,
+          model: options.model,
+          account: entry.label ?? 'default',
+          reason: attemptReason,
+          fallback,
+          ok: true,
+        })
         for await (const chunk of this.parse(response, model.transport, config, options.signal)) {
           started = true
           yield chunk
@@ -242,16 +313,71 @@ export class OpenCodeAdapter extends LlmAdapter {
         )
         lastError = classified
         const transient = this.isTransient(classified)
-        if (transient && !responseFailure) this.markCooldown(entry.key, 0)
+        if (transient && !responseFailure && !fallback) this.markCooldown(entry.key, 0)
         const canRotate = index < keys.length - 1 && transient
-        if (!canRotate) throw classified
+        if (!canRotate) {
+          const canFallback = !fallback
+            && config.quotaFallbackModel !== ''
+            && options.provider === 'opencode-go'
+            && classified.code === 'QUOTA'
+          if (canFallback) break
+          throw classified
+        }
       }
     }
 
-    throw lastError ?? new LlmError(
+    const finalError = lastError ?? new LlmError(
       'llm-opencode: every configured account is cooling down after provider rejections',
       'RATE_LIMIT',
     )
+    this.pushTrace({
+      at: Date.now(),
+      provider: options.provider,
+      model: options.model,
+      account: lastAccount,
+      reason,
+      fallback,
+      ok: false,
+      error: finalError.code,
+    })
+    if (!fallback && config.quotaFallbackModel !== ''
+      && options.provider === 'opencode-go'
+      && (lastError === undefined || lastError.code === 'QUOTA')) {
+      try {
+        yield* this.run(
+          { ...options, provider: 'opencode', model: config.quotaFallbackModel },
+          true,
+        )
+        return
+      } catch {
+        throw finalError
+      }
+    }
+    throw finalError
+  }
+
+  private rememberSticky(
+    sessionId: string,
+    options: GenerateOptions,
+    entry: ResolvedKey,
+  ): void {
+    if (!this.deps.config().stickySession) return
+    if (!this.sticky.has(sessionId) && this.sticky.size >= 500) {
+      const oldest = this.sticky.keys().next().value
+      if (oldest !== undefined) this.sticky.delete(oldest)
+    }
+    this.sticky.set(sessionId, {
+      fingerprint: this.keyId(entry.key),
+      label: entry.label ?? 'default',
+      provider: options.provider,
+      model: options.model,
+      at: Date.now(),
+    })
+  }
+
+  private pushTrace(entry: RoutingTraceEntry): void {
+    this.routing.unshift(entry)
+    if (this.routing.length > 20) this.routing.length = 20
   }
 
   private parse(

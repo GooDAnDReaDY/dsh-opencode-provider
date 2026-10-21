@@ -25,10 +25,15 @@ export function RequestHeatmapView(props: {
 }): ReactNode {
   const { heatmap, t } = props
   const [selected, setSelected] = useState('all')
+  const [selectedAccount, setSelectedAccount] = useState('all')
   if (heatmap === undefined) return null
   const models = heatmap.models ?? []
-  const selectedModel = models.find((entry) => `${entry.provider}/${entry.model}` === selected)
-  const view = selectedModel ?? heatmap
+  const accounts = heatmap.accounts ?? []
+  const selectedModel = selectedAccount === 'all'
+    ? models.find((entry) => `${entry.provider}/${entry.model}` === selected)
+    : undefined
+  const accountView = accounts.find((entry) => entry.account === selectedAccount)
+  const view = accountView ?? selectedModel ?? heatmap
   const selectedKey = selectedModel === undefined ? 'all' : selected
   const max = Math.max(0, ...view.grid.flat())
   const maxHours = Math.max(0, ...view.hours)
@@ -42,11 +47,30 @@ export function RequestHeatmapView(props: {
     <div className="oc-heat-wrap">
       <div className="oc-row">
         <span className="oc-badge">{view.total} {t('requests')}</span>
+        {accounts.length > 1 ? (
+          <select
+            className="oc-select"
+            value={selectedAccount}
+            title={t('heatmapByAccount')}
+            onChange={(event) => {
+              setSelectedAccount(event.target.value)
+              setSelected('all')
+            }}
+          >
+            <option value="all">{t('heatmapAllAccounts')} ({heatmap.total})</option>
+            {accounts.map((entry) => (
+              <option key={entry.account} value={entry.account}>
+                {entry.account} ({entry.total})
+              </option>
+            ))}
+          </select>
+        ) : null}
         {models.length > 1 ? (
           <select
             className="oc-select"
             value={selectedKey}
             title={t('heatmapModel')}
+            disabled={selectedAccount !== 'all'}
             onChange={(event) => setSelected(event.target.value)}
           >
             <option value="all">{t('heatmapAllModels')} ({heatmap.total})</option>

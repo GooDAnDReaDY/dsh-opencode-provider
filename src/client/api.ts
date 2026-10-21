@@ -20,9 +20,22 @@ export interface PublicConfig {
   maxOutputTokens: number | null
   accounts: ReadonlyArray<{ label: string; apiKeyEnv: string }>
   modelAccountRules: ReadonlyArray<{ pattern: string; account: string }>
+  quotaFallbackModel: string
+  stickySession: boolean
   activeAccount: string
   showSidebarQuota: boolean
   userAgent: string
+}
+
+export interface RoutingTraceRow {
+  at: number
+  provider: string
+  model: string
+  account: string
+  reason: 'rule' | 'sticky' | 'pinned' | 'default' | 'rotation' | 'quota-fallback'
+  fallback: boolean
+  ok: boolean
+  error?: string
 }
 
 export interface ModelRow {
@@ -76,6 +89,7 @@ export interface HostState {
   accounts: AccountRow[]
   models: ModelRow[]
   usage: UsageState | null
+  routing: RoutingTraceRow[]
   auth: { entry: string; hasStoredKey: boolean; entries: readonly string[] }
   revision?: number
 }
@@ -235,6 +249,13 @@ export interface ModelRequestHeatmap {
   grid: number[][]
 }
 
+export interface AccountRequestHeatmap {
+  account: string
+  total: number
+  hours: number[]
+  grid: number[][]
+}
+
 export interface RequestHeatmap {
   since: number
   total: number
@@ -243,6 +264,7 @@ export interface RequestHeatmap {
   firstAt: number | null
   lastAt: number | null
   models: ModelRequestHeatmap[]
+  accounts: AccountRequestHeatmap[]
 }
 
 export interface AnalyticsReport {

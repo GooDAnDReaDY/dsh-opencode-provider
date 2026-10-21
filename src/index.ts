@@ -93,6 +93,8 @@ export function apply(ctx: Context, config: Config): void {
       visibleModels: () => current().visibleModels,
       activeAccount: () => current().activeAccount,
       filterModelsByPlan: () => current().filterModelsByPlan,
+      quotaFallbackModel: () => current().quotaFallbackModel,
+      stickySession: () => current().stickySession,
     })
   })
 

@@ -86,13 +86,15 @@ graph LR
 - **Multi-account rotation** before a stream starts: 401/403/429 and quota/usage-limit bodies (400/402/403/429). An invalid key cools down for 24h, a quota rejection for 10 minutes or `Retry-After`, a rate limit for 60s or `Retry-After`. A request already streaming is never replayed on another account; the next request uses the next usable key.
 - **Per-account quotas**: each account row shows its own 5-hour / weekly / monthly usage, the active account drives the sidebar and quota panel, and the panel lists every account side by side.
 - **Model → account rules**: first matching glob pins a preferred account for that model; the other accounts remain fallbacks if it fails or is cooling.
-- **Request heatmap** in the quota panel: a Monday-first weekday × hour grid in local time, plus a 24-hour aggregate strip underneath. A selector switches between all requests and any single model. The adapter appends `{at, provider, model, purpose?}` to `~/.dsh/storages/dsh-opencode/requests.jsonl`; no prompt, response or key is stored. Auxiliary `session-title`/`compaction` calls are excluded from the heatmap and exact duplicate records collapse. The log compacts at 2 MB to the newest 5000 lines. Collection starts with this build — the projection cache only has `lastPromptAt`, not per-request timestamps.
+- **Request heatmap** in the quota panel: a Monday-first weekday × hour grid in local time, plus a 24-hour aggregate strip underneath. Selectors switch between all requests, any single model, and any single account. The adapter appends `{at, provider, model, purpose?, account, reason}` to `~/.dsh/storages/dsh-opencode/requests.jsonl`; no prompt, response or key is stored. Auxiliary `session-title`/`compaction` calls are excluded from the heatmap and exact duplicate records collapse. The log compacts at 2 MB to the newest 5000 lines. Collection starts with this build — the projection cache only has `lastPromptAt`, not per-request timestamps.
 - **Stable `x-opencode-session`** derived from the durable session id, so retries and every turn of a conversation reuse the same routing key.
 - **Live catalog** from `/v1/models` with a generated `models.dev` fallback.
 - **Per-model subscription limits** from the OpenCode Go pricing table: monthly dollar allowance plus estimated requests for the 5-hour, weekly and monthly windows, for both Go and Go Plus. Shown in the model picker and the settings page; estimates only — the gateway remains the authority.
 - **`/opencode` command** for status, usage, accounts, models, rules, and `test [model]`.
-- **TUI settings section** for the terminal profile (`/settings → OpenCode`) with the key, endpoints, allowlist, active account and timeouts.
-- **Models-page key card** in Settings → Models.
+- **TUI settings section** for the terminal profile (`/settings → OpenCode`) with the key, endpoints, allowlist, active account, fallback model, sticky routing and timeouts.
+- **Quota fallback**: choose a free model in Settings → OpenCode; a Go quota rejection retries once through Console/Zen.
+- **Sticky account**: the last successful account is preferred for the same conversation; explicit model rules and pinned accounts win.
+- **Routing trace** in the quota panel and per-account heatmap filter.
 - **One-click plugin update** in Settings → OpenCode: current/latest version, an update badge, and an **Update now** button that installs the exact npm version through the DSH CLI and asks for a restart. The host endpoint is `GET/POST /dsh-opencode/update`.
 - **Plan-aware Go picker**: hides models outside the Go table unless turned off; descriptions carry `Go`, `Console` or `FREE`.
 - **Request-wide image budget** (newest images win, oldest become an omitted placeholder) and **object-root tool-schema normalization** for MCP/third-party tools.
@@ -119,12 +121,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.0
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.2
 ```
 
 Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
@@ -217,7 +219,7 @@ The account label is the same one shown in **Accounts** (`default` or the extra 
 
 ### Request heatmap
 
-The quota panel has a **Request heatmap**: rows are Monday–Sunday, columns are local-time hours, and each cell counts calls made through this adapter (including tool-loop steps and `Test connection`). Auxiliary `session-title` and `compaction` calls are excluded, and exact duplicate records collapse; tool-loop steps are separate adapter requests, so one chat message is not necessarily one cell. Hover a cell to see the exact count. A 24-hour strip below the grid aggregates the same window by hour across all days, so the daily shape stays readable even when the grid is sparse. When more than one model has traffic, a selector switches the grid and strip to a single model; each option shows its total. The data is append-only metadata in `~/.dsh/storages/dsh-opencode/requests.jsonl`; it never includes prompts, responses or keys. Because the local projection cache stores only the last prompt time per session, the heatmap starts collecting with this build and grows as you use the plugin.
+The quota panel has a **Request heatmap**: rows are Monday–Sunday, columns are local-time hours, and each cell counts calls made through this adapter (including tool-loop steps and `Test connection`). Auxiliary `session-title` and `compaction` calls are excluded, and exact duplicate records collapse; tool-loop steps are separate adapter requests, so one chat message is not necessarily one cell. Hover a cell to see the exact count. A 24-hour strip below the grid aggregates the same window by hour across all days, so the daily shape stays readable even when the grid is sparse. When more than one model or account has traffic, selectors switch the grid and strip to a single model or account; each option shows its total. The data is append-only metadata in `~/.dsh/storages/dsh-opencode/requests.jsonl`; it never includes prompts, responses or keys. Because the local projection cache stores only the last prompt time per session, the heatmap starts collecting with this build and grows as you use the plugin.
 
 ## Settings page
 
@@ -229,6 +231,7 @@ Open **Settings → OpenCode**:
 - **Models** — search, refresh the live catalog, uncheck models to build an allowlist, override the wire transport per model, and see each model's input/output price plus its Go request estimate (`Go 34.7K/5h`). Hover the estimate for the full Go / Go Plus monthly allowance and 5h/week/month request counts; expand **Subscription limits** for a table of every model with both plans.
 - **Connection** — API bases, usage endpoint, timeouts, output cap, context override, sidebar-card switch. The OpenCode auth-entry field autocompletes from the keys present in `auth.json`.
 - **Plugin update** — current/latest version, update badge, and **Update now**. It installs the exact registry version through the normal `dsh plugin add` path, blocks a second click while installing, and reports when DSH must be restarted.
+- **Routing** — sticky account per conversation and the free fallback model used after a Go quota error. The quota panel shows the last routing decisions with their reason.
 
 The sidebar quota card is **off by default**. Enable *Show the quota card in the sidebar* in the settings page; clicking the card opens the full quota panel, which also carries the **Usage by model** table (7/30/90-day window).
 

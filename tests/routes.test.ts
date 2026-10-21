@@ -104,6 +104,7 @@ function harness(overrides: { config?: Record<string, unknown> } = {}) {
       yield { type: 'finish', reason: { kind: 'stop' } }
     },
     accountHealth: () => undefined,
+    routingTrace: () => [],
   } as unknown as OpenCodeAdapter
 
   const pool = {
@@ -209,6 +210,7 @@ function harness(overrides: { config?: Record<string, unknown> } = {}) {
       firstAt: null,
       lastAt: null,
       models: [],
+      accounts: [],
     }),
   }
   applyRoutes(ctx, web, deps)

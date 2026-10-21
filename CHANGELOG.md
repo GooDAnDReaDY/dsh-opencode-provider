@@ -1,8 +1,20 @@
 # Changelog
 
+## 0.5.2
+
+- **Quota fallback**: choose a free model in Settings → OpenCode. A Go quota rejection retries the same request once on Console/Zen with that model; failures surface the original quota error.
+- **Sticky account**: the last successful account is preferred for the same conversation; explicit model rules, pinned accounts, and quota fallback still win.
+- **Routing trace**: the quota panel shows recent account/model choices (`rule`, `sticky`, `rotation`, `quota-fallback`) without prompts or keys.
+- **Per-account heatmap**: the request log records the account label, and the heatmap can be filtered by account.
+- TUI exposes `quotaFallbackModel` and `stickySession`; 79 tests.
+
+## 0.5.1
+
+- Remove the non-standard inline key card from Settings → Models. Provider cards stay standard; the key is edited only through **Изменить** on the OpenCode settings page.
+
 ## 0.5.0
 
-- **Parity release**: TUI settings section, Models-page key card, plan-aware Go picker, request-wide image budget and tool-schema normalization.
+- **Parity release**: TUI settings section, plan-aware Go picker, request-wide image budget and tool-schema normalization.
 - Package identity is now scoped: `@goodandready/dsh-opencode-provider` (unscoped npm name belongs to an unrelated package).
 - Custom composer cost pill and custom analytics cost columns removed; cost is shown only by DSH's native display.
 - One-click plugin update in Settings → OpenCode: registry status, badge, exact `dsh plugin add`, restart notice, loopback/same-origin POST guard.

@@ -1,6 +1,6 @@
 {
   "name": "@goodandready/dsh-opencode-provider",
-  "version": "0.5.0",
+  "version": "0.5.2",
   "description": "OpenCode / OpenCode Go LLM provider plugin for DeepSeek Harness (dsh).",
   "license": "MIT",
   "type": "module",
@@ -118,8 +118,5 @@
     "tsdown": "^0.22.2",
     "tsx": "^4.23.12",
     "typescript": "^5.7.2"
-  },
-  "publishConfig": {
-    "access": "public"
   }
 }

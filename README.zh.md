@@ -89,11 +89,15 @@ graph LR
   - 正在流式传输中的请求不会被打断，下一个请求会自动使用下一个可用密钥。
 - **多账户额度与健康监控**：每行独立展示 5 小时、每周与每月使用情况，活跃账户驱动侧边栏与配额面板。
 - **模型 ➔ 账户路由规则**：支持 Glob 通配符（如 `*free*`、`deepseek-*`）将模型优先绑定至特定账户，其他账户保留为备用。
-- **本地时间请求热力图**：星期×小时交互式热力图，排除系统心跳与重复记录，仅保存 `{at, provider, model, purpose}` 元数据，不保存任何提示词与回复。
+- **配额回退**：在设置中选择免费模型；Go 返回配额错误时，同一请求通过 Console/Zen 重试一次。若回退也失败，返回原始配额错误。
+- **会话粘性账户**：同一会话优先使用上次成功的账户；显式模型规则、固定账户和配额回退优先。
+- **路由追踪**：配额面板显示最近的账户/模型决策（`rule`、`sticky`、`rotation`、`quota-fallback`），不记录提示词或密钥。
+- **本地时间请求热力图**：星期×小时交互式热力图，排除系统心跳与重复记录，可按模型或账户过滤，仅保存 `{at, provider, model, purpose, account, reason}` 元数据，不保存任何提示词与回复。
 - **稳定的 `x-opencode-session` 标头**：根据 DSH 会话 ID 派生，确保重试与连续对话复用相同的网关路由键。
 - **实时模型目录**：自动从 `/v1/models` 同步，并以 `models.dev` 生成文件作为回退。
 - **Go 订阅额度估算**：每月美元额度以及 5 小时、每周和每月的估算请求次数。
 - **`/opencode` 斜杠指令**：快速查询状态、配额、账户、模型及执行联通性测试。
+- **TUI 设置**：`/settings → OpenCode` 支持密钥、端点、allowlist、活动账户、回退模型、粘性路由和超时。
 - **Web UI 一键更新**：设置页集成版本比对与一键热更新按钮。
 - **MCP 工具上限防护**：在大规模 MCP 工具集达到 128 工具限制时，优先保留 DSH 核心系统工具。
 
@@ -110,12 +114,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.0.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.0
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.2
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode** 或 **OpenCode Go** 即可。
@@ -155,12 +159,6 @@ modelAccountRules:
   - pattern: "your-provider-*"
     account: "go"
 ```
-
-## 界面与视觉验收
-
-![OpenCode 配额与分析仪表盘](media/visual-verification.png)
-
-截取自 DSH Desktop（暗黑主题）中的 0.5.0 正式候选版本。
 
 ## 常用指令
 

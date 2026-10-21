@@ -12,6 +12,8 @@ function deps(): OpenCodeTuiSettingsDeps {
     visibleModels: () => ['deepseek-v4.1-flash'],
     activeAccount: () => '',
     filterModelsByPlan: () => true,
+    quotaFallbackModel: () => '',
+    stickySession: () => true,
   }
 }
 
@@ -72,6 +74,22 @@ test('refreshes the section when settings change outside the TUI', async () => {
   await new Promise((resolve) => setTimeout(resolve, 20))
   assert.ok(registrations >= 2)
   cleanup?.()
+})
+
+test('exposes quota fallback and sticky routing settings', () => {
+  const section = buildOpenCodeTuiSection({
+    ...deps(),
+    quotaFallbackModel: () => 'beam-free',
+    stickySession: () => false,
+  })
+  const fallback = section.fields.find((entry) => entry.path[0] === 'quotaFallbackModel')
+  const sticky = section.fields.find((entry) => entry.path[0] === 'stickySession')
+  assert.ok(fallback)
+  assert.equal(fallback.format?.('ignored'), 'beam-free')
+  assert.deepEqual(fallback.parse?.(''), { kind: 'clear' })
+  assert.ok(sticky)
+  assert.equal(sticky.format?.(false), 'false')
+  assert.deepEqual(sticky.parse?.('true'), { kind: 'set', value: true })
 })
 
 test('invalid timeouts are rejected', () => {

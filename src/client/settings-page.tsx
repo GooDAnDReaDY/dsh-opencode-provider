@@ -505,6 +505,34 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       </section>
 
       <section className="oc-card">
+        <h3 className="oc-card-title">{t('routing')}</h3>
+        <p className="oc-hint">{t('routingHint')}</p>
+        <label className="oc-row">
+          <input
+            type="checkbox"
+            checked={draft.stickySession}
+            onChange={(event) => update({ stickySession: event.target.checked })}
+          />
+          <span>{t('stickySession')}</span>
+        </label>
+        <p className="oc-hint">{t('stickySessionHint')}</p>
+        <label className="oc-field">
+          <span className="oc-label">{t('quotaFallbackModel')}</span>
+          <select
+            className="oc-select"
+            value={draft.quotaFallbackModel}
+            onChange={(event) => update({ quotaFallbackModel: event.target.value })}
+          >
+            <option value="">{t('off')}</option>
+            {state.models.filter((model) => model.free).map((model) => (
+              <option key={model.id} value={model.id}>{model.name} ({model.id})</option>
+            ))}
+          </select>
+          <span className="oc-hint">{t('quotaFallbackModelHint')}</span>
+        </label>
+      </section>
+
+      <section className="oc-card">
         <h3 className="oc-card-title">
           {t('models')}
           <span className="oc-badge">{state.models.length} {t('modelCount')}</span>
