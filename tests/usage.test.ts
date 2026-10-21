@@ -55,10 +55,31 @@ test('fail-open per key and clear the cache on demand', async () => {
   const second = await reader('opencode-go', 'bad')
   assert.equal(first?.error, 'offline')
   assert.equal(second?.error, 'offline')
-  assert.equal(calls, 1)
+  assert.equal(calls, 2)
 
   reader.clear()
   await reader('opencode-go', 'bad')
+  assert.equal(calls, 4)
+})
+
+test('retries one transient network failure before caching the result', async () => {
+  let calls = 0
+  const fetchImpl = (async () => {
+    calls += 1
+    if (calls === 1) throw new TypeError('fetch failed')
+    return new Response(JSON.stringify({
+      usage: { rolling: { percent: 7 }, weekly: { percent: 8 }, monthly: { percent: 9 } },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }) as typeof fetch
+  const reader = createUsageReader(
+    () => config,
+    async () => ({ key: 'active', source: 'test' }),
+    fetchImpl,
+  )
+
+  const result = await reader('opencode-go')
+  assert.equal(result?.error, undefined)
+  assert.equal(result?.report?.windows.fiveHour?.percentUsed, 7)
   assert.equal(calls, 2)
 })
 

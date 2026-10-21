@@ -41,6 +41,7 @@ interface UsagePayload {
 const SUCCESS_TTL_MS = 5 * 60 * 1000
 const FAILURE_TTL_MS = 45 * 1000
 const USAGE_TIMEOUT_MS = 20_000
+const RETRY_DELAY_MS = 250
 
 function windowOf(raw: UsageWindowPayload | undefined): UsageWindow | undefined {
   if (raw === undefined) return undefined
@@ -105,16 +106,30 @@ export function createUsageReader(
     }
 
     const result = async (): Promise<UsageResult> => {
+      const signal = AbortSignal.timeout(USAGE_TIMEOUT_MS)
       try {
-        const response = await fetchImpl(current.usageUrl, {
-          headers: {
-            authorization: `Bearer ${key}`,
-            accept: 'application/json',
-            'user-agent': current.userAgent,
-            'x-opencode-session': 'dsh_usage',
-          },
-          signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
-        })
+        let response: Response | undefined
+        let lastNetworkError: unknown
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            response = await fetchImpl(current.usageUrl, {
+              headers: {
+                authorization: `Bearer ${key}`,
+                accept: 'application/json',
+                'user-agent': current.userAgent,
+                'x-opencode-session': 'dsh_usage',
+              },
+              signal,
+            })
+            break
+          } catch (error) {
+            lastNetworkError = error
+            if (signal.aborted || attempt === 1) throw error
+            // A transient Node/undici connect timeout often clears on retry.
+            await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS))
+          }
+        }
+        if (response === undefined) throw lastNetworkError ?? new Error('usage request failed')
         if (response.status === 401 || response.status === 403) {
           return {
             error: 'usage endpoint rejected the key (inference may still work)',

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.11
+
+- **Usage fetch retry**: the quota reader retries one transient Node/undici network failure before caching `fetch failed`, so a brief connect timeout no longer leaves the quota panel without usage data.
+- 91 tests.
+
 ## 0.5.10
 
 - **Migration hint**: Settings → OpenCode explains the 0.5.7 provider-id split and why legacy `opencode`/`opencode-go` sessions stay on the built-in pi-ai routes. The analytics hint/empty state also distinguishes plugin routes from legacy traffic.
