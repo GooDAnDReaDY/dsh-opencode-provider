@@ -65,7 +65,7 @@ async function call(
   return captured
 }
 
-function harness(overrides: { config?: Record<string, unknown> } = {}) {
+function harness(overrides: { config?: Record<string, unknown>; heatmapError?: boolean } = {}) {
   const routes = new Map<string, (req: unknown, res: unknown) => void | Promise<void>>()
   const mutations: Array<{ ns: string; ops: unknown; revision: unknown }> = []
   const stored = new Map<string, string>()
@@ -206,16 +206,19 @@ function harness(overrides: { config?: Record<string, unknown> } = {}) {
         avgLatencyMs: 500,
       }],
     }),
-    heatmap: async () => ({
-      since: 0,
-      total: 2,
-      hours: Array.from({ length: 24 }, () => 0),
-      grid: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
-      firstAt: null,
-      lastAt: null,
-      models: [],
-      accounts: [],
-    }),
+    heatmap: async () => {
+      if (overrides.heatmapError === true) throw new Error('heatmap failed')
+      return {
+        since: 0,
+        total: 2,
+        hours: Array.from({ length: 24 }, () => 0),
+        grid: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
+        firstAt: null,
+        lastAt: null,
+        models: [],
+        accounts: [],
+      }
+    },
   }
   applyRoutes(ctx, web, deps)
   return { routes, mutations, stored, tuiRefreshes }
@@ -372,6 +375,13 @@ test('health route reports provider registration', async () => {
   assert.deepEqual(body.providers, [CONSOLE_PROVIDER, GO_PROVIDER])
   assert.equal(body.accounts, 1)
   assert.equal(body.models, 1)
+})
+
+test('analytics route reports a heatmap failure', async () => {
+  const { routes } = harness({ heatmapError: true })
+  const result = await call(routes.get('/dsh-opencode/analytics')!, { path: '/dsh-opencode/analytics?days=7' })
+  assert.equal(result.status, 500)
+  assert.deepEqual(result.body, { error: 'heatmap failed' })
 })
 
 test('analytics route returns aggregated model rows', async () => {

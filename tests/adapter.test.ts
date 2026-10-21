@@ -88,11 +88,15 @@ async function collect(
 
 test('warns once when the provider tool cap drops declarations', async () => {
   const warnings: string[] = []
+  let body: { tools?: unknown[] } | undefined
   const adapter = adapterWith(
-    (async () => new Response(streamOf(), {
-      status: 200,
-      headers: { 'content-type': 'text/event-stream' },
-    })) as typeof fetch,
+    (async (_url, init) => {
+      body = JSON.parse(String(init?.body)) as { tools?: unknown[] }
+      return new Response(streamOf(), {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      })
+    }) as typeof fetch,
     undefined,
     testCooldownPath(),
     (message) => warnings.push(message),
@@ -108,6 +112,7 @@ test('warns once when the provider tool cap drops declarations', async () => {
 
   assert.equal(warnings.length, 1)
   assert.match(warnings[0] ?? '', /128/)
+  assert.equal(body?.tools?.length, 128)
 })
 
 test('rotates to the next account on a pre-stream quota rejection', async () => {

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import type { Context } from '@deepseek-ai/cordis'
+import { apply } from '../src/index.ts'
+import type { HostState } from '../src/client/api.ts'
+import { draftOf, patchOf, safeSame } from '../src/client/settings-draft.ts'
 import { effectiveModel, effectiveMaxTokens, describeModel } from '../src/catalog.ts'
 import { resolveConfig, type Config } from '../src/config.ts'
 import { classifyResponseError } from '../src/errors.ts'
@@ -39,6 +43,66 @@ test('plugin provider ids do not collide with the built-in pi-ai catalog', () =>
   assert.notEqual(CONSOLE_PROVIDER, GO_PROVIDER)
   assert.match(CONSOLE_PROVIDER, /^[a-z0-9-]+$/)
   assert.match(GO_PROVIDER, /^[a-z0-9-]+$/)
+})
+
+test('apply registers only the unique plugin provider ids', () => {
+  const providers: Array<{ provider: string; displayName: string }> = []
+  const adapters: string[] = []
+  const ctx = {
+    llm: {
+      registerConfigurableProviders: (entries: typeof providers) => { providers.push(...entries) },
+      registerAdapter: (ids: string[]) => { adapters.push(...ids) },
+    },
+    logger: () => ({ info: () => {}, warn: () => {} }),
+    inject: () => {},
+    effect: () => () => {},
+    get: () => undefined,
+  } as unknown as Context
+  apply(ctx, { apiKeyEnv: 'OPENCODE_TEST_KEY' } as Config)
+  assert.deepEqual(providers.map((entry) => entry.provider), [CONSOLE_PROVIDER, GO_PROVIDER])
+  assert.deepEqual(adapters, [CONSOLE_PROVIDER, GO_PROVIDER])
+  assert.ok(providers.every((entry) => entry.displayName.endsWith('(plugin)')))
+})
+
+test('settings draft and patch keep client edits normalized', () => {
+  const state = {
+    config: {
+      apiKeyEnv: 'OPENCODE_API_KEY',
+      apiBase: 'https://a',
+      goApiBase: 'https://b',
+      goZenBase: 'https://c',
+      usageUrl: 'https://u',
+      openCodeAuthEntry: 'opencode-go',
+      requestTimeoutMs: 300000,
+      streamIdleTimeoutMs: 300000,
+      maxOutputTokens: null,
+      contextWindow: null,
+      accounts: [{ label: 'Go #2', apiKeyEnv: 'OPENCODE_API_KEY_2' }],
+      modelAccountRules: [{ pattern: '*free*', account: 'Go #2' }],
+      quotaFallbackModel: '',
+      stickySession: true,
+      activeAccount: '',
+      showSidebarQuota: true,
+      visibleModels: [],
+      filterModelsByPlan: true,
+      modelTransports: {},
+    },
+    models: [{ id: 'model-a' }, { id: 'model-b' }],
+  } as unknown as HostState
+  const draft = draftOf(state)
+  assert.deepEqual(draft.visibleModels, ['model-a', 'model-b'])
+  assert.equal(draft.showAll, true)
+  draft.accounts.push({ label: ' ', apiKeyEnv: ' ' })
+  draft.modelAccountRules.push({ pattern: ' ', account: ' ' })
+  draft.quotaFallbackModel = ' beam-free '
+  draft.visibleModels = ['model-a']
+  draft.showAll = false
+  const patch = patchOf(draft)
+  assert.equal(patch.quotaFallbackModel, 'beam-free')
+  assert.deepEqual(patch.accounts, [{ label: 'Go #2', apiKeyEnv: 'OPENCODE_API_KEY_2' }])
+  assert.deepEqual(patch.modelAccountRules, [{ pattern: '*free*', account: 'Go #2' }])
+  assert.deepEqual(patch.visibleModels, ['model-a'])
+  assert.equal(safeSame(draft, draftOf(state)), false)
 })
 
 test('session id is stable per conversation and differs across conversations', () => {
