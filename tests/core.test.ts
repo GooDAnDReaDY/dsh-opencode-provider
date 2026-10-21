@@ -373,7 +373,7 @@ test('error classification uses the body type, not the status alone', () => {
     type: 'error',
     error: { type: 'FreeTierError', message: 'free tier can only be used from within OpenCode' },
   }), new Headers())
-  assert.equal(free.code, 'INVALID_CREDENTIAL')
+  assert.equal(free.code, 'RATE_LIMIT')
 
   const protocol = classifyResponseError(400, JSON.stringify({
     type: 'error',

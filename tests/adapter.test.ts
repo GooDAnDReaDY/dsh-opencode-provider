@@ -350,6 +350,31 @@ test('prefers the last successful account for the same conversation', async () =
   assert.ok(trace.some((entry) => entry.reason === 'sticky' && entry.ok))
 })
 
+test('treats a free-tier rejection as a short rate-limit and rotates', async () => {
+  const seen: string[] = []
+  const adapter = adapterWith((async (_url, init) => {
+    const headers = init?.headers as Record<string, string>
+    const auth = headers.authorization ?? ''
+    seen.push(auth)
+    if (auth === 'Bearer bad') {
+      return new Response(JSON.stringify({
+        error: { type: 'FreeTierError', message: 'free tier can only be used from within OpenCode' },
+      }), { status: 403, headers: { 'content-type': 'application/json' } })
+    }
+    return new Response(streamOf(), {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    })
+  }) as typeof fetch)
+
+  const result = await collect(adapter)
+  assert.equal(result.text, 'OK')
+  assert.deepEqual(seen, ['Bearer bad', 'Bearer good'])
+  const health = adapter.accountHealth('bad')
+  assert.equal(health?.reason, 'rate-limit')
+  assert.ok((health?.coolingUntil ?? 0) < Date.now() + 2 * 60 * 1000)
+})
+
 test('rotates on a usage-limit 429 as well', async () => {
   const seen: string[] = []
   const adapter = adapterWith((async (_url, init) => {

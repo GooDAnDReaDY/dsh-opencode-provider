@@ -631,14 +631,16 @@ export class OpenCodeAdapter extends LlmAdapter {
       const seconds = raw === null || raw === undefined ? Number.NaN : Number(raw)
       delayMs = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 10 * 60 * 1000
       reason = 'quota'
-    } else if (status === 401 || status === 403) {
-      delayMs = 24 * 60 * 60 * 1000
-      reason = 'invalid-credential'
-    } else if (status === 429) {
+    } else if (code === 'RATE_LIMIT' || status === 429) {
+      // A free-tier restriction is account/model-specific, not proof that the
+      // key itself is invalid; do not take the account out for 24 hours.
       const raw = headers?.get('retry-after')
       const seconds = raw === null || raw === undefined ? Number.NaN : Number(raw)
       delayMs = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 60_000
       reason = 'rate-limit'
+    } else if (status === 401 || status === 403) {
+      delayMs = 24 * 60 * 60 * 1000
+      reason = 'invalid-credential'
     }
     this.cooldowns.set(this.keyId(key), { until: Date.now() + delayMs, reason })
     this.persistCooldowns()

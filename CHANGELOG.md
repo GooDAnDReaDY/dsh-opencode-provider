@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.8
+
+- **Free-tier error cooldown**: a `FreeTierError` (free model used with a free/anonymous key) is now a short `RATE_LIMIT`, not `INVALID_CREDENTIAL`. The account rotates to the next key and is cooled for 60s instead of 24h; the key itself is not invalid. Added an adapter regression test.
+- 90 tests.
+
 ## 0.5.7
 
 - **Provider-id conflict fix**: the plugin now registers `opencode-direct` and `opencode-go-direct` instead of `opencode`/`opencode-go`. The built-in `llm-pi-ai` catalog owns those ids; reusing them triggered `DUPLICATE_DIRECTORY`, dropped the built-in catalog, hid other providers and disabled the add button. Existing sessions recorded under the old ids stay on the built-in routes; select **OpenCode (plugin)** or **OpenCode Go (plugin)** for this plugin's features.
