@@ -101,6 +101,30 @@ export function isTrustedUpdateRequest(request: Request): boolean {
   }
 }
 
+/** Local, loopback-only reads for the update card; blocks DNS-rebinding hosts. */
+export function isTrustedReadRequest(request: Request): boolean {
+  if (!isLoopback(request.socket?.remoteAddress)) return false
+  const host = header(request, 'host')
+  if (host === undefined) return false
+  try {
+    const hostUrl = new URL(`http://${host}`)
+    if (!isLoopback(hostUrl.hostname)) return false
+  } catch {
+    return false
+  }
+  const site = header(request, 'sec-fetch-site')
+  if (site !== undefined && site !== 'same-origin') return false
+  const origin = header(request, 'origin')
+  if (origin === undefined) return true
+  try {
+    const url = new URL(origin)
+    return (url.protocol === 'http:' || url.protocol === 'https:')
+      && isLoopback(url.hostname) && url.host === host
+  } catch {
+    return false
+  }
+}
+
 function validProfileName(value: unknown): value is string {
   return typeof value === 'string' && value !== '' && value !== '.' && value !== '..'
     && !value.includes('/') && !value.includes('\\') && !/[\0-\x1f\x7f]/.test(value)
@@ -311,6 +335,10 @@ export function registerPluginUpdater(ctx: Context, options: PluginUpdaterOption
       try {
         const target = runtime()
         if (request.method === 'GET' || request.method === 'HEAD') {
+          if (!isTrustedReadRequest(request)) {
+            json(response, 403, { error: 'Rejected non-local update status request.' })
+            return
+          }
           const payload = await status(options, target)
           response.writeHead(200, {
             'content-type': 'application/json; charset=utf-8',

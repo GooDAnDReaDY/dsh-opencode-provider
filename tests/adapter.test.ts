@@ -380,6 +380,22 @@ test('treats a free-tier rejection as a short rate-limit and rotates', async () 
   assert.ok((health?.coolingUntil ?? 0) < Date.now() + 2 * 60 * 1000)
 })
 
+test('does not record a successful route when the stream breaks after content', async () => {
+  const body = `data: ${JSON.stringify({
+    choices: [{ index: 0, delta: { content: 'OK' } }],
+  })}\n\n`
+    + `data: ${JSON.stringify({ error: { type: 'server_error', message: 'boom' } })}\n\n`
+  const adapter = adapterWith((async () => new Response(body, {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  })) as typeof fetch)
+
+  await assert.rejects(() => collect(adapter))
+  const trace = adapter.routingTrace()
+  assert.equal(trace[0]?.ok, false)
+  assert.equal(trace[0]?.error, 'PROVIDER_HTTP_ERROR')
+})
+
 test('rotates on a usage-limit 429 as well', async () => {
   const seen: string[] = []
   const adapter = adapterWith((async (_url, init) => {

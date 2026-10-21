@@ -314,8 +314,12 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
   }
 
   route('/dsh-opencode/state', async (req, res) => {
-    if (req.method !== 'GET' && req.method !== 'POST') {
+    if (req.method !== 'GET') {
       json(res, 405, { error: 'GET required' })
+      return
+    }
+    if (!loopbackHost(req)) {
+      json(res, 403, { error: 'non-loopback Host refused' })
       return
     }
     if (!allowedOrigin(req)) {
@@ -332,6 +336,10 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
   route('/dsh-opencode/health', async (req, res) => {
     if (req.method !== 'GET') {
       json(res, 405, { error: 'GET required' })
+      return
+    }
+    if (!loopbackHost(req)) {
+      json(res, 403, { error: 'non-loopback Host refused' })
       return
     }
     if (!allowedOrigin(req)) {
@@ -355,6 +363,10 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
   route('/dsh-opencode/analytics', async (req, res) => {
     if (req.method !== 'GET') {
       json(res, 405, { error: 'GET required' })
+      return
+    }
+    if (!loopbackHost(req)) {
+      json(res, 403, { error: 'non-loopback Host refused' })
       return
     }
     if (!allowedOrigin(req)) {

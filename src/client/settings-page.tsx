@@ -20,6 +20,7 @@ import { CONFIG_CHANGED_EVENT } from './events.ts'
 import { draftOf, patchOf, safeSame, type Draft } from './settings-draft.ts'
 import { Field, accountMark, limitsCell, usageChip } from './settings-widgets.tsx'
 import { PluginUpdateCard } from './update-card.tsx'
+import { authRefForEntry } from './auth-ref.ts'
 import { GO_PROVIDER } from '../provider-ids.ts'
 import { describeLimitsFull, formatRequests } from '../subscription-limits.ts'
 
@@ -94,11 +95,9 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
 
   const importAllAuth = async (): Promise<void> => {
     if (state === null || draft === null) return
-    const refFor = (entry: string): string =>
-      `OPENCODE_AUTH_${entry.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}`
     const missing = state.auth.entries.filter((entry) =>
       !draft.accounts.some((account) =>
-        account.label === entry || account.apiKeyEnv === refFor(entry)))
+        account.label === entry || account.apiKeyEnv === authRefForEntry(entry)))
     if (missing.length === 0) {
       setNotice(t('importedAll'))
       return
@@ -106,11 +105,11 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     setImporting(true)
     setError(null)
     try {
-      for (const entry of missing) await importAuth(entry, refFor(entry))
+      for (const entry of missing) await importAuth(entry, authRefForEntry(entry))
       update({
         accounts: [
           ...draft.accounts,
-          ...missing.map((entry) => ({ label: entry, apiKeyEnv: refFor(entry) })),
+          ...missing.map((entry) => ({ label: entry, apiKeyEnv: authRefForEntry(entry) })),
         ],
       })
       setNotice(t('importedAll'))

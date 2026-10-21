@@ -328,6 +328,32 @@ test('DNS-rebinding Host is refused even when Origin matches', async () => {
   assert.equal(result.status, 403)
 })
 
+test('read routes refuse DNS-rebinding hosts and state is GET-only', async () => {
+  const { routes } = harness()
+  for (const path of ['state', 'health', 'analytics']) {
+    const result = await call(routes.get(`/dsh-opencode/${path}`)!, {
+      path: `/dsh-opencode/${path}`,
+      headers: {
+        host: 'evil.example:3080',
+        origin: 'http://evil.example:3080',
+      },
+    })
+    assert.equal(result.status, 403)
+  }
+  const noOrigin = await call(routes.get('/dsh-opencode/state')!, {
+    path: '/dsh-opencode/state',
+    headers: { host: 'evil.example:3080' },
+  })
+  assert.equal(noOrigin.status, 403)
+  const postState = await call(routes.get('/dsh-opencode/state')!, {
+    method: 'POST',
+    path: '/dsh-opencode/state',
+    headers: { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' },
+    body: {},
+  })
+  assert.equal(postState.status, 405)
+})
+
 test('cross-origin POST is refused', async () => {
   const { routes } = harness()
   const result = await call(routes.get('/dsh-opencode/config')!, {

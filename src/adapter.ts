@@ -320,6 +320,12 @@ export class OpenCodeAdapter extends LlmAdapter {
           throw error
         }
 
+        for await (const chunk of this.parse(response, model.transport, config, options.signal)) {
+          if (firstChunkAt === undefined) firstChunkAt = Date.now()
+          started = true
+          yield chunk
+        }
+        logAttempt(true)
         this.rememberSticky(sessionId, options, entry)
         this.pushTrace({
           at: Date.now(),
@@ -330,12 +336,6 @@ export class OpenCodeAdapter extends LlmAdapter {
           fallback,
           ok: true,
         })
-        for await (const chunk of this.parse(response, model.transport, config, options.signal)) {
-          if (firstChunkAt === undefined) firstChunkAt = Date.now()
-          started = true
-          yield chunk
-        }
-        logAttempt(true)
         return
       } catch (error) {
         const classified = error instanceof LlmError ? error : new LlmError(
@@ -344,7 +344,19 @@ export class OpenCodeAdapter extends LlmAdapter {
           { cause: error },
         )
         logAttempt(false, classified.code)
-        if (started || options.signal?.aborted === true) throw error
+        if (started || options.signal?.aborted === true) {
+          this.pushTrace({
+            at: Date.now(),
+            provider: options.provider,
+            model: options.model,
+            account: entry.label ?? 'default',
+            reason: attemptReason,
+            fallback,
+            ok: false,
+            error: classified.code,
+          })
+          throw error
+        }
         lastError = classified
         const transient = this.isTransient(classified)
         if (transient && !responseFailure && !fallback) this.markCooldown(entry.key, 0)

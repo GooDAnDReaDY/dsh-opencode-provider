@@ -4,6 +4,7 @@ import test from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
 import { apply } from '../src/index.ts'
 import type { HostState } from '../src/client/api.ts'
+import { authRefForEntry } from '../src/client/auth-ref.ts'
 import { draftOf, patchOf, safeSame } from '../src/client/settings-draft.ts'
 import { effectiveModel, effectiveMaxTokens, describeModel } from '../src/catalog.ts'
 import { resolveConfig, type Config } from '../src/config.ts'
@@ -62,6 +63,14 @@ test('apply registers only the unique plugin provider ids', () => {
   assert.deepEqual(providers.map((entry) => entry.provider), [CONSOLE_PROVIDER, GO_PROVIDER])
   assert.deepEqual(adapters, [CONSOLE_PROVIDER, GO_PROVIDER])
   assert.ok(providers.every((entry) => entry.displayName.endsWith('(plugin)')))
+})
+
+test('auth entry refs are collision-free', () => {
+  const first = authRefForEntry('opencode-go')
+  const second = authRefForEntry('opencode_go')
+  assert.notEqual(first, second)
+  assert.match(first, /^OPENCODE_AUTH_[0-9a-f]+$/)
+  assert.equal(first, authRefForEntry('opencode-go'))
 })
 
 test('settings draft and patch keep client edits normalized', () => {

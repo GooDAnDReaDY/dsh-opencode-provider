@@ -1,6 +1,6 @@
 {
   "name": "@goodandready/dsh-opencode-provider",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "description": "OpenCode / OpenCode Go LLM provider plugin for DeepSeek Harness (dsh).",
   "license": "MIT",
   "type": "module",
@@ -68,7 +68,7 @@
     "build": "tsdown",
     "prepare": "tsdown",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/tools.test.ts tests/plugin-updater.test.ts",
+    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/tools.test.ts tests/plugin-updater.test.ts tests/client-render.test.tsx",
     "check": "npm run typecheck && npm test && npm run build",
     "release": "npm run check && npm pack",
     "sync:models": "node scripts/sync-models.mjs"
@@ -114,7 +114,9 @@
     "@deepseek-ai/schemastery": "~3.18.5",
     "@types/node": "^22.0.0",
     "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.0",
     "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "tsdown": "^0.22.2",
     "tsx": "^4.23.12",
     "typescript": "^5.7.2"

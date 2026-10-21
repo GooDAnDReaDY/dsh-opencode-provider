@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.12
+
+- **Security**: read routes now require a literal loopback Host; `/state` is GET-only, `/health` and `/analytics` reject DNS-rebinding hosts, and updater status GET uses a loopback read guard. Added regression tests.
+- **Routing correctness**: sticky selection and the success trace are recorded only after the stream completes; a mid-stream failure now records a failed trace, not a false success.
+- **Onboarding**: auth-entry credential refs use injective hex encoding, so entries differing only by punctuation cannot overwrite each other. Added a collision test.
+- **Client tests**: added React server-render smoke tests for analytics, heatmap, settings and quota panel; 100 tests.
+- Read routes now work only from the local machine; a LAN-exposed web profile can no longer read plugin state (write routes were already loopback-only).
+
 ## 0.5.11
 
 - **Usage fetch retry**: the quota reader retries one transient Node/undici network failure before caching `fetch failed`, so a brief connect timeout no longer leaves the quota panel without usage data.
