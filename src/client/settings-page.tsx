@@ -20,6 +20,7 @@ import { CONFIG_CHANGED_EVENT } from './events.ts'
 import { draftOf, patchOf, safeSame, type Draft } from './settings-draft.ts'
 import { Field, accountMark, limitsCell, usageChip } from './settings-widgets.tsx'
 import { PluginUpdateCard } from './update-card.tsx'
+import { GO_PROVIDER } from '../provider-ids.ts'
 import { describeLimitsFull, formatRequests } from '../subscription-limits.ts'
 
 export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?: () => void }): ReactNode {
@@ -329,7 +330,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                 .catch((caught: unknown) => setTestResult({
                   ok: false,
                   model: testModel,
-                  provider: 'opencode-go',
+                  provider: GO_PROVIDER,
                   latencyMs: 0,
                   error: caught instanceof Error ? caught.message : t('failed'),
                 }))

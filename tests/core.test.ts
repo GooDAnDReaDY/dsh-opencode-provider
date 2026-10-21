@@ -8,6 +8,7 @@ import { buildChatBody, buildMessages } from '../src/messages.ts'
 import { buildAnthropicBody } from '../src/transports/anthropic.ts'
 import { buildGoogleBody } from '../src/transports/google.ts'
 import { buildResponsesBody } from '../src/transports/responses.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from '../src/provider-ids.ts'
 import { accountRunway, estimateRunway } from '../src/quota-runway.ts'
 import { endpointFor } from '../src/routing.ts'
 import { openCodeSessionId } from '../src/session-id.ts'
@@ -31,6 +32,14 @@ function options(overrides: Partial<GenerateOptions> = {}): GenerateOptions {
     ...overrides,
   } as GenerateOptions
 }
+
+test('plugin provider ids do not collide with the built-in pi-ai catalog', () => {
+  assert.notEqual(CONSOLE_PROVIDER, 'opencode')
+  assert.notEqual(GO_PROVIDER, 'opencode-go')
+  assert.notEqual(CONSOLE_PROVIDER, GO_PROVIDER)
+  assert.match(CONSOLE_PROVIDER, /^[a-z0-9-]+$/)
+  assert.match(GO_PROVIDER, /^[a-z0-9-]+$/)
+})
 
 test('session id is stable per conversation and differs across conversations', () => {
   const first = openCodeSessionId(options())

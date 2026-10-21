@@ -30,10 +30,17 @@ It registers two native LLM routes:
 
 | Route | Product | Base |
 |---|---|---|
-| `opencode` | OpenCode Console / Zen (pay-as-you-go) | `https://opencode.ai/inference` |
-| `opencode-go` | OpenCode Go / Go Plus subscription | `https://opencode.ai/inference/go` |
+| `opencode-direct` | OpenCode Console / Zen (pay-as-you-go) | `https://opencode.ai/inference` |
+| `opencode-go-direct` | OpenCode Go / Go Plus subscription | `https://opencode.ai/inference/go` |
 
 Requests resolve the key per call, so a changed credential reaches the next request without a restart.
+
+The ids use the `-direct` suffix because the built-in `llm-pi-ai` catalog already owns
+`opencode` and `opencode-go`. Reusing those ids makes the core registry reject the
+duplicate (`DUPLICATE_DIRECTORY`) and drop the built-in catalog, which hides the other
+providers and disables the add button. Existing sessions recorded under the old ids stay on
+the built-in routes; select **OpenCode (plugin)** or **OpenCode Go (plugin)** for this
+plugin's accounts, quotas, fallback and telemetry.
 
 ## Architecture
 
@@ -58,14 +65,14 @@ graph LR
     end
 
     subgraph OpenCode["OpenCode Gateway"]
-        Console["opencode (Console / Zen)"]
-        Go["opencode-go (Go / Go Plus)"]
+        Console["opencode-direct (Console / Zen)"]
+        Go["opencode-go-direct (Go / Go Plus)"]
     end
 
     Agent --> Router
     Creds -.-> Pool
-    Router -->|opencode| Pool
-    Router -->|opencode-go| Pool
+    Router -->|opencode-direct| Pool
+    Router -->|opencode-go-direct| Pool
     Pool --> Heatmap
     Pool --> Transports
     T1 & T2 & T3 & T4 --> Console & Go
@@ -123,15 +130,15 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.7.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.7.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.6
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.7
 ```
 
-Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
+Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.
 
 > **Use the tarball, not the directory.** On dsh 0.2.1-rc.2 the Desktop CLI aliases a local
 > directory passed to `dsh plugin add` as `@deepseek-ai/dsh-desktop-runtime` and overwrites
@@ -205,7 +212,7 @@ Cooldowns survive restarts: deadlines and reasons are stored in `~/.dsh/storages
 
 ### Model → account rules
 
-Pin a model to a preferred account with a glob. The first matching rule wins; `*` and `?` are supported and matching is case-insensitive. The named account is tried first, and the other accounts remain fallbacks if it is cooling, missing, or rejected — a rule is a preference, not a hard filter. An unknown account label is ignored, and rules apply to both `opencode` and `opencode-go`.
+Pin a model to a preferred account with a glob. The first matching rule wins; `*` and `?` are supported and matching is case-insensitive. The named account is tried first, and the other accounts remain fallbacks if it is cooling, missing, or rejected — a rule is a preference, not a hard filter. An unknown account label is ignored, and rules apply to both `opencode-direct` and `opencode-go-direct`.
 
 Configure them in **Settings → OpenCode → Model → account rules**, or in YAML:
 
@@ -298,7 +305,7 @@ GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflow
 - Automatic update requires the DSH CLI entry in the runtime. When it is not exposed, the update card shows the current/latest status and directs the user to the DSH plugin manager.
 - Subscription request counts are OpenCode's published estimates, not enforced quotas. They can change when OpenCode updates the Go pricing table; the gateway is the final authority.
 - Usage-by-model aggregates the local projection cache and attributes a whole session to its last-used model; a session that switched models is therefore approximate. It never reads prompt text or titles.
-- `opencode` (Console) billing shows no per-model allowance; the Go route is the primary target.
+- `opencode-direct` (Console) billing shows no per-model allowance; the Go route is the primary target.
 - The anonymous free lane (`Bearer public` + CLI impersonation) is not implemented.
 - The UI requires a web profile (the Host needs `ctx.webServer`); the TUI keeps the `/opencode` command and the model routes.
 - Write routes are loopback-only; a web profile exposed to a LAN can read state but cannot save configuration or keys until the host auth token is integrated.

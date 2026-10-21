@@ -8,6 +8,7 @@ import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 
 import { OpenCodeAdapter } from '../src/adapter.ts'
 import { resolveConfig, type Config } from '../src/config.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from '../src/provider-ids.ts'
 import type { RequestOutcome } from '../src/request-log.ts'
 
 const testDir = mkdtempSync(join(tmpdir(), 'dsh-opencode-adapter-'))
@@ -73,7 +74,7 @@ async function collect(
   let text = ''
   let finish: unknown
   for await (const chunk of adapter.stream({
-    provider: 'opencode-go',
+    provider: GO_PROVIDER,
     model,
     messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
     maxTokens: 8,
@@ -195,7 +196,7 @@ test('records one request per stream call', async () => {
   )
 
   await collect(adapter)
-  assert.deepEqual(recorded, ['opencode-go/deepseek-v4.1-flash'])
+  assert.deepEqual(recorded, [`${GO_PROVIDER}/deepseek-v4.1-flash`])
 })
 
 test('model-account rules make the matching key serve first', async () => {
@@ -258,7 +259,7 @@ test('falls back once to the configured free model on a Go quota error', async (
   const result = await collect(adapter)
   assert.equal(result.text, 'fallback-ok')
   assert.ok(calls.some((call) => call.url.includes('/console') && call.model === 'beam-free'))
-  assert.ok(recorded.includes('opencode/beam-free'))
+  assert.ok(recorded.includes(`${CONSOLE_PROVIDER}/beam-free`))
   const trace = adapter.routingTrace()
   assert.ok(trace.some((entry) => entry.reason === 'quota-fallback' && entry.ok))
   assert.ok(trace.some((entry) => !entry.ok && entry.error === 'QUOTA'))

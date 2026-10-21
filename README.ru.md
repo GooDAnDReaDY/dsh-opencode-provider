@@ -30,10 +30,17 @@
 
 | Маршрут | Продукт / Тариф | Базовый эндпоинт | Назначение |
 |---|---|---|---|
-| `opencode` | OpenCode Console / Zen | `https://opencode.ai/inference` | Поминутная тарификация (pay-as-you-go) |
-| `opencode-go` | OpenCode Go / Go Plus | `https://opencode.ai/inference/go` | Фиксированная подписка с лимитами 5h / недели / месяца |
+| `opencode-direct` | OpenCode Console / Zen | `https://opencode.ai/inference` | Поминутная тарификация (pay-as-you-go) |
+| `opencode-go-direct` | OpenCode Go / Go Plus | `https://opencode.ai/inference/go` | Фиксированная подписка с лимитами 5h / недели / месяца |
 
 Ключи разрешаются динамически на каждый вызов: смена токена в настройках или в файле окружения вступает в силу мгновенно без перезапуска сервера.
+
+Суффикс `-direct` нужен потому, что встроенный каталог `llm-pi-ai` уже объявляет
+`opencode` и `opencode-go`. Повтор этих id даёт `DUPLICATE_DIRECTORY`, из-за чего
+ядро отбрасывает встроенный каталог, исчезают остальные провайдеры и отключается
+кнопка добавления. Старые сессии с прежними id остаются на встроенных маршрутах;
+для возможностей плагина выбирайте **OpenCode (plugin)** или
+**OpenCode Go (plugin)**.
 
 ## Архитектура
 
@@ -58,14 +65,14 @@ graph LR
     end
 
     subgraph OpenCode["Шлюз OpenCode Gateway"]
-        Console["opencode (Console / Zen)"]
-        Go["opencode-go (Go / Go Plus)"]
+        Console["opencode-direct (Console / Zen)"]
+        Go["opencode-go-direct (Go / Go Plus)"]
     end
 
     Agent --> Router
     Creds -.-> Pool
-    Router -->|opencode| Pool
-    Router -->|opencode-go| Pool
+    Router -->|opencode-direct| Pool
+    Router -->|opencode-go-direct| Pool
     Pool --> Heatmap
     Pool --> Transports
     T1 & T2 & T3 & T4 --> Console & Go
@@ -122,15 +129,15 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.7.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.7.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.6
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.7
 ```
 
-После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode** или **OpenCode Go** в списке моделей.
+После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode (plugin)** или **OpenCode Go (plugin)** в списке моделей.
 
 ## Конфигурация
 

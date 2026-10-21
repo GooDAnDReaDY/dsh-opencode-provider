@@ -9,6 +9,7 @@ import { applyCommands } from './commands.ts'
 import { Config, NS, resolveConfig, unwrapVolatileConfig } from './config.ts'
 import { createKeyPool, openCodeAuthPath } from './credentials.ts'
 import { registerPluginUpdater } from './plugin-updater.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { applyRoutes } from './routes.ts'
 import { readRequestHeatmap } from './request-log.ts'
 import { applyOpenCodeTuiSettings } from './tui-settings.ts'
@@ -56,11 +57,11 @@ export function apply(ctx: Context, config: Config): void {
   })
 
   ctx.llm.registerConfigurableProviders([
-    { provider: 'opencode', displayName: 'OpenCode', settingsNs: NS, settingsPath: [] },
-    { provider: 'opencode-go', displayName: 'OpenCode Go', settingsNs: NS, settingsPath: [] },
+    { provider: CONSOLE_PROVIDER, displayName: 'OpenCode (plugin)', settingsNs: NS, settingsPath: [] },
+    { provider: GO_PROVIDER, displayName: 'OpenCode Go (plugin)', settingsNs: NS, settingsPath: [] },
   ])
-  ctx.llm.registerAdapter(['opencode', 'opencode-go'], adapter)
-  ctx.logger('llm-opencode').info('registered providers: opencode, opencode-go')
+  ctx.llm.registerAdapter([CONSOLE_PROVIDER, GO_PROVIDER], adapter)
+  ctx.logger('llm-opencode').info(`registered providers: ${CONSOLE_PROVIDER}, ${GO_PROVIDER}`)
 
   // The plugin ships no custom UI yet; declaring that keeps SettingsForms from
   // publishing an auto-generated page for this entry. A profile without the

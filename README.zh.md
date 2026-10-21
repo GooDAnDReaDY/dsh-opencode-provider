@@ -30,10 +30,15 @@
 
 | 路由 | 产品 / 方案 | 基础接口 | 特性说明 |
 |---|---|---|---|
-| `opencode` | OpenCode Console / Zen | `https://opencode.ai/inference` | 按量计费（pay-as-you-go） |
-| `opencode-go` | OpenCode Go / Go Plus | `https://opencode.ai/inference/go` | 订阅专属，含 5小时/每周/每月配额估算 |
+| `opencode-direct` | OpenCode Console / Zen | `https://opencode.ai/inference` | 按量计费（pay-as-you-go） |
+| `opencode-go-direct` | OpenCode Go / Go Plus | `https://opencode.ai/inference/go` | 订阅专属，含 5小时/每周/每月配额估算 |
 
 密钥在每次调用时动态解析：在设置中或环境文件中更换凭据无需重启服务器即可立即生效。
+
+`-direct` 后缀用于避免与内置 `llm-pi-ai` 已声明的 `opencode` / `opencode-go` 冲突。
+重复 id 会触发 `DUPLICATE_DIRECTORY`，导致核心丢弃内置目录、其他提供商消失并禁用添加按钮。
+旧会话继续使用内置路由；要使用本插件的账户、配额、回退和遥测，请选择
+**OpenCode (plugin)** 或 **OpenCode Go (plugin)**。
 
 ## 架构示意
 
@@ -58,14 +63,14 @@ graph LR
     end
 
     subgraph OpenCode["OpenCode 网关"]
-        Console["opencode (Console / Zen)"]
-        Go["opencode-go (Go / Go Plus)"]
+        Console["opencode-direct (Console / Zen)"]
+        Go["opencode-go-direct (Go / Go Plus)"]
     end
 
     Agent --> Router
     Creds -.-> Pool
-    Router -->|opencode| Pool
-    Router -->|opencode-go| Pool
+    Router -->|opencode-direct| Pool
+    Router -->|opencode-go-direct| Pool
     Pool --> Heatmap
     Pool --> Transports
     T1 & T2 & T3 & T4 --> Console & Go
@@ -119,15 +124,15 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.7.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.6.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.7.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.6
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.7
 ```
 
-安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode** 或 **OpenCode Go** 即可。
+安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。
 
 ## 配置示例
 

@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 
 import type { ResolvedConfig } from './config.ts'
 import type { KeyResolver } from './credentials.ts'
+import { GO_PROVIDER, LEGACY_GO_PROVIDER } from './provider-ids.ts'
 
 export interface UsageWindow {
   readonly percentUsed: number
@@ -84,7 +85,7 @@ export function createUsageReader(
   const cache = new Map<string, UsageResult>()
 
   const read = async (provider: string, explicitKey?: string): Promise<UsageResult | undefined> => {
-    if (provider !== 'opencode-go') return undefined
+    if (provider !== GO_PROVIDER && provider !== LEGACY_GO_PROVIDER) return undefined
     const current = config()
     let key: string
     if (explicitKey !== undefined && explicitKey !== '') {

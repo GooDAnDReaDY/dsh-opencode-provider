@@ -5,7 +5,7 @@ import {
   type ResolvedConfig,
 } from './config.ts'
 import { GENERATED_MODELS, type OpenCodeModelMeta, type OpenCodeTransport } from './models.generated.ts'
-import { modelsUrlFor } from './routing.ts'
+import { isGoProvider, modelsUrlFor } from './routing.ts'
 import { describeLimitsShort, limitsFor } from './subscription-limits.ts'
 
 const CATALOG_TTL_MS = 10 * 60 * 1000
@@ -128,7 +128,7 @@ export function sortForPicker(
   return ids
     .filter((id) => unfiltered
       || (modelVisible(id, config)
-        && (provider !== 'opencode-go' || modelInGoPlan(id, config))))
+        && (!isGoProvider(provider) || modelInGoPlan(id, config))))
     .sort((left, right) => {
       const a = effectiveModel(left, config)
       const b = effectiveModel(right, config)
@@ -145,7 +145,7 @@ export function describeModel(meta: EffectiveModel, provider?: string): string {
   }
   if (meta.input.includes('image')) parts.push('Image')
   if (meta.reasoning.length > 0) parts.push(`reasoning: ${meta.reasoning.join('/')}`)
-  if (provider === 'opencode-go') {
+  if (isGoProvider(provider)) {
     const limits = limitsFor(meta.id)
     if (!meta.free) parts.unshift(limits === undefined ? 'Console' : 'Go')
     if (limits !== undefined) parts.push(describeLimitsShort(limits))

@@ -33,6 +33,7 @@ import type { KeyResolver, ResolvedKey } from './credentials.ts'
 import { classifyResponseError } from './errors.ts'
 import { hasImages, resolveImages, type ImageMap } from './images.ts'
 import { buildChatBody } from './messages.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { endpointFor, isGoProvider } from './routing.ts'
 import { recordRequest as defaultRecordRequest, type RequestOutcome } from './request-log.ts'
 import { openCodeSessionId } from './session-id.ts'
@@ -118,7 +119,7 @@ export class OpenCodeAdapter extends LlmAdapter {
   override providerInfo(provider: string): LlmProviderInfo {
     return {
       id: provider,
-      name: isGoProvider(provider) ? 'OpenCode Go' : 'OpenCode',
+      name: isGoProvider(provider) ? 'OpenCode Go (plugin)' : 'OpenCode (plugin)',
     }
   }
 
@@ -351,7 +352,7 @@ export class OpenCodeAdapter extends LlmAdapter {
         if (!canRotate) {
           const canFallback = !fallback
             && config.quotaFallbackModel !== ''
-            && options.provider === 'opencode-go'
+            && isGoProvider(options.provider)
             && classified.code === 'QUOTA'
           if (canFallback) break
           throw classified
@@ -389,11 +390,11 @@ export class OpenCodeAdapter extends LlmAdapter {
       error: finalError.code,
     })
     if (!fallback && config.quotaFallbackModel !== ''
-      && options.provider === 'opencode-go'
+      && isGoProvider(options.provider)
       && (lastError === undefined || lastError.code === 'QUOTA')) {
       try {
         yield* this.run(
-          { ...options, provider: 'opencode', model: config.quotaFallbackModel },
+          { ...options, provider: CONSOLE_PROVIDER, model: config.quotaFallbackModel },
           true,
         )
         return

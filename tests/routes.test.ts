@@ -10,6 +10,7 @@ import { resolveConfig } from '../src/config.ts'
 import { applyRoutes, type RouteDeps } from '../src/routes.ts'
 import type { OpenCodeAdapter } from '../src/adapter.ts'
 import type { KeyPool } from '../src/credentials.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from '../src/provider-ids.ts'
 import type { UsageReader } from '../src/usage.ts'
 
 interface Captured {
@@ -368,7 +369,7 @@ test('health route reports provider registration', async () => {
   assert.equal(result.status, 200)
   const body = result.body as Record<string, unknown>
   assert.equal(body.ok, true)
-  assert.deepEqual(body.providers, ['opencode', 'opencode-go'])
+  assert.deepEqual(body.providers, [CONSOLE_PROVIDER, GO_PROVIDER])
   assert.equal(body.accounts, 1)
   assert.equal(body.models, 1)
 })

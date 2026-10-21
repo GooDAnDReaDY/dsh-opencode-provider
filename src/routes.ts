@@ -11,6 +11,7 @@ import type { OpenCodeAdapter } from './adapter.ts'
 import { effectiveModel, modelVisible, clearCatalogCache } from './catalog.ts'
 import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { publicConfig } from './routes-public.ts'
 import { cleanAccounts, cleanBooleanRecord, cleanModelAccountRules, cleanNumberRecord, cleanStringArray, cleanTransports } from './routes-values.ts'
 import { readOpenCodeAuthKey, listOpenCodeAuthEntries, type KeyPool } from './credentials.ts'
@@ -186,7 +187,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     }
   }
 
-  const resolved = await deps.pool.resolveAll('opencode-go').catch(() => [])
+  const resolved = await deps.pool.resolveAll(GO_PROVIDER).catch(() => [])
   if (!keyInfo.configured) {
     keyInfo = { ...keyInfo, configured: resolved.length > 0 }
   }
@@ -194,7 +195,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
   // One usage read per distinct key: labels may share a credential.
   const usageByKey = new Map<string, UsageValue>()
   await Promise.all([...new Set(resolved.map((entry) => entry.key))].map(async (key) => {
-    const result = await deps.usage('opencode-go', key)
+    const result = await deps.usage(GO_PROVIDER, key)
     usageByKey.set(key, result ?? null)
   }))
   const usageByLabel = new Map<string, UsageValue>()
@@ -262,7 +263,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
 
   let models: Array<Record<string, unknown>> = []
   try {
-    const listed = await deps.adapter.listModels('opencode-go', { unfiltered: true })
+    const listed = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true })
     models = listed.map((model) => {
       const meta = effectiveModel(model.id, config)
       return {
@@ -339,10 +340,10 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     }
     try {
       const config = deps.config()
-      const models = await deps.adapter.listModels('opencode-go', { unfiltered: true }).catch(() => [])
+      const models = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true }).catch(() => [])
       json(res, 200, {
         ok: true,
-        providers: ['opencode', 'opencode-go'],
+        providers: [CONSOLE_PROVIDER, GO_PROVIDER],
         accounts: config.accounts.length + 1,
         models: models.length,
       })
@@ -504,7 +505,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       return
     }
     const model = typeof body.model === 'string' && body.model !== '' ? body.model : 'deepseek-v4.1-flash'
-    const provider = body.provider === 'opencode' ? 'opencode' : 'opencode-go'
+    const provider = body.provider === CONSOLE_PROVIDER ? CONSOLE_PROVIDER : GO_PROVIDER
     const started = Date.now()
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 60_000)

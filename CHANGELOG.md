@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.7
+
+- **Provider-id conflict fix**: the plugin now registers `opencode-direct` and `opencode-go-direct` instead of `opencode`/`opencode-go`. The built-in `llm-pi-ai` catalog owns those ids; reusing them triggered `DUPLICATE_DIRECTORY`, dropped the built-in catalog, hid other providers and disabled the add button. Existing sessions recorded under the old ids stay on the built-in routes; select **OpenCode (plugin)** or **OpenCode Go (plugin)** for this plugin's features.
+- 89 tests.
+
 ## 0.5.6
 
 - **Persistent sticky routing**: the last successful account/model per conversation survives adapter and Desktop restarts. `~/.dsh/storages/dsh-opencode/sticky.json` stores hashed session ids and key fingerprints only (no keys or prompt text), keeps 500 entries for 14 days.

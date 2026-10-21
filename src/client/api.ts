@@ -1,3 +1,4 @@
+import { CONSOLE_PROVIDER, GO_PROVIDER } from '../provider-ids.ts'
 import type { SubscriptionLimits } from '../subscription-limits.ts'
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'
@@ -290,7 +291,7 @@ export function fetchAnalytics(days = 30): Promise<AnalyticsReport> {
 
 export function testConnection(
   model: string,
-  provider: 'opencode-go' | 'opencode' = 'opencode-go',
+  provider: typeof CONSOLE_PROVIDER | typeof GO_PROVIDER = GO_PROVIDER,
 ): Promise<TestResult> {
   return call('/dsh-opencode/test', { method: 'POST', body: JSON.stringify({ model, provider }) })
 }

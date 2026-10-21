@@ -5,6 +5,7 @@ import type { OpenCodeAdapter } from './adapter.ts'
 import { effectiveModel } from './catalog.ts'
 import type { ResolvedConfig } from './config.ts'
 import type { KeyPool, ResolvedKey } from './credentials.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { formatRequests, limitsFor } from './subscription-limits.ts'
 import type { UsageResult, UsageWindow } from './usage.ts'
 
@@ -59,7 +60,7 @@ function relative(until: number): string {
 
 async function accountsText(deps: CommandDeps): Promise<string> {
   const lines: string[] = []
-  for (const provider of ['opencode-go', 'opencode'] as const) {
+  for (const provider of [GO_PROVIDER, CONSOLE_PROVIDER] as const) {
     let keys: readonly ResolvedKey[]
     try {
       keys = await deps.pool.resolveAll(provider)
@@ -75,7 +76,7 @@ async function accountsText(deps: CommandDeps): Promise<string> {
     lines.push(`${provider}:`)
     for (const [index, entry] of keys.entries()) {
       const health = deps.adapter.accountHealth(entry.key)
-      const usage = provider === 'opencode-go' ? await deps.usage(provider, entry.key) : undefined
+      const usage = provider === GO_PROVIDER ? await deps.usage(provider, entry.key) : undefined
       const tags = [
         entry.source,
         entry === active ? 'active' : '',
@@ -97,7 +98,7 @@ function rulesText(deps: CommandDeps): string {
 async function modelsText(deps: CommandDeps): Promise<string> {
   const config = deps.config()
   try {
-    const models = await deps.adapter.listModels('opencode-go', { unfiltered: true })
+    const models = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true })
     if (models.length === 0) return 'No models.'
     return models.map((model) => {
       const meta = effectiveModel(model.id, config)
@@ -121,7 +122,7 @@ async function testText(deps: CommandDeps, model: string): Promise<{ ok: boolean
   let text = ''
   try {
     for await (const chunk of deps.adapter.stream({
-      provider: 'opencode-go',
+      provider: GO_PROVIDER,
       model,
       messages: [{ role: 'user', content: [{ type: 'text', text: 'Reply with exactly OK.' }] }],
       maxTokens: 16,
@@ -168,7 +169,7 @@ export function applyCommands(ctx: Context, deps: CommandDeps): void {
         case 'status':
           return { kind: 'success', text: await statusText(deps) }
         case 'usage': {
-          const usage = await deps.usage('opencode-go')
+          const usage = await deps.usage(GO_PROVIDER)
           if (usage?.report === undefined) {
             return { kind: 'error', text: `Quota unavailable: ${usage?.error ?? 'no report'}` }
           }
