@@ -35,6 +35,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [testModel, setTestModel] = useState('deepseek-v4.1-flash')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
+  const [importing, setImporting] = useState(false)
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -85,6 +86,35 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       setError(null)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t('failed'))
+    }
+  }
+
+  const importAllAuth = async (): Promise<void> => {
+    if (state === null || draft === null) return
+    const refFor = (entry: string): string =>
+      `OPENCODE_AUTH_${entry.replace(/[^A-Za-z0-9]+/g, '_').toUpperCase()}`
+    const missing = state.auth.entries.filter((entry) =>
+      !draft.accounts.some((account) =>
+        account.label === entry || account.apiKeyEnv === refFor(entry)))
+    if (missing.length === 0) {
+      setNotice(t('importedAll'))
+      return
+    }
+    setImporting(true)
+    setError(null)
+    try {
+      for (const entry of missing) await importAuth(entry, refFor(entry))
+      update({
+        accounts: [
+          ...draft.accounts,
+          ...missing.map((entry) => ({ label: entry, apiKeyEnv: refFor(entry) })),
+        ],
+      })
+      setNotice(t('importedAll'))
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t('failed'))
+    } finally {
+      setImporting(false)
     }
   }
 
@@ -439,6 +469,17 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           >
             {t('addAccount')}
           </button>
+          <button
+            type="button"
+            className="oc-button"
+            disabled={importing}
+            onClick={() => { void importAllAuth() }}
+          >
+            {importing ? t('loading') : t('importAllAuth')}
+          </button>
+          <button type="button" className="oc-button" onClick={() => { void refresh() }}>
+            {t('checkAllAccounts')}
+          </button>
           <span className="oc-badge">
             {t('activeAccount')}: {draft.activeAccount === '' ? t('auto') : draft.activeAccount}
           </span>
@@ -502,6 +543,34 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
         >
           {t('addRule')}
         </button>
+      </section>
+
+      <section className="oc-card">
+        <h3 className="oc-card-title">{t('routing')}</h3>
+        <p className="oc-hint">{t('routingHint')}</p>
+        <label className="oc-row">
+          <input
+            type="checkbox"
+            checked={draft.stickySession}
+            onChange={(event) => update({ stickySession: event.target.checked })}
+          />
+          <span>{t('stickySession')}</span>
+        </label>
+        <p className="oc-hint">{t('stickySessionHint')}</p>
+        <label className="oc-field">
+          <span className="oc-label">{t('quotaFallbackModel')}</span>
+          <select
+            className="oc-select"
+            value={draft.quotaFallbackModel}
+            onChange={(event) => update({ quotaFallbackModel: event.target.value })}
+          >
+            <option value="">{t('off')}</option>
+            {state.models.filter((model) => model.free).map((model) => (
+              <option key={model.id} value={model.id}>{model.name} ({model.id})</option>
+            ))}
+          </select>
+          <span className="oc-hint">{t('quotaFallbackModelHint')}</span>
+        </label>
       </section>
 
       <section className="oc-card">

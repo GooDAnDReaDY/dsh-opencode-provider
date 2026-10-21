@@ -12,11 +12,20 @@ export interface RequestRecord {
   provider: string
   model: string
   purpose?: string
+  account?: string
+  reason?: string
 }
 
 export interface ModelRequestHeatmap {
   provider: string
   model: string
+  total: number
+  hours: number[]
+  grid: number[][]
+}
+
+export interface AccountRequestHeatmap {
+  account: string
   total: number
   hours: number[]
   grid: number[][]
@@ -32,6 +41,7 @@ export interface RequestHeatmap {
   firstAt: number | null
   lastAt: number | null
   models: ModelRequestHeatmap[]
+  accounts: AccountRequestHeatmap[]
 }
 
 /** Append-only request metadata. The path is local; no prompt or response is stored. */
@@ -41,7 +51,7 @@ export function requestLogPath(): string {
 }
 
 let queue: Promise<void> = Promise.resolve()
-let directoryReady = false
+let readyDirectory = ''
 let appends = 0
 
 export function recordRequest(
@@ -49,20 +59,26 @@ export function recordRequest(
   model: string,
   at = Date.now(),
   purpose?: string,
+  account?: string,
+  reason?: string,
 ): void {
   const line = `${JSON.stringify({
     at,
     provider,
     model,
     ...(purpose === undefined ? {} : { purpose }),
+    ...(account === undefined ? {} : { account }),
+    ...(reason === undefined ? {} : { reason }),
   })}\n`
   queue = queue.then(async () => {
     try {
-      if (!directoryReady) {
-        await mkdir(dirname(requestLogPath()), { recursive: true })
-        directoryReady = true
+      const path = requestLogPath()
+      const directory = dirname(path)
+      if (readyDirectory !== directory) {
+        await mkdir(directory, { recursive: true })
+        readyDirectory = directory
       }
-      await appendFile(requestLogPath(), line, 'utf8')
+      await appendFile(path, line, 'utf8')
       appends += 1
       if (appends % COMPACT_EVERY === 0) await compactRequestLog()
     } catch {
@@ -100,6 +116,7 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
   const hours = Array.from({ length: 24 }, () => 0)
   const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0))
   const models = new Map<string, ModelRequestHeatmap>()
+  const accounts = new Map<string, AccountRequestHeatmap>()
   const seen = new Set<string>()
   let total = 0
   let firstAt: number | null = null
@@ -109,7 +126,7 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
   try {
     text = await readFile(requestLogPath(), 'utf8')
   } catch {
-    return { since, total, hours, grid, firstAt, lastAt, models: [] }
+    return { since, total, hours, grid, firstAt, lastAt, models: [], accounts: [] }
   }
 
   for (const line of text.split('\n')) {
@@ -133,7 +150,11 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
     const model = typeof (parsed as { model?: unknown }).model === 'string'
       ? (parsed as { model: string }).model
       : ''
-    const key = `${at}|${provider}|${model}`
+    const account = typeof (parsed as { account?: unknown }).account === 'string'
+      && (parsed as { account: string }).account !== ''
+      ? (parsed as { account: string }).account
+      : 'unknown'
+    const key = `${at}|${provider}|${model}|${account}`
     if (seen.has(key)) continue
     seen.add(key)
 
@@ -163,6 +184,21 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
       if (modelRow !== undefined) modelRow[hour] = (modelRow[hour] ?? 0) + 1
     }
 
+    let accountEntry = accounts.get(account)
+    if (accountEntry === undefined) {
+      accountEntry = {
+        account,
+        total: 0,
+        hours: Array.from({ length: 24 }, () => 0),
+        grid: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
+      }
+      accounts.set(account, accountEntry)
+    }
+    accountEntry.total += 1
+    accountEntry.hours[hour] = (accountEntry.hours[hour] ?? 0) + 1
+    const accountRow = accountEntry.grid[day]
+    if (accountRow !== undefined) accountRow[hour] = (accountRow[hour] ?? 0) + 1
+
     total += 1
     if (firstAt === null || at < firstAt) firstAt = at
     if (lastAt === null || at > lastAt) lastAt = at
@@ -176,5 +212,6 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
     firstAt,
     lastAt,
     models: [...models.values()].sort((a, b) => b.total - a.total || a.model.localeCompare(b.model)),
+    accounts: [...accounts.values()].sort((a, b) => b.total - a.total || a.account.localeCompare(b.account)),
   }
 }

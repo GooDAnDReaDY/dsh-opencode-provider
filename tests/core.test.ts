@@ -135,6 +135,92 @@ test('images are rendered per transport', () => {
   assert.deepEqual(googleParts?.[1], { inlineData: { mimeType: 'image/png', data: 'AAAA' } })
 })
 
+test('file attachments become DSH handle text on every transport', () => {
+  const file = {
+    type: 'file' as const,
+    attachment: {
+      attachmentId: 'file-1',
+      name: 'notes.txt',
+      bytes: 42,
+    } as never,
+  }
+  const fileOptions = options({
+    messages: [{
+      role: 'user',
+      content: [{ type: 'text', text: 'read this' }, file],
+    }],
+  } as unknown as GenerateOptions)
+
+  const chat = buildMessages(fileOptions)
+  assert.match(String(chat[0]?.content), /notes\.txt/)
+  assert.match(String(chat[0]?.content), /42 bytes/)
+
+  const anthropic = buildAnthropicBody(fileOptions, effectiveModel('claude-haiku-5-5', resolved()), resolved())
+  const anthropicText = (anthropic.messages as Array<{ content: Array<Record<string, unknown>> }>)[0]?.content?.[1]?.text
+  assert.match(String(anthropicText), /notes\.txt/)
+
+  const responses = buildResponsesBody(fileOptions, effectiveModel('gpt-6-luna', resolved()), resolved())
+  const responsesText = (responses.input as Array<{ content: Array<Record<string, unknown>> }>)[0]?.content?.[1]?.text
+  assert.match(String(responsesText), /notes\.txt/)
+
+  const google = buildGoogleBody(fileOptions, effectiveModel('gemini-4-argon-contributor', resolved()), resolved())
+  const googleText = (google.contents as Array<{ parts: Array<Record<string, unknown>> }>)[0]?.parts?.[1]?.text
+  assert.match(String(googleText), /notes\.txt/)
+})
+
+test('inline tool-result images are rendered by supporting transports', () => {
+  const attachment = {
+    attachmentId: 'img_1',
+    mediaType: 'image/png',
+    bytes: 4,
+    width: 8,
+    height: 8,
+  } as never
+  const images = new Map([['img_1', {
+    mediaType: 'image/png',
+    base64: 'AAAA',
+    dataUrl: 'data:image/png;base64,AAAA',
+    width: 8,
+    height: 8,
+  }]])
+  const toolOptions = options({
+    messages: [{
+      role: 'tool',
+      toolCallId: 'call-1',
+      content: [{ type: 'text', text: 'shot' }, { type: 'image', attachment }],
+    }],
+  } as unknown as GenerateOptions)
+
+  const anthropic = buildAnthropicBody(
+    toolOptions,
+    effectiveModel('claude-haiku-5-5', resolved()),
+    resolved(),
+    images,
+  )
+  const anthropicResult = (anthropic.messages as Array<{ content: Array<Record<string, unknown>> }>)[0]?.content?.[0]
+  const anthropicContent = anthropicResult?.content as Array<Record<string, unknown>>
+  assert.ok(anthropicContent.some((part) => part.type === 'image'))
+
+  const responses = buildResponsesBody(
+    toolOptions,
+    effectiveModel('gpt-6-luna', resolved()),
+    resolved(),
+    images,
+  )
+  const responsesOutput = (responses.input as Array<{ output: unknown }>)[0]?.output
+  assert.ok(Array.isArray(responsesOutput))
+  assert.ok((responsesOutput as Array<Record<string, unknown>>).some((part) => part.type === 'input_image'))
+
+  const google = buildGoogleBody(
+    toolOptions,
+    effectiveModel('gemini-4-argon-contributor', resolved()),
+    resolved(),
+    images,
+  )
+  const googleParts = (google.contents as Array<{ parts: Array<Record<string, unknown>> }>)[0]?.parts
+  assert.ok(googleParts?.some((part) => part.inlineData !== undefined))
+})
+
 test('tool-result images become a placeholder instead of failing the request', () => {
   const messages = buildMessages(options({
     messages: [{

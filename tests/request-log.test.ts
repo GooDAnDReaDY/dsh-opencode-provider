@@ -12,6 +12,29 @@ import {
   requestLogPath,
 } from '../src/request-log.ts'
 
+test('aggregates requests per account', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'dsh-opencode-accounts-'))
+  const previous = process.env.DSH_HOME
+  process.env.DSH_HOME = home
+  const at = new Date(2026, 0, 5, 14, 30).getTime()
+  try {
+    recordRequest('opencode-go', 'm', at, undefined, 'default')
+    recordRequest('opencode-go', 'm', at + 60_000, undefined, 'Go #2')
+    recordRequest('opencode-go', 'm', at + 120_000, undefined, 'Go #2')
+    await flushRequestLog()
+    const heatmap = await readRequestHeatmap(7, at + 200_000)
+    const fallback = heatmap.accounts.find((entry) => entry.account === 'default')
+    const second = heatmap.accounts.find((entry) => entry.account === 'Go #2')
+    assert.equal(fallback?.total, 1)
+    assert.equal(second?.total, 2)
+    assert.equal(second?.hours[14], 2)
+  } finally {
+    if (previous === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = previous
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
 test('records requests and builds a local weekday/hour heatmap', async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-opencode-log-'))
   const previous = process.env.DSH_HOME

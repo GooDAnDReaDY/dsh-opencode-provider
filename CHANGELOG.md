@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.2
+
+- **Quota fallback**: choose a free model in Settings → OpenCode. A Go quota rejection retries the same request once on Console/Zen with that model; failures surface the original quota error.
+- **Sticky account**: the last successful account is preferred for the same conversation; explicit model rules, pinned accounts, and quota fallback still win.
+- **Routing trace**: the quota panel shows recent account/model choices (`rule`, `sticky`, `rotation`, `quota-fallback`) without prompts or keys.
+- **Per-account heatmap**: the request log records the account label, and the heatmap can be filtered by account.
+- **File attachments** are projected to DSH handle text instead of failing; **tool-result images** are inline on Anthropic, OpenAI Responses and Google (OpenAI Chat keeps a placeholder).
+- **Account onboarding**: import every OpenCode `auth.json` key into its own credential ref and add matching accounts; **Check all accounts** refreshes quota and health per account.
+- TUI exposes `quotaFallbackModel` and `stickySession`; 82 tests.
+
 ## 0.5.1
 
 - Remove the non-standard inline key card from Settings → Models. Provider cards stay standard; the key is edited only through **Изменить** on the OpenCode settings page.

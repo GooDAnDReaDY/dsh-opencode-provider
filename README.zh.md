@@ -79,7 +79,9 @@ graph LR
   - OpenAI Responses（GPT、Grok、Muse）。
   - Google Generative AI（Gemini）。
 - **完整数据类型流式支持**：文本、思考推理（reasoning）、流式工具调用（tool calls）、用量统计与 finish reasons。
-- **多模态图像传输**：通过持久化附件服务，按协议原生转换与传输。
+- **多模态图像传输**：通过持久化附件服务，按协议原生转换与传输；**文件**转为 DSH 确定性 handle 文本（由 harness 提供只读路径），不传 inline 字节。
+- **工具结果中的图像**在 Anthropic、OpenAI Responses 和 Google 中内联；OpenAI Chat 因消息格式限制保留文本占位符。
+- **账户引导**：**Import all from auth.json** 将所有 OpenCode 密钥导入独立 credential ref 并添加账户；**Check all accounts** 刷新每个账户的配额与健康状态。
 - **协议特定元数据重放**：
   - Anthropic 思考签名（`thinking signatures`）。
   - Google 历史函数调用中的 `thoughtSignature`。
@@ -89,11 +91,15 @@ graph LR
   - 正在流式传输中的请求不会被打断，下一个请求会自动使用下一个可用密钥。
 - **多账户额度与健康监控**：每行独立展示 5 小时、每周与每月使用情况，活跃账户驱动侧边栏与配额面板。
 - **模型 ➔ 账户路由规则**：支持 Glob 通配符（如 `*free*`、`deepseek-*`）将模型优先绑定至特定账户，其他账户保留为备用。
-- **本地时间请求热力图**：星期×小时交互式热力图，排除系统心跳与重复记录，仅保存 `{at, provider, model, purpose}` 元数据，不保存任何提示词与回复。
+- **配额回退**：在设置中选择免费模型；Go 返回配额错误时，同一请求通过 Console/Zen 重试一次。若回退也失败，返回原始配额错误。
+- **会话粘性账户**：同一会话优先使用上次成功的账户；显式模型规则、固定账户和配额回退优先。
+- **路由追踪**：配额面板显示最近的账户/模型决策（`rule`、`sticky`、`rotation`、`quota-fallback`），不记录提示词或密钥。
+- **本地时间请求热力图**：星期×小时交互式热力图，排除系统心跳与重复记录，可按模型或账户过滤，仅保存 `{at, provider, model, purpose, account, reason}` 元数据，不保存任何提示词与回复。
 - **稳定的 `x-opencode-session` 标头**：根据 DSH 会话 ID 派生，确保重试与连续对话复用相同的网关路由键。
 - **实时模型目录**：自动从 `/v1/models` 同步，并以 `models.dev` 生成文件作为回退。
 - **Go 订阅额度估算**：每月美元额度以及 5 小时、每周和每月的估算请求次数。
 - **`/opencode` 斜杠指令**：快速查询状态、配额、账户、模型及执行联通性测试。
+- **TUI 设置**：`/settings → OpenCode` 支持密钥、端点、allowlist、活动账户、回退模型、粘性路由和超时。
 - **Web UI 一键更新**：设置页集成版本比对与一键热更新按钮。
 - **MCP 工具上限防护**：在大规模 MCP 工具集达到 128 工具限制时，优先保留 DSH 核心系统工具。
 
@@ -110,12 +116,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.2.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.1
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.2
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode** 或 **OpenCode Go** 即可。

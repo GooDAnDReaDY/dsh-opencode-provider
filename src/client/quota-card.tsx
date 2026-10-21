@@ -81,6 +81,15 @@ function accountStatus(account: AccountRow, t: (key: string) => string): string 
     .find((value) => value !== undefined && value !== 'ok')
 }
 
+function routingLabel(reason: string, t: (key: string) => string): string {
+  if (reason === 'rule') return t('routingRule')
+  if (reason === 'sticky') return t('routingSticky')
+  if (reason === 'pinned') return t('routingPinned')
+  if (reason === 'rotation') return t('routingRotation')
+  if (reason === 'quota-fallback') return t('routingFallback')
+  return t('routingDefault')
+}
+
 function fillClass(value: number): string {
   if (value >= 90) return 'oc-footFill oc-footFillBad'
   if (value >= 75) return 'oc-footFill oc-footFillWarn'
@@ -361,6 +370,41 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
           <p className="oc-hint">{t('accountsHint')}</p>
         </section>
       )}
+
+      <section className="oc-card">
+        <h3 className="oc-card-title">{t('routing')}</h3>
+        {(state?.routing ?? []).length === 0
+          ? <p className="oc-hint">{t('routingEmpty')}</p>
+          : (
+            <div className="oc-table-scroll">
+              <table className="oc-table">
+                <thead>
+                  <tr>
+                    <th>{t('date')}</th>
+                    <th>{t('accountLabel')}</th>
+                    <th>{t('model')}</th>
+                    <th>{t('routing')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(state?.routing ?? []).slice(0, 8).map((row) => (
+                    <tr key={`${row.at}-${row.account}-${row.model}-${row.reason}`}>
+                      <td>{new Date(row.at).toLocaleTimeString()}</td>
+                      <td>{row.account}</td>
+                      <td>{row.model}</td>
+                      <td>
+                        {routingLabel(row.reason, t)}
+                        {row.fallback ? ` · ${t('routingFallback')}` : ''}
+                        {row.ok ? '' : ` · ${t('routingFailed')}${row.error === undefined ? '' : ` (${row.error})`}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        <p className="oc-hint">{t('routingHint')}</p>
+      </section>
 
       <section className="oc-card">
         <div className="oc-row">

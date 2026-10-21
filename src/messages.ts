@@ -8,6 +8,7 @@ import {
 import type { EffectiveModel } from './catalog.ts'
 import { effectiveMaxTokens } from './catalog.ts'
 import type { ResolvedConfig } from './config.ts'
+import { filePlaceholder } from './files.ts'
 import { offloadPlaceholder, type ImageMap } from './images.ts'
 import { normalizeToolParameters } from './tool-schema.ts'
 
@@ -34,7 +35,7 @@ function textOnly(content: readonly ContentBlock[]): string {
   for (const block of content) {
     if (block.type === 'text') parts.push(block.text)
     else if (block.type === 'image') parts.push(offloadPlaceholder(block.attachment))
-    else if (block.type === 'file') parts.push('[file omitted: tool-result files are not supported]')
+    else if (block.type === 'file') parts.push(filePlaceholder(block.attachment))
   }
   return parts.join('')
 }
@@ -64,7 +65,7 @@ function userContent(content: readonly ContentBlock[], images: ImageMap | undefi
       hasImage = true
       parts.push({ type: 'image_url', image_url: { url: image.dataUrl } })
     } else if (block.type === 'file') {
-      throw new LlmError('llm-opencode: file attachments are not supported yet.', 'UNSUPPORTED_CONTENT')
+      parts.push({ type: 'text', text: filePlaceholder(block.attachment) })
     }
   }
   if (!hasImage) return parts.map((part) => part.type === 'text' ? part.text : '').join('')
