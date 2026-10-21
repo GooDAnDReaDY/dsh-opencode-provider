@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
@@ -266,6 +269,32 @@ test('config route normalizes model-account rules', async () => {
   const ops = mutations[0]?.ops as Array<{ op: string; path: string[]; value: unknown }>
   const ruleOp = ops.find((op) => op.path[0] === 'modelAccountRules')
   assert.deepEqual(ruleOp?.value, [{ pattern: '*free*', account: 'Go #2' }])
+})
+
+test('auth-import can store an entry under an explicit credential ref', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'dsh-opencode-auth-'))
+  const previous = process.env.XDG_DATA_HOME
+  process.env.XDG_DATA_HOME = home
+  try {
+    await mkdir(join(home, 'opencode'), { recursive: true })
+    await writeFile(
+      join(home, 'opencode', 'auth.json'),
+      JSON.stringify({ 'opencode-go': { key: 'auth-secret' } }),
+      'utf8',
+    )
+    const { routes, stored } = harness()
+    const result = await call(routes.get('/dsh-opencode/auth-import')!, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: { entry: 'opencode-go', ref: 'OPENCODE_AUTH_OPENCODE_GO' },
+    })
+    assert.equal(result.status, 200)
+    assert.equal(stored.get('OPENCODE_AUTH_OPENCODE_GO'), 'auth-secret')
+  } finally {
+    if (previous === undefined) delete process.env.XDG_DATA_HOME
+    else process.env.XDG_DATA_HOME = previous
+    await rm(home, { recursive: true, force: true })
+  }
 })
 
 test('key route stores the key through the credentials seam', async () => {

@@ -6,7 +6,9 @@
 - **Sticky account**: the last successful account is preferred for the same conversation; explicit model rules, pinned accounts, and quota fallback still win.
 - **Routing trace**: the quota panel shows recent account/model choices (`rule`, `sticky`, `rotation`, `quota-fallback`) without prompts or keys.
 - **Per-account heatmap**: the request log records the account label, and the heatmap can be filtered by account.
-- TUI exposes `quotaFallbackModel` and `stickySession`; 79 tests.
+- **File attachments** are projected to DSH handle text instead of failing; **tool-result images** are inline on Anthropic, OpenAI Responses and Google (OpenAI Chat keeps a placeholder).
+- **Account onboarding**: import every OpenCode `auth.json` key into its own credential ref and add matching accounts; **Check all accounts** refreshes quota and health per account.
+- TUI exposes `quotaFallbackModel` and `stickySession`; 82 tests.
 
 ## 0.5.1
 

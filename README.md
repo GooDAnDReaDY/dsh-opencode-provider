@@ -79,7 +79,8 @@ graph LR
   - OpenAI Responses (GPT, Grok, Muse).
   - Google Generative AI (Gemini).
 - **Text, reasoning, streamed tool calls, usage, finish reasons.**
-- **Images** through the durable attachment service, rendered natively per transport.
+- **Images** through the durable attachment service, rendered natively per transport; **file attachments** are projected to DSH's deterministic handle text (the harness supplies the read-only execution path), never inline bytes.
+- **Tool-result images** are inlined by Anthropic, OpenAI Responses and Google; OpenAI Chat keeps the text placeholder because its tool message has no image part.
 - **Replay of provider metadata** where the endpoint requires it:
   - Anthropic thinking signatures.
   - Gemini `thoughtSignature` on historical function calls.
@@ -227,7 +228,7 @@ Open **Settings → OpenCode**:
 
 - **Key** — status, paste a new key, import the key OpenCode already stored, clear it, or run a **Test connection** against a chosen model and see the latency and reply.
 - **Quota** — 5-hour, weekly and monthly bars with reset dates, plus warning banners at 80% and 95%.
-- **Accounts** — add extra accounts by credential reference, set each account's key from the page, see whether it is configured, pin one, or return to automatic rotation.
+- **Accounts** — add extra accounts by credential reference, set each account's key from the page, see whether it is configured, pin one, or return to automatic rotation. **Import all from auth.json** copies every OpenCode key into its own credential ref and adds an account for it; **Check all accounts** refreshes the per-account quota/health rows.
 - **Models** — search, refresh the live catalog, uncheck models to build an allowlist, override the wire transport per model, and see each model's input/output price plus its Go request estimate (`Go 34.7K/5h`). Hover the estimate for the full Go / Go Plus monthly allowance and 5h/week/month request counts; expand **Subscription limits** for a table of every model with both plans.
 - **Connection** — API bases, usage endpoint, timeouts, output cap, context override, sidebar-card switch. The OpenCode auth-entry field autocompletes from the keys present in `auth.json`.
 - **Plugin update** — current/latest version, update badge, and **Update now**. It installs the exact registry version through the normal `dsh plugin add` path, blocks a second click while installing, and reports when DSH must be restarted.
@@ -289,7 +290,7 @@ GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflow
 
 ## Limitations
 
-- Verbatim file attachments are not forwarded yet; images are.
+- File attachments are forwarded as DSH handle text, not inline bytes; the harness normally supplies the read-only execution path. Tool-result images are inline on Anthropic, OpenAI Responses and Google; OpenAI Chat uses a placeholder.
 - The usage endpoint is unofficial and may change; chat never depends on it.
 - Cost is displayed only by DSH's native cost display; this plugin has no second composer cost pill.
 - Automatic update requires the DSH CLI entry in the runtime. When it is not exposed, the update card shows the current/latest status and directs the user to the DSH plugin manager.

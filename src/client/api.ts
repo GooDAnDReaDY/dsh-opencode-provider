@@ -157,8 +157,11 @@ export function clearKey(ref: string): Promise<{ ok: true }> {
   return call('/dsh-opencode/key/clear', { method: 'POST', body: JSON.stringify({ ref }) })
 }
 
-export function importAuth(entry: string): Promise<{ ok: true }> {
-  return call('/dsh-opencode/auth-import', { method: 'POST', body: JSON.stringify({ entry }) })
+export function importAuth(entry: string, ref?: string): Promise<{ ok: true }> {
+  return call('/dsh-opencode/auth-import', {
+    method: 'POST',
+    body: JSON.stringify(ref === undefined ? { entry } : { entry, ref }),
+  })
 }
 
 export interface TestResult {

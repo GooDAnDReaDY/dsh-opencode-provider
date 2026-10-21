@@ -79,7 +79,9 @@ graph LR
   - OpenAI Responses（GPT、Grok、Muse）。
   - Google Generative AI（Gemini）。
 - **完整数据类型流式支持**：文本、思考推理（reasoning）、流式工具调用（tool calls）、用量统计与 finish reasons。
-- **多模态图像传输**：通过持久化附件服务，按协议原生转换与传输。
+- **多模态图像传输**：通过持久化附件服务，按协议原生转换与传输；**文件**转为 DSH 确定性 handle 文本（由 harness 提供只读路径），不传 inline 字节。
+- **工具结果中的图像**在 Anthropic、OpenAI Responses 和 Google 中内联；OpenAI Chat 因消息格式限制保留文本占位符。
+- **账户引导**：**Import all from auth.json** 将所有 OpenCode 密钥导入独立 credential ref 并添加账户；**Check all accounts** 刷新每个账户的配额与健康状态。
 - **协议特定元数据重放**：
   - Anthropic 思考签名（`thinking signatures`）。
   - Google 历史函数调用中的 `thoughtSignature`。

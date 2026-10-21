@@ -459,13 +459,16 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const entry = typeof body.entry === 'string' && body.entry.trim() !== ''
         ? body.entry.trim()
         : deps.config().openCodeAuthEntry
+      const ref = typeof body.ref === 'string' && body.ref.trim() !== ''
+        ? body.ref.trim()
+        : deps.config().apiKeyEnv
       const key = await readOpenCodeAuthKey(entry)
       if (key === undefined) {
         json(res, 404, { error: `no key in auth.json entry "${entry}"` })
         return
       }
-      await credentials.set(credentialRef(deps.config().apiKeyEnv), key)
-      json(res, 200, { ok: true, entry })
+      await credentials.set(credentialRef(ref), key)
+      json(res, 200, { ok: true, entry, ref })
     } catch (error) {
       json(res, 500, { error: error instanceof Error ? error.message : 'import failed' })
     }
