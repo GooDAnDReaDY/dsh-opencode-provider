@@ -223,6 +223,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       <div className="oc-head">
         <h2 className="oc-title">{t('title')}</h2>
         <p className="oc-hint">{t('intro')}</p>
+        <p className="oc-hint">{t('providerMigrationNotice')}</p>
       </div>
 
       {error === null ? null : <div className="oc-error">{error}</div>}

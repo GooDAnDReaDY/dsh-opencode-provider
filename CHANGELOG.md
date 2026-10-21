@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.10
+
+- **Migration hint**: Settings → OpenCode explains the 0.5.7 provider-id split and why legacy `opencode`/`opencode-go` sessions stay on the built-in pi-ai routes. The analytics hint/empty state also distinguishes plugin routes from legacy traffic.
+- 90 tests.
+
 ## 0.5.9
 
 - **Analytics provider filter**: after the provider-id split, session model analytics includes only `opencode-direct`/`opencode-go-direct`. Legacy `opencode`/`opencode-go` sessions now belong to the built-in pi-ai catalog and are intentionally excluded, so the plugin no longer mixes built-in traffic into its model analytics.
