@@ -12,9 +12,4 @@ export const LEGACY_GO_PROVIDER = 'opencode-go'
 
 export const PLUGIN_PROVIDERS = [CONSOLE_PROVIDER, GO_PROVIDER] as const
 
-export const PLUGIN_AND_LEGACY_PROVIDERS = new Set([
-  CONSOLE_PROVIDER,
-  GO_PROVIDER,
-  LEGACY_CONSOLE_PROVIDER,
-  LEGACY_GO_PROVIDER,
-])
+export const PLUGIN_PROVIDER_SET: ReadonlySet<string> = new Set(PLUGIN_PROVIDERS)

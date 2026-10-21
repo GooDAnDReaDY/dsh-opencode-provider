@@ -3,7 +3,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 
 import { GENERATED_MODELS } from './models.generated.ts'
-import { PLUGIN_AND_LEGACY_PROVIDERS } from './provider-ids.ts'
+import { PLUGIN_PROVIDER_SET } from './provider-ids.ts'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const CACHE_TTL_MS = 60_000
@@ -236,7 +236,7 @@ export function aggregateSessions(
   for (const session of sessions) {
     const provider = session.lastUsed?.provider
     const model = session.lastUsed?.model
-    if (typeof provider !== 'string' || !PLUGIN_AND_LEGACY_PROVIDERS.has(provider) || model === undefined || model === '') {
+    if (typeof provider !== 'string' || !PLUGIN_PROVIDER_SET.has(provider) || model === undefined || model === '') {
       continue
     }
     const usage = session.usage

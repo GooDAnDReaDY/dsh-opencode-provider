@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.9
+
+- **Analytics provider filter**: after the provider-id split, session model analytics includes only `opencode-direct`/`opencode-go-direct`. Legacy `opencode`/`opencode-go` sessions now belong to the built-in pi-ai catalog and are intentionally excluded, so the plugin no longer mixes built-in traffic into its model analytics.
+- 90 tests.
+
 ## 0.5.8
 
 - **Free-tier error cooldown**: a `FreeTierError` (free model used with a free/anonymous key) is now a short `RATE_LIMIT`, not `INVALID_CREDENTIAL`. The account rotates to the next key and is cooled for 60s instead of 24h; the key itself is not invalid. Added an adapter regression test.
