@@ -14,7 +14,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'main': { kind: 'keyed'; scope: 'root' }
     'sidebar.footer.action': { kind: 'list'; scope: 'root'; owner: { wide?: boolean } }
     'conversation.composer.dock': { kind: 'list'; scope: 'session' }
-    'settings.models.provider-card': { kind: 'keyed'; scope: 'root' }
   }
 }
 

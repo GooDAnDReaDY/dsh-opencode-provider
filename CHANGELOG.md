@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.13
+
+- Removed the unused `LEGACY_CONSOLE_PROVIDER` constant and the dead `settings.models.provider-card` slot declaration left by the custom provider-card removal.
+- Removed a stray zero-byte `$null` file from the repository root.
+- No runtime behavior change; 100 tests, typecheck and build pass.
+
 ## 0.5.12
 
 - **Security**: read routes now require a literal loopback Host; `/state` is GET-only, `/health` and `/analytics` reject DNS-rebinding hosts, and updater status GET uses a loopback read guard. Added regression tests.
