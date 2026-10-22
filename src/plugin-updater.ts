@@ -6,6 +6,8 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
+
 /**
  * Host-side one-click updater for a DSH Web plugin.
  *
@@ -101,28 +103,16 @@ export function isTrustedUpdateRequest(request: Request): boolean {
   }
 }
 
-/** Local, loopback-only reads for the update card; blocks DNS-rebinding hosts. */
+/** Status reads from a local Host, including a trusted DSH Web LAN address. */
 export function isTrustedReadRequest(request: Request): boolean {
-  if (!isLoopback(request.socket?.remoteAddress)) return false
   const host = header(request, 'host')
   if (host === undefined) return false
-  try {
-    const hostUrl = new URL(`http://${host}`)
-    if (!isLoopback(hostUrl.hostname)) return false
-  } catch {
-    return false
-  }
+  const hostname = authorityHostname(host)
+  if (hostname === undefined || !isLocalHostname(hostname)) return false
   const site = header(request, 'sec-fetch-site')
-  if (site !== undefined && site !== 'same-origin') return false
+  if (site !== undefined && site !== 'same-origin' && site !== 'none') return false
   const origin = header(request, 'origin')
-  if (origin === undefined) return true
-  try {
-    const url = new URL(origin)
-    return (url.protocol === 'http:' || url.protocol === 'https:')
-      && isLoopback(url.hostname) && url.host === host
-  } catch {
-    return false
-  }
+  return origin === undefined || sameOrigin(host, origin)
 }
 
 function validProfileName(value: unknown): value is string {

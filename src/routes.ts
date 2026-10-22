@@ -10,6 +10,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type { OpenCodeAdapter } from './adapter.ts'
 import { effectiveModel, modelVisible, clearCatalogCache } from './catalog.ts'
 import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
+import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { publicConfig } from './routes-public.ts'
@@ -43,36 +44,19 @@ function json(res: ServerResponse, status: number, value: unknown): void {
 function allowedOrigin(req: IncomingMessage): boolean {
   const origin = req.headers.origin
   if (origin === undefined || origin === '') return true
-  try {
-    const parsed = new URL(origin)
-    const host = req.headers.host
-    if (host !== undefined && parsed.host === host) return true
-    return parsed.hostname === '127.0.0.1'
-      || parsed.hostname === 'localhost'
-      || parsed.hostname === '::1'
-      || parsed.hostname === '[::1]'
-  } catch {
-    return false
-  }
+  const host = req.headers.host
+  return host !== undefined && sameOrigin(host, origin)
 }
 
 /**
  * DNS rebinding keeps the browser's `Host` pointing at the attacker's name
- * while the socket reaches loopback. Same-origin checks alone cannot catch
- * that, so write endpoints accept only a literal loopback Host.
+ * while the socket reaches loopback. A trusted Host must therefore be either
+ * loopback or one of this machine's literal interface addresses; a hostname
+ * cannot pass on same-origin checks alone.
  */
-function loopbackHost(req: IncomingMessage): boolean {
-  const host = req.headers.host
-  if (host === undefined || host === '') return false
-  try {
-    const hostname = new URL(`http://${host}`).hostname
-    return hostname === '127.0.0.1'
-      || hostname === 'localhost'
-      || hostname === '::1'
-      || hostname === '[::1]'
-  } catch {
-    return false
-  }
+function trustedHost(req: IncomingMessage): boolean {
+  const hostname = authorityHostname(req.headers.host)
+  return hostname !== undefined && isLocalHostname(hostname)
 }
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -97,18 +81,17 @@ function requirePost(req: IncomingMessage, res: ServerResponse): boolean {
     json(res, 405, { error: 'POST required' })
     return false
   }
-  if (!loopbackHost(req)) {
-    json(res, 403, { error: 'non-loopback Host refused' })
+  if (!trustedHost(req)) {
+    json(res, 403, { error: 'non-local Host refused' })
     return false
   }
   if (!allowedOrigin(req)) {
     json(res, 403, { error: 'cross-origin request refused' })
     return false
   }
-  const remote = req.socket.remoteAddress ?? ''
-  const loopback = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1'
-  if (!loopback) {
-    json(res, 403, { error: 'write endpoints are restricted to the local machine' })
+  const site = req.headers['sec-fetch-site']
+  if (site !== undefined && site !== 'same-origin' && site !== 'none') {
+    json(res, 403, { error: 'cross-site request refused' })
     return false
   }
   const type = req.headers['content-type'] ?? ''
@@ -318,8 +301,8 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       json(res, 405, { error: 'GET required' })
       return
     }
-    if (!loopbackHost(req)) {
-      json(res, 403, { error: 'non-loopback Host refused' })
+    if (!trustedHost(req)) {
+      json(res, 403, { error: 'non-local Host refused' })
       return
     }
     if (!allowedOrigin(req)) {
@@ -338,8 +321,8 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       json(res, 405, { error: 'GET required' })
       return
     }
-    if (!loopbackHost(req)) {
-      json(res, 403, { error: 'non-loopback Host refused' })
+    if (!trustedHost(req)) {
+      json(res, 403, { error: 'non-local Host refused' })
       return
     }
     if (!allowedOrigin(req)) {
@@ -365,8 +348,8 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       json(res, 405, { error: 'GET required' })
       return
     }
-    if (!loopbackHost(req)) {
-      json(res, 403, { error: 'non-loopback Host refused' })
+    if (!trustedHost(req)) {
+      json(res, 403, { error: 'non-local Host refused' })
       return
     }
     if (!allowedOrigin(req)) {

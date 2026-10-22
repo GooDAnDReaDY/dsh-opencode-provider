@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.14
+
+- **DSH WEB compatibility**: same-origin requests from a literal local interface address (for example `192.168.1.111`) are accepted alongside loopback. DNS-rebinding hostnames are still rejected. This restores Settings, sidebar quota, analytics and update status on DSH Web accessed at its trusted LAN URL.
+- Config/key writes from that trusted same-origin host are enabled; `Origin` must match `Host`, and cross-site fetch metadata is rejected. Auto-update POST remains loopback-only.
+- **UI lifecycle**: the injected style tag now uses the canonical `data-dsh-plugin` marker and lookup.
+- 101 tests.
+
 ## 0.5.13
 
 - Removed the unused `LEGACY_CONSOLE_PROVIDER` constant and the dead `settings.models.provider-card` slot declaration left by the custom provider-card removal.

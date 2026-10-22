@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { networkInterfaces, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
@@ -17,6 +17,15 @@ interface Captured {
   status: number
   body: unknown
   headers: Record<string, string>
+}
+
+function localIpv4(): string | undefined {
+  for (const entries of Object.values(networkInterfaces())) {
+    for (const entry of entries ?? []) {
+      if (entry.family === 'IPv4' && !entry.internal) return entry.address
+    }
+  }
+  return undefined
 }
 
 function fakeResponse(): { res: unknown; captured: Promise<Captured> } {
@@ -380,16 +389,46 @@ test('test route streams a minimal request', async () => {
   assert.equal(typeof body.latencyMs, 'number')
 })
 
-test('non-loopback writes are refused', async () => {
+test('non-local Host writes are refused even from a LAN socket', async () => {
   const { routes } = harness()
   const result = await call(routes.get('/dsh-opencode/config')!, {
     method: 'POST',
     path: '/dsh-opencode/config',
-    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    headers: {
+      host: 'evil.example:3080',
+      'content-type': 'application/json',
+      origin: 'http://evil.example:3080',
+    },
     body: { patch: {} },
     remoteAddress: '10.0.0.5',
   })
   assert.equal(result.status, 403)
+})
+
+test('trusted local interface Host serves Web reads and writes', async () => {
+  const ip = localIpv4()
+  if (ip === undefined) return
+  const { routes } = harness()
+  const authority = `${ip}:3080`
+  const state = await call(routes.get('/dsh-opencode/state')!, {
+    path: '/dsh-opencode/state',
+    headers: { host: authority, origin: `http://${authority}` },
+    remoteAddress: '10.0.0.5',
+  })
+  assert.equal(state.status, 200)
+  const config = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: {
+      host: authority,
+      'content-type': 'application/json',
+      origin: `http://${authority}`,
+      'sec-fetch-site': 'same-origin',
+    },
+    body: { patch: { showSidebarQuota: true } },
+    remoteAddress: '10.0.0.5',
+  })
+  assert.equal(config.status, 200)
 })
 
 test('health route reports provider registration', async () => {
