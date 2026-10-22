@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { networkInterfaces, tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import test from 'node:test'
 import type { Context } from '@deepseek-ai/cordis'
@@ -7,12 +10,22 @@ import { resolveConfig } from '../src/config.ts'
 import { applyRoutes, type RouteDeps } from '../src/routes.ts'
 import type { OpenCodeAdapter } from '../src/adapter.ts'
 import type { KeyPool } from '../src/credentials.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from '../src/provider-ids.ts'
 import type { UsageReader } from '../src/usage.ts'
 
 interface Captured {
   status: number
   body: unknown
   headers: Record<string, string>
+}
+
+function localIpv4(): string | undefined {
+  for (const entries of Object.values(networkInterfaces())) {
+    for (const entry of entries ?? []) {
+      if (entry.family === 'IPv4' && !entry.internal) return entry.address
+    }
+  }
+  return undefined
 }
 
 function fakeResponse(): { res: unknown; captured: Promise<Captured> } {
@@ -61,7 +74,7 @@ async function call(
   return captured
 }
 
-function harness(overrides: { config?: Record<string, unknown> } = {}) {
+function harness(overrides: { config?: Record<string, unknown>; heatmapError?: boolean } = {}) {
   const routes = new Map<string, (req: unknown, res: unknown) => void | Promise<void>>()
   const mutations: Array<{ ns: string; ops: unknown; revision: unknown }> = []
   const stored = new Map<string, string>()
@@ -104,6 +117,7 @@ function harness(overrides: { config?: Record<string, unknown> } = {}) {
       yield { type: 'finish', reason: { kind: 'stop' } }
     },
     accountHealth: () => undefined,
+    routingTrace: () => [],
   } as unknown as OpenCodeAdapter
 
   const pool = {
@@ -201,15 +215,19 @@ function harness(overrides: { config?: Record<string, unknown> } = {}) {
         avgLatencyMs: 500,
       }],
     }),
-    heatmap: async () => ({
-      since: 0,
-      total: 2,
-      hours: Array.from({ length: 24 }, () => 0),
-      grid: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
-      firstAt: null,
-      lastAt: null,
-      models: [],
-    }),
+    heatmap: async () => {
+      if (overrides.heatmapError === true) throw new Error('heatmap failed')
+      return {
+        since: 0,
+        total: 2,
+        hours: Array.from({ length: 24 }, () => 0),
+        grid: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
+        firstAt: null,
+        lastAt: null,
+        models: [],
+        accounts: [],
+      }
+    },
   }
   applyRoutes(ctx, web, deps)
   return { routes, mutations, stored, tuiRefreshes }
@@ -266,6 +284,35 @@ test('config route normalizes model-account rules', async () => {
   assert.deepEqual(ruleOp?.value, [{ pattern: '*free*', account: 'Go #2' }])
 })
 
+test('auth-import can store an entry under an explicit credential ref', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'dsh-opencode-auth-'))
+  const previous = process.env.XDG_DATA_HOME
+  process.env.XDG_DATA_HOME = home
+  try {
+    await mkdir(join(home, 'opencode'), { recursive: true })
+    await writeFile(
+      join(home, 'opencode', 'auth.json'),
+      JSON.stringify({ 'opencode-go': { key: 'auth-secret' } }),
+      'utf8',
+    )
+    const { routes, stored } = harness()
+    const result = await call(routes.get('/dsh-opencode/auth-import')!, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: 'http://127.0.0.1:3080',
+      },
+      body: { entry: 'opencode-go', ref: 'OPENCODE_AUTH_OPENCODE_GO' },
+    })
+    assert.equal(result.status, 200)
+    assert.equal(stored.get('OPENCODE_AUTH_OPENCODE_GO'), 'auth-secret')
+  } finally {
+    if (previous === undefined) delete process.env.XDG_DATA_HOME
+    else process.env.XDG_DATA_HOME = previous
+    await rm(home, { recursive: true, force: true })
+  }
+})
+
 test('key route stores the key through the credentials seam', async () => {
   const { routes, stored } = harness()
   const result = await call(routes.get('/dsh-opencode/key')!, {
@@ -291,6 +338,32 @@ test('DNS-rebinding Host is refused even when Origin matches', async () => {
     body: { patch: { showSidebarQuota: true } },
   })
   assert.equal(result.status, 403)
+})
+
+test('read routes refuse DNS-rebinding hosts and state is GET-only', async () => {
+  const { routes } = harness()
+  for (const path of ['state', 'health', 'analytics']) {
+    const result = await call(routes.get(`/dsh-opencode/${path}`)!, {
+      path: `/dsh-opencode/${path}`,
+      headers: {
+        host: 'evil.example:3080',
+        origin: 'http://evil.example:3080',
+      },
+    })
+    assert.equal(result.status, 403)
+  }
+  const noOrigin = await call(routes.get('/dsh-opencode/state')!, {
+    path: '/dsh-opencode/state',
+    headers: { host: 'evil.example:3080' },
+  })
+  assert.equal(noOrigin.status, 403)
+  const postState = await call(routes.get('/dsh-opencode/state')!, {
+    method: 'POST',
+    path: '/dsh-opencode/state',
+    headers: { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' },
+    body: {},
+  })
+  assert.equal(postState.status, 405)
 })
 
 test('cross-origin POST is refused', async () => {
@@ -319,16 +392,69 @@ test('test route streams a minimal request', async () => {
   assert.equal(typeof body.latencyMs, 'number')
 })
 
-test('non-loopback writes are refused', async () => {
+test('write routes fail closed without Origin or Referer', async () => {
   const { routes } = harness()
   const result = await call(routes.get('/dsh-opencode/config')!, {
     method: 'POST',
     path: '/dsh-opencode/config',
-    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    headers: { 'content-type': 'application/json' },
+    body: { patch: { showSidebarQuota: true } },
+    remoteAddress: '127.0.0.1',
+  })
+  assert.equal(result.status, 403)
+  const referer = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: {
+      'content-type': 'application/json',
+      referer: 'http://127.0.0.1:3080/settings',
+    },
+    body: { patch: { showSidebarQuota: true } },
+    remoteAddress: '10.0.0.5',
+  })
+  assert.equal(referer.status, 200)
+})
+
+test('non-local Host writes are refused even from a LAN socket', async () => {
+  const { routes } = harness()
+  const result = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: {
+      host: 'evil.example:3080',
+      'content-type': 'application/json',
+      origin: 'http://evil.example:3080',
+    },
     body: { patch: {} },
     remoteAddress: '10.0.0.5',
   })
   assert.equal(result.status, 403)
+})
+
+test('trusted local interface Host serves Web reads and writes', async () => {
+  const ip = localIpv4()
+  if (ip === undefined) return
+  const { routes } = harness()
+  const authority = `${ip}:3080`
+  const state = await call(routes.get('/dsh-opencode/state')!, {
+    path: '/dsh-opencode/state',
+    headers: { host: authority, origin: `http://${authority}` },
+    remoteAddress: '10.0.0.5',
+  })
+  assert.equal(state.status, 200)
+  const config = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: {
+      host: authority,
+      'content-type': 'application/json',
+      origin: `http://${authority}`,
+      'sec-fetch-site': 'same-origin',
+    },
+    body: { patch: { showSidebarQuota: true } },
+    remoteAddress: '10.0.0.5',
+  })
+  assert.equal(config.status, 200)
 })
 
 test('health route reports provider registration', async () => {
@@ -337,9 +463,16 @@ test('health route reports provider registration', async () => {
   assert.equal(result.status, 200)
   const body = result.body as Record<string, unknown>
   assert.equal(body.ok, true)
-  assert.deepEqual(body.providers, ['opencode', 'opencode-go'])
+  assert.deepEqual(body.providers, [CONSOLE_PROVIDER, GO_PROVIDER])
   assert.equal(body.accounts, 1)
   assert.equal(body.models, 1)
+})
+
+test('analytics route reports a heatmap failure', async () => {
+  const { routes } = harness({ heatmapError: true })
+  const result = await call(routes.get('/dsh-opencode/analytics')!, { path: '/dsh-opencode/analytics?days=7' })
+  assert.equal(result.status, 500)
+  assert.deepEqual(result.body, { error: 'heatmap failed' })
 })
 
 test('analytics route returns aggregated model rows', async () => {

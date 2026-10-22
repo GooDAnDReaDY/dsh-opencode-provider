@@ -30,10 +30,17 @@ It registers two native LLM routes:
 
 | Route | Product | Base |
 |---|---|---|
-| `opencode` | OpenCode Console / Zen (pay-as-you-go) | `https://opencode.ai/inference` |
-| `opencode-go` | OpenCode Go / Go Plus subscription | `https://opencode.ai/inference/go` |
+| `opencode-direct` | OpenCode Console / Zen (pay-as-you-go) | `https://opencode.ai/inference` |
+| `opencode-go-direct` | OpenCode Go / Go Plus subscription | `https://opencode.ai/inference/go` |
 
 Requests resolve the key per call, so a changed credential reaches the next request without a restart.
+
+The ids use the `-direct` suffix because the built-in `llm-pi-ai` catalog already owns
+`opencode` and `opencode-go`. Reusing those ids makes the core registry reject the
+duplicate (`DUPLICATE_DIRECTORY`) and drop the built-in catalog, which hides the other
+providers and disables the add button. Existing sessions recorded under the old ids stay on
+the built-in routes; select **OpenCode (plugin)** or **OpenCode Go (plugin)** for this
+plugin's accounts, quotas, fallback and telemetry.
 
 ## Architecture
 
@@ -58,14 +65,14 @@ graph LR
     end
 
     subgraph OpenCode["OpenCode Gateway"]
-        Console["opencode (Console / Zen)"]
-        Go["opencode-go (Go / Go Plus)"]
+        Console["opencode-direct (Console / Zen)"]
+        Go["opencode-go-direct (Go / Go Plus)"]
     end
 
     Agent --> Router
     Creds -.-> Pool
-    Router -->|opencode| Pool
-    Router -->|opencode-go| Pool
+    Router -->|opencode-direct| Pool
+    Router -->|opencode-go-direct| Pool
     Pool --> Heatmap
     Pool --> Transports
     T1 & T2 & T3 & T4 --> Console & Go
@@ -79,19 +86,24 @@ graph LR
   - OpenAI Responses (GPT, Grok, Muse).
   - Google Generative AI (Gemini).
 - **Text, reasoning, streamed tool calls, usage, finish reasons.**
-- **Images** through the durable attachment service, rendered natively per transport.
+- **Images** through the durable attachment service, rendered natively per transport; **file attachments** are projected to DSH's deterministic handle text (the harness supplies the read-only execution path), never inline bytes.
+- **Tool-result images** are inlined by Anthropic, OpenAI Responses and Google; OpenAI Chat keeps the text placeholder because its tool message has no image part.
 - **Replay of provider metadata** where the endpoint requires it:
   - Anthropic thinking signatures.
   - Gemini `thoughtSignature` on historical function calls.
 - **Multi-account rotation** before a stream starts: 401/403/429 and quota/usage-limit bodies (400/402/403/429). An invalid key cools down for 24h, a quota rejection for 10 minutes or `Retry-After`, a rate limit for 60s or `Retry-After`. A request already streaming is never replayed on another account; the next request uses the next usable key.
 - **Per-account quotas**: each account row shows its own 5-hour / weekly / monthly usage, the active account drives the sidebar and quota panel, and the panel lists every account side by side.
+- **Per-account runway**: estimates time to exhaustion from the average burn rate of each window and marks the first window projected to run out before its reset; approximate because the API exposes only the current percentage and reset time.
 - **Model → account rules**: first matching glob pins a preferred account for that model; the other accounts remain fallbacks if it fails or is cooling.
-- **Request heatmap** in the quota panel: a Monday-first weekday × hour grid in local time, plus a 24-hour aggregate strip underneath. A selector switches between all requests and any single model. The adapter appends `{at, provider, model, purpose?}` to `~/.dsh/storages/dsh-opencode/requests.jsonl`; no prompt, response or key is stored. Auxiliary `session-title`/`compaction` calls are excluded from the heatmap and exact duplicate records collapse. The log compacts at 2 MB to the newest 5000 lines. Collection starts with this build — the projection cache only has `lastPromptAt`, not per-request timestamps.
+- **Request heatmap** in the quota panel: a Monday-first weekday × hour grid in local time, plus a 24-hour aggregate strip underneath. Selectors switch between all requests, any single model, and any single account. A per-account table shows requests, errors and average latency/TTFT. The adapter appends `{at, provider, model, purpose?, account, reason, ok, latencyMs, ttftMs?, error?}` to `~/.dsh/storages/dsh-opencode/requests.jsonl`; no prompt, response or key is stored. Auxiliary `session-title`/`compaction` calls are excluded from the heatmap and exact duplicate records collapse. The log compacts at 2 MB to the newest 5000 lines. Collection starts with this build — the projection cache only has `lastPromptAt`, not per-request timestamps.
 - **Stable `x-opencode-session`** derived from the durable session id, so retries and every turn of a conversation reuse the same routing key.
 - **Live catalog** from `/v1/models` with a generated `models.dev` fallback.
 - **Per-model subscription limits** from the OpenCode Go pricing table: monthly dollar allowance plus estimated requests for the 5-hour, weekly and monthly windows, for both Go and Go Plus. Shown in the model picker and the settings page; estimates only — the gateway remains the authority.
 - **`/opencode` command** for status, usage, accounts, models, rules, and `test [model]`.
-- **TUI settings section** for the terminal profile (`/settings → OpenCode`) with the key, endpoints, allowlist, active account and timeouts.
+- **TUI settings section** for the terminal profile (`/settings → OpenCode`) with the key, endpoints, allowlist, active account, fallback model, sticky routing and timeouts.
+- **Quota fallback**: choose a free model in Settings → OpenCode; a Go quota rejection retries once through Console/Zen.
+- **Sticky account**: the last successful account is preferred for the same conversation and survives restarts via a local `sticky.json` (hashed session ids and key fingerprints only); explicit model rules and pinned accounts win.
+- **Routing trace** in the quota panel and per-account heatmap filter.
 - **One-click plugin update** in Settings → OpenCode: current/latest version, an update badge, and an **Update now** button that installs the exact npm version through the DSH CLI and asks for a restart. The host endpoint is `GET/POST /dsh-opencode/update`.
 - **Plan-aware Go picker**: hides models outside the Go table unless turned off; descriptions carry `Go`, `Console` or `FREE`.
 - **Request-wide image budget** (newest images win, oldest become an omitted placeholder) and **object-root tool-schema normalization** for MCP/third-party tools.
@@ -118,15 +130,15 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.15.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.15.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.1
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.15
 ```
 
-Restart dsh (or DSH Desktop), then pick `OpenCode` or `OpenCode Go` in the model picker.
+Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.
 
 > **Use the tarball, not the directory.** On dsh 0.2.1-rc.2 the Desktop CLI aliases a local
 > directory passed to `dsh plugin add` as `@deepseek-ai/dsh-desktop-runtime` and overwrites
@@ -200,7 +212,7 @@ Cooldowns survive restarts: deadlines and reasons are stored in `~/.dsh/storages
 
 ### Model → account rules
 
-Pin a model to a preferred account with a glob. The first matching rule wins; `*` and `?` are supported and matching is case-insensitive. The named account is tried first, and the other accounts remain fallbacks if it is cooling, missing, or rejected — a rule is a preference, not a hard filter. An unknown account label is ignored, and rules apply to both `opencode` and `opencode-go`.
+Pin a model to a preferred account with a glob. The first matching rule wins; `*` and `?` are supported and matching is case-insensitive. The named account is tried first, and the other accounts remain fallbacks if it is cooling, missing, or rejected — a rule is a preference, not a hard filter. An unknown account label is ignored, and rules apply to both `opencode-direct` and `opencode-go-direct`.
 
 Configure them in **Settings → OpenCode → Model → account rules**, or in YAML:
 
@@ -216,7 +228,7 @@ The account label is the same one shown in **Accounts** (`default` or the extra 
 
 ### Request heatmap
 
-The quota panel has a **Request heatmap**: rows are Monday–Sunday, columns are local-time hours, and each cell counts calls made through this adapter (including tool-loop steps and `Test connection`). Auxiliary `session-title` and `compaction` calls are excluded, and exact duplicate records collapse; tool-loop steps are separate adapter requests, so one chat message is not necessarily one cell. Hover a cell to see the exact count. A 24-hour strip below the grid aggregates the same window by hour across all days, so the daily shape stays readable even when the grid is sparse. When more than one model has traffic, a selector switches the grid and strip to a single model; each option shows its total. The data is append-only metadata in `~/.dsh/storages/dsh-opencode/requests.jsonl`; it never includes prompts, responses or keys. Because the local projection cache stores only the last prompt time per session, the heatmap starts collecting with this build and grows as you use the plugin.
+The quota panel has a **Request heatmap**: rows are Monday–Sunday, columns are local-time hours, and each cell counts calls made through this adapter (including tool-loop steps and `Test connection`). Auxiliary `session-title` and `compaction` calls are excluded, and exact duplicate records collapse; tool-loop steps are separate adapter requests, so one chat message is not necessarily one cell. Hover a cell to see the exact count. A 24-hour strip below the grid aggregates the same window by hour across all days, so the daily shape stays readable even when the grid is sparse. When more than one model or account has traffic, selectors switch the grid and strip to a single model or account; each option shows its total. The data is append-only metadata in `~/.dsh/storages/dsh-opencode/requests.jsonl`; it never includes prompts, responses or keys. Because the local projection cache stores only the last prompt time per session, the heatmap starts collecting with this build and grows as you use the plugin.
 
 ## Settings page
 
@@ -224,12 +236,14 @@ Open **Settings → OpenCode**:
 
 - **Key** — status, paste a new key, import the key OpenCode already stored, clear it, or run a **Test connection** against a chosen model and see the latency and reply.
 - **Quota** — 5-hour, weekly and monthly bars with reset dates, plus warning banners at 80% and 95%.
-- **Accounts** — add extra accounts by credential reference, set each account's key from the page, see whether it is configured, pin one, or return to automatic rotation.
+- **Accounts** — add extra accounts by credential reference, set each account's key from the page, see whether it is configured, pin one, or return to automatic rotation. **Import all from auth.json** copies every OpenCode key into its own credential ref and adds an account for it; **Check all accounts** refreshes the per-account quota/health rows.
 - **Models** — search, refresh the live catalog, uncheck models to build an allowlist, override the wire transport per model, and see each model's input/output price plus its Go request estimate (`Go 34.7K/5h`). Hover the estimate for the full Go / Go Plus monthly allowance and 5h/week/month request counts; expand **Subscription limits** for a table of every model with both plans.
-- **Connection** — API bases, usage endpoint, timeouts, output cap, context override, sidebar-card switch. The OpenCode auth-entry field autocompletes from the keys present in `auth.json`.
+- **Connection** — API bases, usage endpoint, timeouts, output cap, context override. The OpenCode auth-entry field autocompletes from the keys present in `auth.json`.
+- **Sidebar** — show or hide the quota card. The card refreshes immediately after saving and otherwise every 60 seconds.
 - **Plugin update** — current/latest version, update badge, and **Update now**. It installs the exact registry version through the normal `dsh plugin add` path, blocks a second click while installing, and reports when DSH must be restarted.
+- **Routing** — sticky account per conversation and the free fallback model used after a Go quota error. The quota panel shows the last routing decisions with their reason.
 
-The sidebar quota card is **off by default**. Enable *Show the quota card in the sidebar* in the settings page; clicking the card opens the full quota panel, which also carries the **Usage by model** table (7/30/90-day window).
+The sidebar quota card is **off by default**. Enable *Show the quota card in the sidebar* under **Sidebar**; the card appears immediately after saving, and clicking it opens the full quota panel with the **Usage by model** table (7/30/90-day window).
 
 The Host serves `/dsh-opencode/state`, `/health`, `/analytics`, `/config`, `/key`, `/key/clear`, `/auth-import`, `/refresh`, `/models/refresh`, `/test` and `/update`. Writes require JSON, are refused for cross-origin requests, and are restricted to loopback (`127.0.0.1` / `::1`); reads stay same-origin. This keeps key and configuration writes off a LAN-exposed web server until the host's own auth token can be integrated.
 
@@ -285,13 +299,13 @@ GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflow
 
 ## Limitations
 
-- Verbatim file attachments are not forwarded yet; images are.
+- File attachments are forwarded as DSH handle text, not inline bytes; the harness normally supplies the read-only execution path. Tool-result images are inline on Anthropic, OpenAI Responses and Google; OpenAI Chat uses a placeholder.
 - The usage endpoint is unofficial and may change; chat never depends on it.
 - Cost is displayed only by DSH's native cost display; this plugin has no second composer cost pill.
 - Automatic update requires the DSH CLI entry in the runtime. When it is not exposed, the update card shows the current/latest status and directs the user to the DSH plugin manager.
 - Subscription request counts are OpenCode's published estimates, not enforced quotas. They can change when OpenCode updates the Go pricing table; the gateway is the final authority.
 - Usage-by-model aggregates the local projection cache and attributes a whole session to its last-used model; a session that switched models is therefore approximate. It never reads prompt text or titles.
-- `opencode` (Console) billing shows no per-model allowance; the Go route is the primary target.
+- `opencode-direct` (Console) billing shows no per-model allowance; the Go route is the primary target.
 - The anonymous free lane (`Bearer public` + CLI impersonation) is not implemented.
 - The UI requires a web profile (the Host needs `ctx.webServer`); the TUI keeps the `/opencode` command and the model routes.
 - Write routes are loopback-only; a web profile exposed to a LAN can read state but cannot save configuration or keys until the host auth token is integrated.

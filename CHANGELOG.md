@@ -1,5 +1,87 @@
 # Changelog
 
+## 0.5.15
+
+- **Write security**: all write endpoints now require a same-origin `Origin` or `Referer` whose host matches `Host`; a request with neither is rejected with 403 instead of being treated as local. Regression tests cover missing headers, Referer fallback and the DSH LAN bridge path.
+- **Release tooling**: `prepare` sends tsdown output to stderr, so `npm pack --json` emits parseable JSON for preflight.
+- 102 tests.
+
+## 0.5.14
+
+- **DSH WEB compatibility**: same-origin requests from a literal local interface address (for example `192.168.1.111`) are accepted alongside loopback. DNS-rebinding hostnames are still rejected. This restores Settings, sidebar quota, analytics and update status on DSH Web accessed at its trusted LAN URL.
+- Config/key writes from that trusted same-origin host are enabled; `Origin` must match `Host`, and cross-site fetch metadata is rejected. Auto-update POST remains loopback-only.
+- **UI lifecycle**: the injected style tag now uses the canonical `data-dsh-plugin` marker and lookup.
+- 101 tests.
+
+## 0.5.13
+
+- Removed the unused `LEGACY_CONSOLE_PROVIDER` constant and the dead `settings.models.provider-card` slot declaration left by the custom provider-card removal.
+- Removed a stray zero-byte `$null` file from the repository root.
+- No runtime behavior change; 100 tests, typecheck and build pass.
+
+## 0.5.12
+
+- **Security**: read routes now require a literal loopback Host; `/state` is GET-only, `/health` and `/analytics` reject DNS-rebinding hosts, and updater status GET uses a loopback read guard. Added regression tests.
+- **Routing correctness**: sticky selection and the success trace are recorded only after the stream completes; a mid-stream failure now records a failed trace, not a false success.
+- **Onboarding**: auth-entry credential refs use injective hex encoding, so entries differing only by punctuation cannot overwrite each other. Added a collision test.
+- **Client tests**: added React server-render smoke tests for analytics, heatmap, settings and quota panel; 100 tests.
+- Read routes now work only from the local machine; a LAN-exposed web profile can no longer read plugin state (write routes were already loopback-only).
+
+## 0.5.11
+
+- **Usage fetch retry**: the quota reader retries one transient Node/undici network failure before caching `fetch failed`, so a brief connect timeout no longer leaves the quota panel without usage data.
+- 91 tests.
+
+## 0.5.10
+
+- **Migration hint**: Settings → OpenCode explains the 0.5.7 provider-id split and why legacy `opencode`/`opencode-go` sessions stay on the built-in pi-ai routes. The analytics hint/empty state also distinguishes plugin routes from legacy traffic.
+- 90 tests.
+
+## 0.5.9
+
+- **Analytics provider filter**: after the provider-id split, session model analytics includes only `opencode-direct`/`opencode-go-direct`. Legacy `opencode`/`opencode-go` sessions now belong to the built-in pi-ai catalog and are intentionally excluded, so the plugin no longer mixes built-in traffic into its model analytics.
+- 90 tests.
+
+## 0.5.8
+
+- **Free-tier error cooldown**: a `FreeTierError` (free model used with a free/anonymous key) is now a short `RATE_LIMIT`, not `INVALID_CREDENTIAL`. The account rotates to the next key and is cooled for 60s instead of 24h; the key itself is not invalid. Added an adapter regression test.
+- 90 tests.
+
+## 0.5.7
+
+- **Provider-id conflict fix**: the plugin now registers `opencode-direct` and `opencode-go-direct` instead of `opencode`/`opencode-go`. The built-in `llm-pi-ai` catalog owns those ids; reusing them triggered `DUPLICATE_DIRECTORY`, dropped the built-in catalog, hid other providers and disabled the add button. Existing sessions recorded under the old ids stay on the built-in routes; select **OpenCode (plugin)** or **OpenCode Go (plugin)** for this plugin's features.
+- 89 tests.
+
+## 0.5.6
+
+- **Persistent sticky routing**: the last successful account/model per conversation survives adapter and Desktop restarts. `~/.dsh/storages/dsh-opencode/sticky.json` stores hashed session ids and key fingerprints only (no keys or prompt text), keeps 500 entries for 14 days.
+- 88 tests.
+
+## 0.5.5
+
+- **Per-account request stats**: every upstream attempt now records its outcome, latency and TTFT in the local request log; the heatmap adds a per-account table with requests, errors and average latency/TTFT. No prompt or response content is stored.
+- 87 tests.
+
+## 0.5.4
+
+- **Sidebar settings**: the quota-card switch moved out of Connection into its own **Sidebar** section in Settings → OpenCode and into the TUI; saving now refreshes the sidebar card immediately instead of waiting for the 60-second poll.
+- 85 tests.
+
+## 0.5.3
+
+- **Per-account runway**: the quota panel estimates time to exhaustion for each account from the 5-hour, weekly and monthly burn rate and flags the first window projected to run out before its reset. The estimate is intentionally approximate; only the current percentage and reset time are exposed by the usage endpoint.
+- 84 tests.
+
+## 0.5.2
+
+- **Quota fallback**: choose a free model in Settings → OpenCode. A Go quota rejection retries the same request once on Console/Zen with that model; failures surface the original quota error.
+- **Sticky account**: the last successful account is preferred for the same conversation; explicit model rules, pinned accounts, and quota fallback still win.
+- **Routing trace**: the quota panel shows recent account/model choices (`rule`, `sticky`, `rotation`, `quota-fallback`) without prompts or keys.
+- **Per-account heatmap**: the request log records the account label, and the heatmap can be filtered by account.
+- **File attachments** are projected to DSH handle text instead of failing; **tool-result images** are inline on Anthropic, OpenAI Responses and Google (OpenAI Chat keeps a placeholder).
+- **Account onboarding**: import every OpenCode `auth.json` key into its own credential ref and add matching accounts; **Check all accounts** refreshes quota and health per account.
+- TUI exposes `quotaFallbackModel` and `stickySession`; 82 tests.
+
 ## 0.5.1
 
 - Remove the non-standard inline key card from Settings → Models. Provider cards stay standard; the key is edited only through **Изменить** on the OpenCode settings page.

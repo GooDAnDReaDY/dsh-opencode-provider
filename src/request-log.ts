@@ -7,17 +7,42 @@ const MAX_LOG_BYTES = 2 * 1024 * 1024
 const KEEP_LINES = 5_000
 const COMPACT_EVERY = 200
 
+export interface RequestOutcome {
+  ok: boolean
+  latencyMs: number
+  /** Request start; the log uses it as the event timestamp. */
+  at?: number
+  ttftMs?: number
+  error?: string
+}
+
 export interface RequestRecord {
   at: number
   provider: string
   model: string
   purpose?: string
+  account?: string
+  reason?: string
+  ok?: boolean
+  latencyMs?: number
+  ttftMs?: number
+  error?: string
 }
 
 export interface ModelRequestHeatmap {
   provider: string
   model: string
   total: number
+  hours: number[]
+  grid: number[][]
+}
+
+export interface AccountRequestHeatmap {
+  account: string
+  total: number
+  errors: number
+  avgLatencyMs: number | null
+  avgTtftMs: number | null
   hours: number[]
   grid: number[][]
 }
@@ -32,6 +57,7 @@ export interface RequestHeatmap {
   firstAt: number | null
   lastAt: number | null
   models: ModelRequestHeatmap[]
+  accounts: AccountRequestHeatmap[]
 }
 
 /** Append-only request metadata. The path is local; no prompt or response is stored. */
@@ -41,7 +67,7 @@ export function requestLogPath(): string {
 }
 
 let queue: Promise<void> = Promise.resolve()
-let directoryReady = false
+let readyDirectory = ''
 let appends = 0
 
 export function recordRequest(
@@ -49,20 +75,35 @@ export function recordRequest(
   model: string,
   at = Date.now(),
   purpose?: string,
+  account?: string,
+  reason?: string,
+  outcome?: RequestOutcome,
 ): void {
   const line = `${JSON.stringify({
     at,
     provider,
     model,
     ...(purpose === undefined ? {} : { purpose }),
+    ...(account === undefined ? {} : { account }),
+    ...(reason === undefined ? {} : { reason }),
+    ...(outcome === undefined
+      ? {}
+      : {
+          ok: outcome.ok,
+          latencyMs: outcome.latencyMs,
+          ...(outcome.ttftMs === undefined ? {} : { ttftMs: outcome.ttftMs }),
+          ...(outcome.error === undefined ? {} : { error: outcome.error }),
+        }),
   })}\n`
   queue = queue.then(async () => {
     try {
-      if (!directoryReady) {
-        await mkdir(dirname(requestLogPath()), { recursive: true })
-        directoryReady = true
+      const path = requestLogPath()
+      const directory = dirname(path)
+      if (readyDirectory !== directory) {
+        await mkdir(directory, { recursive: true })
+        readyDirectory = directory
       }
-      await appendFile(requestLogPath(), line, 'utf8')
+      await appendFile(path, line, 'utf8')
       appends += 1
       if (appends % COMPACT_EVERY === 0) await compactRequestLog()
     } catch {
@@ -100,6 +141,14 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
   const hours = Array.from({ length: 24 }, () => 0)
   const grid = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0))
   const models = new Map<string, ModelRequestHeatmap>()
+  const accounts = new Map<string, AccountRequestHeatmap>()
+  const accountMetrics = new Map<string, {
+    errors: number
+    latencySum: number
+    latencyCount: number
+    ttftSum: number
+    ttftCount: number
+  }>()
   const seen = new Set<string>()
   let total = 0
   let firstAt: number | null = null
@@ -109,7 +158,7 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
   try {
     text = await readFile(requestLogPath(), 'utf8')
   } catch {
-    return { since, total, hours, grid, firstAt, lastAt, models: [] }
+    return { since, total, hours, grid, firstAt, lastAt, models: [], accounts: [] }
   }
 
   for (const line of text.split('\n')) {
@@ -133,7 +182,11 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
     const model = typeof (parsed as { model?: unknown }).model === 'string'
       ? (parsed as { model: string }).model
       : ''
-    const key = `${at}|${provider}|${model}`
+    const account = typeof (parsed as { account?: unknown }).account === 'string'
+      && (parsed as { account: string }).account !== ''
+      ? (parsed as { account: string }).account
+      : 'unknown'
+    const key = `${at}|${provider}|${model}|${account}`
     if (seen.has(key)) continue
     seen.add(key)
 
@@ -163,6 +216,40 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
       if (modelRow !== undefined) modelRow[hour] = (modelRow[hour] ?? 0) + 1
     }
 
+    let accountEntry = accounts.get(account)
+    if (accountEntry === undefined) {
+      accountEntry = {
+        account,
+        total: 0,
+        errors: 0,
+        avgLatencyMs: null,
+        avgTtftMs: null,
+        hours: Array.from({ length: 24 }, () => 0),
+        grid: Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => 0)),
+      }
+      accounts.set(account, accountEntry)
+    }
+    accountEntry.total += 1
+    let metrics = accountMetrics.get(account)
+    if (metrics === undefined) {
+      metrics = { errors: 0, latencySum: 0, latencyCount: 0, ttftSum: 0, ttftCount: 0 }
+      accountMetrics.set(account, metrics)
+    }
+    if ((parsed as { ok?: unknown }).ok === false) metrics.errors += 1
+    const latency = (parsed as { latencyMs?: unknown }).latencyMs
+    if (typeof latency === 'number' && Number.isFinite(latency) && latency >= 0) {
+      metrics.latencySum += latency
+      metrics.latencyCount += 1
+    }
+    const ttft = (parsed as { ttftMs?: unknown }).ttftMs
+    if (typeof ttft === 'number' && Number.isFinite(ttft) && ttft >= 0) {
+      metrics.ttftSum += ttft
+      metrics.ttftCount += 1
+    }
+    accountEntry.hours[hour] = (accountEntry.hours[hour] ?? 0) + 1
+    const accountRow = accountEntry.grid[day]
+    if (accountRow !== undefined) accountRow[hour] = (accountRow[hour] ?? 0) + 1
+
     total += 1
     if (firstAt === null || at < firstAt) firstAt = at
     if (lastAt === null || at > lastAt) lastAt = at
@@ -176,5 +263,20 @@ export async function readRequestHeatmap(days: number, now = Date.now()): Promis
     firstAt,
     lastAt,
     models: [...models.values()].sort((a, b) => b.total - a.total || a.model.localeCompare(b.model)),
+    accounts: [...accounts.values()]
+      .map((entry) => {
+        const metrics = accountMetrics.get(entry.account)
+        return {
+          ...entry,
+          errors: metrics?.errors ?? 0,
+          avgLatencyMs: metrics !== undefined && metrics.latencyCount > 0
+            ? metrics.latencySum / metrics.latencyCount
+            : null,
+          avgTtftMs: metrics !== undefined && metrics.ttftCount > 0
+            ? metrics.ttftSum / metrics.ttftCount
+            : null,
+        }
+      })
+      .sort((a, b) => b.total - a.total || a.account.localeCompare(b.account)),
   }
 }

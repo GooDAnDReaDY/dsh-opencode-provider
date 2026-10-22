@@ -18,6 +18,8 @@ export interface PublicConfig {
   maxOutputTokens: number | null
   accounts: ReadonlyArray<{ label: string; apiKeyEnv: string }>
   modelAccountRules: ReadonlyArray<{ pattern: string; account: string }>
+  quotaFallbackModel: string
+  stickySession: boolean
   activeAccount: string
   showSidebarQuota: boolean
   userAgent: string
@@ -48,6 +50,8 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
       pattern: rule.pattern,
       account: rule.account,
     })),
+    quotaFallbackModel: config.quotaFallbackModel,
+    stickySession: config.stickySession,
     activeAccount: config.activeAccount,
     showSidebarQuota: config.showSidebarQuota,
     userAgent: config.userAgent,

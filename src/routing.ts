@@ -1,8 +1,9 @@
 import type { ResolvedConfig, TransportId } from './config.ts'
 import type { OpenCodeModelMeta } from './models.generated.ts'
+import { GO_PROVIDER, LEGACY_GO_PROVIDER } from './provider-ids.ts'
 
-export function isGoProvider(provider: string): boolean {
-  return provider === 'opencode-go'
+export function isGoProvider(provider: string | undefined): boolean {
+  return provider === GO_PROVIDER || provider === LEGACY_GO_PROVIDER
 }
 
 export function rootFor(provider: string, config: ResolvedConfig): string {

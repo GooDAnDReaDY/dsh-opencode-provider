@@ -6,6 +6,8 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
+
 /**
  * Host-side one-click updater for a DSH Web plugin.
  *
@@ -99,6 +101,18 @@ export function isTrustedUpdateRequest(request: Request): boolean {
   } catch {
     return false
   }
+}
+
+/** Status reads from a local Host, including a trusted DSH Web LAN address. */
+export function isTrustedReadRequest(request: Request): boolean {
+  const host = header(request, 'host')
+  if (host === undefined) return false
+  const hostname = authorityHostname(host)
+  if (hostname === undefined || !isLocalHostname(hostname)) return false
+  const site = header(request, 'sec-fetch-site')
+  if (site !== undefined && site !== 'same-origin' && site !== 'none') return false
+  const origin = header(request, 'origin')
+  return origin === undefined || sameOrigin(host, origin)
 }
 
 function validProfileName(value: unknown): value is string {
@@ -311,6 +325,10 @@ export function registerPluginUpdater(ctx: Context, options: PluginUpdaterOption
       try {
         const target = runtime()
         if (request.method === 'GET' || request.method === 'HEAD') {
+          if (!isTrustedReadRequest(request)) {
+            json(response, 403, { error: 'Rejected non-local update status request.' })
+            return
+          }
           const payload = await status(options, target)
           response.writeHead(200, {
             'content-type': 'application/json; charset=utf-8',
