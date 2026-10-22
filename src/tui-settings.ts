@@ -52,6 +52,9 @@ export interface OpenCodeTuiSettingsDeps {
   readonly visibleModels: () => readonly string[]
   readonly activeAccount: () => string
   readonly filterModelsByPlan: () => boolean
+  readonly quotaFallbackModel: () => string
+  readonly stickySession: () => boolean
+  readonly showSidebarQuota: () => boolean
   /** Poll interval for settings changed from inside the terminal UI. */
   readonly refreshMs?: number
 }
@@ -88,6 +91,7 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
       { id: 'connection', title: 'Connection' },
       { id: 'models', title: 'Models' },
       { id: 'advanced', title: 'Advanced' },
+      { id: 'sidebar', title: 'Sidebar' },
     ],
     fields: [
       {
@@ -147,6 +151,33 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         label: 'Hide outside Go allowance',
         hint: 'On the Go route, show only Go-table and free models.',
         format: (value) => String(value === undefined ? deps.filterModelsByPlan() : value !== false),
+        parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
+      },
+      {
+        path: ['quotaFallbackModel'],
+        group: 'models',
+        kind: 'text',
+        label: 'Quota fallback model',
+        hint: 'Free model id used once after a Go quota error; empty disables it.',
+        format: () => deps.quotaFallbackModel(),
+        parse: setOrClear,
+      },
+      {
+        path: ['stickySession'],
+        group: 'advanced',
+        kind: 'boolean',
+        label: 'Sticky account per conversation',
+        hint: 'Prefer the last successful account for the same conversation.',
+        format: (value) => String(value === undefined ? deps.stickySession() : value !== false),
+        parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
+      },
+      {
+        path: ['showSidebarQuota'],
+        group: 'sidebar',
+        kind: 'boolean',
+        label: 'Show quota card in sidebar',
+        hint: 'Card visibility updates on the next sidebar refresh.',
+        format: (value) => String(value === undefined ? deps.showSidebarQuota() : value === true),
         parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
       },
       {
@@ -218,6 +249,9 @@ export function applyOpenCodeTuiSettings(
     visibleModels: deps.visibleModels(),
     activeAccount: deps.activeAccount(),
     filterModelsByPlan: deps.filterModelsByPlan(),
+    quotaFallbackModel: deps.quotaFallbackModel(),
+    stickySession: deps.stickySession(),
+    showSidebarQuota: deps.showSidebarQuota(),
   })
   let lastSignature = signature()
 

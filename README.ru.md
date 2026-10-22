@@ -30,10 +30,17 @@
 
 | Маршрут | Продукт / Тариф | Базовый эндпоинт | Назначение |
 |---|---|---|---|
-| `opencode` | OpenCode Console / Zen | `https://opencode.ai/inference` | Поминутная тарификация (pay-as-you-go) |
-| `opencode-go` | OpenCode Go / Go Plus | `https://opencode.ai/inference/go` | Фиксированная подписка с лимитами 5h / недели / месяца |
+| `opencode-direct` | OpenCode Console / Zen | `https://opencode.ai/inference` | Поминутная тарификация (pay-as-you-go) |
+| `opencode-go-direct` | OpenCode Go / Go Plus | `https://opencode.ai/inference/go` | Фиксированная подписка с лимитами 5h / недели / месяца |
 
 Ключи разрешаются динамически на каждый вызов: смена токена в настройках или в файле окружения вступает в силу мгновенно без перезапуска сервера.
+
+Суффикс `-direct` нужен потому, что встроенный каталог `llm-pi-ai` уже объявляет
+`opencode` и `opencode-go`. Повтор этих id даёт `DUPLICATE_DIRECTORY`, из-за чего
+ядро отбрасывает встроенный каталог, исчезают остальные провайдеры и отключается
+кнопка добавления. Старые сессии с прежними id остаются на встроенных маршрутах;
+для возможностей плагина выбирайте **OpenCode (plugin)** или
+**OpenCode Go (plugin)**.
 
 ## Архитектура
 
@@ -58,14 +65,14 @@ graph LR
     end
 
     subgraph OpenCode["Шлюз OpenCode Gateway"]
-        Console["opencode (Console / Zen)"]
-        Go["opencode-go (Go / Go Plus)"]
+        Console["opencode-direct (Console / Zen)"]
+        Go["opencode-go-direct (Go / Go Plus)"]
     end
 
     Agent --> Router
     Creds -.-> Pool
-    Router -->|opencode| Pool
-    Router -->|opencode-go| Pool
+    Router -->|opencode-direct| Pool
+    Router -->|opencode-go-direct| Pool
     Pool --> Heatmap
     Pool --> Transports
     T1 & T2 & T3 & T4 --> Console & Go
@@ -79,7 +86,8 @@ graph LR
   - OpenAI Responses (GPT, Grok, Muse).
   - Google Generative AI (Gemini).
 - **Полноценная поддержка всех типов данных**: текст, рассуждения (reasoning), стриминг вызовов инструментов (tool calls), статистика токенов (usage), корректные finish reasons.
-- **Обработка изображений** через встроенный сервис attachments с нативным рендерингом под протокол конкретного транспорта.
+- **Обработка изображений** через встроенный сервис attachments с нативным рендерингом под протокол конкретного транспорта; **файлы** проецируются в детерминированный handle-text DSH (с read-only путём от harness), без inline-байтов.
+- **Изображения в tool-result** встраиваются в Anthropic, OpenAI Responses и Google; OpenAI Chat оставляет текстовый placeholder.
 - **Воспроизведение метаданных провайдеров** при строгих требованиях API:
   - Подписи рассуждений Anthropic (`thinking signatures`).
   - Google `thoughtSignature` в истории вызовов функций.
@@ -87,15 +95,22 @@ graph LR
   - Автоматический переход на следующий аккаунт при 401/403/429 или ответах о превышении квот (400/402/403/429).
   - Недействительный ключ охлаждается 24 часа, превышение квоты — 10 минут (или по заголовку `Retry-After`), rate limit — 60 секунд (или по `Retry-After`).
   - Если запрос уже начал стриминг, он не переключается посреди ответа; следующий запрос берёт следующий готовый ключ.
+- **Sidebar-карточка квот**: отдельный переключатель в разделе **Sidebar** (и в TUI); после сохранения карточка появляется/исчезает сразу, без ожидания 60-секундного polling.
 - **Квоты по каждому аккаунту**: отображение индивидуального расхода за 5 часов, неделю и месяц; активный аккаунт управляет сайдбаром и панелью.
+- **Runway по каждому аккаунту**: оценка времени до исчерпания по среднему темпу каждого окна; отмечается первое окно, которое закончится раньше сброса. Оценка приблизительная: API отдаёт только текущий процент и время сброса.
+- **Онбординг аккаунтов**: **Import all from auth.json** переносит все ключи OpenCode в отдельные credential ref и добавляет аккаунты; **Check all accounts** обновляет квоты и health по каждому аккаунту.
 - **Правила «модель ➔ аккаунт»**: сопоставление по glob-паттернам закрепляет предпочтительный аккаунт за моделью; остальные аккаунты остаются в резерве.
-- **Почасовой Heatmap запросов**: сетка «день недели × час» в локальном времени плюс суточная полоса агрегации. Фильтр переключает отображение между всеми запросами и конкретной моделью. Лог `~/.dsh/storages/dsh-opencode/requests.jsonl` хранит только метаданные `{at, provider, model, purpose}` (промпты и ответы не сохраняются).
+- **Квотный fallback**: выберите бесплатную модель в настройках; при ошибке квоты Go тот же запрос один раз повторяется через Console/Zen. Если fallback тоже не сработал, возвращается исходная ошибка квоты.
+- **Липкий аккаунт**: последний успешный аккаунт предпочитается в том же диалоге и сохраняется между перезапусками в локальном `sticky.json` (только хешированные session id и fingerprint ключей); явные правила модели, закреплённый аккаунт и квотный fallback имеют приоритет.
+- **Трассировка маршрутизации**: панель квот показывает последние решения (`rule`, `sticky`, `rotation`, `quota-fallback`) без промптов и ключей.
+- **Статистика по аккаунтам**: в request log пишутся `ok`, `latencyMs`, `ttftMs` и `error`; heatmap показывает таблицу запросов, ошибок и средних latency/TTFT по каждому аккаунту.
+- **Почасовой Heatmap запросов**: сетка «день недели × час» в локальном времени плюс суточная полоса агрегации. Фильтры переключают отображение между всеми запросами, конкретной моделью и аккаунтом. Лог `~/.dsh/storages/dsh-opencode/requests.jsonl` хранит только метаданные `{at, provider, model, purpose, account, reason, ok, latencyMs, ttftMs, error}` (промпты и ответы не сохраняются).
 - **Стабильный заголовок `x-opencode-session`**: вычисляется из устойчивого ID сессии DSH, обеспечивая одинаковый ключ маршрутизации при повторах и диалоге.
 - **Живой каталог моделей**: автоматическое чтение `/v1/models` с резервным fallback из `models.dev`.
 - **Оценки лимитов подписки OpenCode Go**: долларовый лимит и расчетное число запросов для окон 5h, недели и месяца для планов Go и Go Plus.
 - **Команда `/opencode`**: быстрый просмотр статуса, квот, аккаунтов, моделей, правил и запуск теста связи `test [model]`.
-- **Настройки в терминале (TUI)**: раздел `/settings → OpenCode` для профиля terminal с ключом, эндпоинтами, allowlist, активным аккаунтом и таймаутами.
-- **Интеграция с Settings → Models**: карточка ключа в стандартном списке моделей DSH.
+- **Настройки в терминале (TUI)**: раздел `/settings → OpenCode` для профиля terminal с ключом, эндпоинтами, allowlist, активным аккаунтом, fallback-моделью, sticky-маршрутизацией и таймаутами.
+- **Интеграция с Settings → Models**: стандартные карточки OpenCode/OpenCode Go; ключ задаётся только через «Изменить».
 - **One-Click обновление плагина**: кнопка **Update now** в настройках проверяет npm registry, ставит точную версию через DSH CLI и запрашивает перезапуск.
 - **Plan-aware Go picker**: фильтрация моделей вне тарифной сетки Go с бейджами `Go`, `Console` или `FREE`.
 - **Защита лимита MCP-инструментов**: сохраняет системные инструменты DSH (`read`, `write`, `edit`, `bash`, `glob`, `grep`) при сокращении сторонних инструментов под лимит 128.
@@ -114,15 +129,15 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.15.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.1.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.15.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.1
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.15
 ```
 
-После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode** или **OpenCode Go** в списке моделей.
+После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode (plugin)** или **OpenCode Go (plugin)** в списке моделей.
 
 ## Конфигурация
 

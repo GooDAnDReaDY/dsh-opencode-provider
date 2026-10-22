@@ -1,3 +1,4 @@
+import { CONSOLE_PROVIDER, GO_PROVIDER } from '../provider-ids.ts'
 import type { SubscriptionLimits } from '../subscription-limits.ts'
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'
@@ -20,9 +21,22 @@ export interface PublicConfig {
   maxOutputTokens: number | null
   accounts: ReadonlyArray<{ label: string; apiKeyEnv: string }>
   modelAccountRules: ReadonlyArray<{ pattern: string; account: string }>
+  quotaFallbackModel: string
+  stickySession: boolean
   activeAccount: string
   showSidebarQuota: boolean
   userAgent: string
+}
+
+export interface RoutingTraceRow {
+  at: number
+  provider: string
+  model: string
+  account: string
+  reason: 'rule' | 'sticky' | 'pinned' | 'default' | 'rotation' | 'quota-fallback'
+  fallback: boolean
+  ok: boolean
+  error?: string
 }
 
 export interface ModelRow {
@@ -76,6 +90,7 @@ export interface HostState {
   accounts: AccountRow[]
   models: ModelRow[]
   usage: UsageState | null
+  routing: RoutingTraceRow[]
   auth: { entry: string; hasStoredKey: boolean; entries: readonly string[] }
   revision?: number
 }
@@ -143,8 +158,11 @@ export function clearKey(ref: string): Promise<{ ok: true }> {
   return call('/dsh-opencode/key/clear', { method: 'POST', body: JSON.stringify({ ref }) })
 }
 
-export function importAuth(entry: string): Promise<{ ok: true }> {
-  return call('/dsh-opencode/auth-import', { method: 'POST', body: JSON.stringify({ entry }) })
+export function importAuth(entry: string, ref?: string): Promise<{ ok: true }> {
+  return call('/dsh-opencode/auth-import', {
+    method: 'POST',
+    body: JSON.stringify(ref === undefined ? { entry } : { entry, ref }),
+  })
 }
 
 export interface TestResult {
@@ -235,6 +253,16 @@ export interface ModelRequestHeatmap {
   grid: number[][]
 }
 
+export interface AccountRequestHeatmap {
+  account: string
+  total: number
+  errors: number
+  avgLatencyMs: number | null
+  avgTtftMs: number | null
+  hours: number[]
+  grid: number[][]
+}
+
 export interface RequestHeatmap {
   since: number
   total: number
@@ -243,6 +271,7 @@ export interface RequestHeatmap {
   firstAt: number | null
   lastAt: number | null
   models: ModelRequestHeatmap[]
+  accounts: AccountRequestHeatmap[]
 }
 
 export interface AnalyticsReport {
@@ -262,7 +291,7 @@ export function fetchAnalytics(days = 30): Promise<AnalyticsReport> {
 
 export function testConnection(
   model: string,
-  provider: 'opencode-go' | 'opencode' = 'opencode-go',
+  provider: typeof CONSOLE_PROVIDER | typeof GO_PROVIDER = GO_PROVIDER,
 ): Promise<TestResult> {
   return call('/dsh-opencode/test', { method: 'POST', body: JSON.stringify({ model, provider }) })
 }

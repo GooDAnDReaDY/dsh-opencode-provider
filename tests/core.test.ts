@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import type { Context } from '@deepseek-ai/cordis'
+import { apply } from '../src/index.ts'
+import type { HostState } from '../src/client/api.ts'
+import { authRefForEntry } from '../src/client/auth-ref.ts'
+import { draftOf, patchOf, safeSame } from '../src/client/settings-draft.ts'
 import { effectiveModel, effectiveMaxTokens, describeModel } from '../src/catalog.ts'
 import { resolveConfig, type Config } from '../src/config.ts'
 import { classifyResponseError } from '../src/errors.ts'
@@ -8,6 +13,8 @@ import { buildChatBody, buildMessages } from '../src/messages.ts'
 import { buildAnthropicBody } from '../src/transports/anthropic.ts'
 import { buildGoogleBody } from '../src/transports/google.ts'
 import { buildResponsesBody } from '../src/transports/responses.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from '../src/provider-ids.ts'
+import { accountRunway, estimateRunway } from '../src/quota-runway.ts'
 import { endpointFor } from '../src/routing.ts'
 import { openCodeSessionId } from '../src/session-id.ts'
 import { normalizeUsage } from '../src/usage.ts'
@@ -30,6 +37,82 @@ function options(overrides: Partial<GenerateOptions> = {}): GenerateOptions {
     ...overrides,
   } as GenerateOptions
 }
+
+test('plugin provider ids do not collide with the built-in pi-ai catalog', () => {
+  assert.notEqual(CONSOLE_PROVIDER, 'opencode')
+  assert.notEqual(GO_PROVIDER, 'opencode-go')
+  assert.notEqual(CONSOLE_PROVIDER, GO_PROVIDER)
+  assert.match(CONSOLE_PROVIDER, /^[a-z0-9-]+$/)
+  assert.match(GO_PROVIDER, /^[a-z0-9-]+$/)
+})
+
+test('apply registers only the unique plugin provider ids', () => {
+  const providers: Array<{ provider: string; displayName: string }> = []
+  const adapters: string[] = []
+  const ctx = {
+    llm: {
+      registerConfigurableProviders: (entries: typeof providers) => { providers.push(...entries) },
+      registerAdapter: (ids: string[]) => { adapters.push(...ids) },
+    },
+    logger: () => ({ info: () => {}, warn: () => {} }),
+    inject: () => {},
+    effect: () => () => {},
+    get: () => undefined,
+  } as unknown as Context
+  apply(ctx, { apiKeyEnv: 'OPENCODE_TEST_KEY' } as Config)
+  assert.deepEqual(providers.map((entry) => entry.provider), [CONSOLE_PROVIDER, GO_PROVIDER])
+  assert.deepEqual(adapters, [CONSOLE_PROVIDER, GO_PROVIDER])
+  assert.ok(providers.every((entry) => entry.displayName.endsWith('(plugin)')))
+})
+
+test('auth entry refs are collision-free', () => {
+  const first = authRefForEntry('opencode-go')
+  const second = authRefForEntry('opencode_go')
+  assert.notEqual(first, second)
+  assert.match(first, /^OPENCODE_AUTH_[0-9a-f]+$/)
+  assert.equal(first, authRefForEntry('opencode-go'))
+})
+
+test('settings draft and patch keep client edits normalized', () => {
+  const state = {
+    config: {
+      apiKeyEnv: 'OPENCODE_API_KEY',
+      apiBase: 'https://a',
+      goApiBase: 'https://b',
+      goZenBase: 'https://c',
+      usageUrl: 'https://u',
+      openCodeAuthEntry: 'opencode-go',
+      requestTimeoutMs: 300000,
+      streamIdleTimeoutMs: 300000,
+      maxOutputTokens: null,
+      contextWindow: null,
+      accounts: [{ label: 'Go #2', apiKeyEnv: 'OPENCODE_API_KEY_2' }],
+      modelAccountRules: [{ pattern: '*free*', account: 'Go #2' }],
+      quotaFallbackModel: '',
+      stickySession: true,
+      activeAccount: '',
+      showSidebarQuota: true,
+      visibleModels: [],
+      filterModelsByPlan: true,
+      modelTransports: {},
+    },
+    models: [{ id: 'model-a' }, { id: 'model-b' }],
+  } as unknown as HostState
+  const draft = draftOf(state)
+  assert.deepEqual(draft.visibleModels, ['model-a', 'model-b'])
+  assert.equal(draft.showAll, true)
+  draft.accounts.push({ label: ' ', apiKeyEnv: ' ' })
+  draft.modelAccountRules.push({ pattern: ' ', account: ' ' })
+  draft.quotaFallbackModel = ' beam-free '
+  draft.visibleModels = ['model-a']
+  draft.showAll = false
+  const patch = patchOf(draft)
+  assert.equal(patch.quotaFallbackModel, 'beam-free')
+  assert.deepEqual(patch.accounts, [{ label: 'Go #2', apiKeyEnv: 'OPENCODE_API_KEY_2' }])
+  assert.deepEqual(patch.modelAccountRules, [{ pattern: '*free*', account: 'Go #2' }])
+  assert.deepEqual(patch.visibleModels, ['model-a'])
+  assert.equal(safeSame(draft, draftOf(state)), false)
+})
 
 test('session id is stable per conversation and differs across conversations', () => {
   const first = openCodeSessionId(options())
@@ -135,6 +218,139 @@ test('images are rendered per transport', () => {
   assert.deepEqual(googleParts?.[1], { inlineData: { mimeType: 'image/png', data: 'AAAA' } })
 })
 
+test('estimates quota runway and flags exhaustion before reset', () => {
+  const now = Date.parse('2026-01-01T00:00:00Z')
+  const hour = 3_600_000
+  const fiveHour = estimateRunway({
+    percentUsed: 50,
+    resetsAt: new Date(now + 3 * hour).toISOString(),
+  }, 5 * hour, now)
+  assert.ok(fiveHour)
+  assert.equal(Math.round((fiveHour?.etaMs ?? 0) / hour), 2)
+  assert.equal(fiveHour?.exhaustsBeforeReset, true)
+
+  const safe = estimateRunway({
+    percentUsed: 10,
+    resetsAt: new Date(now + 4 * hour).toISOString(),
+  }, 5 * hour, now)
+  assert.equal(safe?.exhaustsBeforeReset, false)
+
+  const exhausted = estimateRunway({
+    percentUsed: 100,
+    resetsAt: new Date(now + hour).toISOString(),
+  }, 5 * hour, now)
+  assert.equal(exhausted?.etaMs, 0)
+  assert.equal(exhausted?.exhaustsBeforeReset, true)
+
+  assert.equal(estimateRunway({ percentUsed: 10 }, 5 * hour, now), undefined)
+})
+
+test('account runway picks the first window projected to run out', () => {
+  const now = Date.parse('2026-01-01T00:00:00Z')
+  const hour = 3_600_000
+  const day = 24 * hour
+  const summary = accountRunway({
+    fiveHour: { percentUsed: 50, resetsAt: new Date(now + 3 * hour).toISOString() },
+    weekly: { percentUsed: 20, resetsAt: new Date(now + 3 * day).toISOString() },
+  }, now)
+  assert.equal(summary.kind, 'eta')
+  if (summary.kind === 'eta') {
+    assert.equal(summary.window, 'fiveHour')
+    assert.equal(Math.round(summary.etaMs / hour), 2)
+  }
+
+  assert.deepEqual(accountRunway({}, now), { kind: 'unknown' })
+  assert.deepEqual(accountRunway({
+    fiveHour: { percentUsed: 10, resetsAt: new Date(now + 4 * hour).toISOString() },
+  }, now), { kind: 'safe' })
+})
+
+test('file attachments become DSH handle text on every transport', () => {
+  const file = {
+    type: 'file' as const,
+    attachment: {
+      attachmentId: 'file-1',
+      name: 'notes.txt',
+      bytes: 42,
+    } as never,
+  }
+  const fileOptions = options({
+    messages: [{
+      role: 'user',
+      content: [{ type: 'text', text: 'read this' }, file],
+    }],
+  } as unknown as GenerateOptions)
+
+  const chat = buildMessages(fileOptions)
+  assert.match(String(chat[0]?.content), /notes\.txt/)
+  assert.match(String(chat[0]?.content), /42 bytes/)
+
+  const anthropic = buildAnthropicBody(fileOptions, effectiveModel('claude-haiku-5-5', resolved()), resolved())
+  const anthropicText = (anthropic.messages as Array<{ content: Array<Record<string, unknown>> }>)[0]?.content?.[1]?.text
+  assert.match(String(anthropicText), /notes\.txt/)
+
+  const responses = buildResponsesBody(fileOptions, effectiveModel('gpt-6-luna', resolved()), resolved())
+  const responsesText = (responses.input as Array<{ content: Array<Record<string, unknown>> }>)[0]?.content?.[1]?.text
+  assert.match(String(responsesText), /notes\.txt/)
+
+  const google = buildGoogleBody(fileOptions, effectiveModel('gemini-4-argon-contributor', resolved()), resolved())
+  const googleText = (google.contents as Array<{ parts: Array<Record<string, unknown>> }>)[0]?.parts?.[1]?.text
+  assert.match(String(googleText), /notes\.txt/)
+})
+
+test('inline tool-result images are rendered by supporting transports', () => {
+  const attachment = {
+    attachmentId: 'img_1',
+    mediaType: 'image/png',
+    bytes: 4,
+    width: 8,
+    height: 8,
+  } as never
+  const images = new Map([['img_1', {
+    mediaType: 'image/png',
+    base64: 'AAAA',
+    dataUrl: 'data:image/png;base64,AAAA',
+    width: 8,
+    height: 8,
+  }]])
+  const toolOptions = options({
+    messages: [{
+      role: 'tool',
+      toolCallId: 'call-1',
+      content: [{ type: 'text', text: 'shot' }, { type: 'image', attachment }],
+    }],
+  } as unknown as GenerateOptions)
+
+  const anthropic = buildAnthropicBody(
+    toolOptions,
+    effectiveModel('claude-haiku-5-5', resolved()),
+    resolved(),
+    images,
+  )
+  const anthropicResult = (anthropic.messages as Array<{ content: Array<Record<string, unknown>> }>)[0]?.content?.[0]
+  const anthropicContent = anthropicResult?.content as Array<Record<string, unknown>>
+  assert.ok(anthropicContent.some((part) => part.type === 'image'))
+
+  const responses = buildResponsesBody(
+    toolOptions,
+    effectiveModel('gpt-6-luna', resolved()),
+    resolved(),
+    images,
+  )
+  const responsesOutput = (responses.input as Array<{ output: unknown }>)[0]?.output
+  assert.ok(Array.isArray(responsesOutput))
+  assert.ok((responsesOutput as Array<Record<string, unknown>>).some((part) => part.type === 'input_image'))
+
+  const google = buildGoogleBody(
+    toolOptions,
+    effectiveModel('gemini-4-argon-contributor', resolved()),
+    resolved(),
+    images,
+  )
+  const googleParts = (google.contents as Array<{ parts: Array<Record<string, unknown>> }>)[0]?.parts
+  assert.ok(googleParts?.some((part) => part.inlineData !== undefined))
+})
+
 test('tool-result images become a placeholder instead of failing the request', () => {
   const messages = buildMessages(options({
     messages: [{
@@ -230,7 +446,7 @@ test('error classification uses the body type, not the status alone', () => {
     type: 'error',
     error: { type: 'FreeTierError', message: 'free tier can only be used from within OpenCode' },
   }), new Headers())
-  assert.equal(free.code, 'INVALID_CREDENTIAL')
+  assert.equal(free.code, 'RATE_LIMIT')
 
   const protocol = classifyResponseError(400, JSON.stringify({
     type: 'error',

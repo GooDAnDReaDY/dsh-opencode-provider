@@ -19,16 +19,27 @@ function pad(hour: number): string {
   return String(hour).padStart(2, '0')
 }
 
+function formatMs(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}s`
+  return `${Math.round(value)}ms`
+}
+
 export function RequestHeatmapView(props: {
   heatmap: RequestHeatmap | undefined
   t: (key: string) => string
 }): ReactNode {
   const { heatmap, t } = props
   const [selected, setSelected] = useState('all')
+  const [selectedAccount, setSelectedAccount] = useState('all')
   if (heatmap === undefined) return null
   const models = heatmap.models ?? []
-  const selectedModel = models.find((entry) => `${entry.provider}/${entry.model}` === selected)
-  const view = selectedModel ?? heatmap
+  const accounts = heatmap.accounts ?? []
+  const selectedModel = selectedAccount === 'all'
+    ? models.find((entry) => `${entry.provider}/${entry.model}` === selected)
+    : undefined
+  const accountView = accounts.find((entry) => entry.account === selectedAccount)
+  const view = accountView ?? selectedModel ?? heatmap
   const selectedKey = selectedModel === undefined ? 'all' : selected
   const max = Math.max(0, ...view.grid.flat())
   const maxHours = Math.max(0, ...view.hours)
@@ -42,11 +53,30 @@ export function RequestHeatmapView(props: {
     <div className="oc-heat-wrap">
       <div className="oc-row">
         <span className="oc-badge">{view.total} {t('requests')}</span>
+        {accounts.length > 1 ? (
+          <select
+            className="oc-select"
+            value={selectedAccount}
+            title={t('heatmapByAccount')}
+            onChange={(event) => {
+              setSelectedAccount(event.target.value)
+              setSelected('all')
+            }}
+          >
+            <option value="all">{t('heatmapAllAccounts')} ({heatmap.total})</option>
+            {accounts.map((entry) => (
+              <option key={entry.account} value={entry.account}>
+                {entry.account} ({entry.total})
+              </option>
+            ))}
+          </select>
+        ) : null}
         {models.length > 1 ? (
           <select
             className="oc-select"
             value={selectedKey}
             title={t('heatmapModel')}
+            disabled={selectedAccount !== 'all'}
             onChange={(event) => setSelected(event.target.value)}
           >
             <option value="all">{t('heatmapAllModels')} ({heatmap.total})</option>
@@ -61,6 +91,32 @@ export function RequestHeatmapView(props: {
           ? null
           : <span className="oc-hint">{t('heatmapPeak')}: {pad(peakHour)}:00 · {peak}</span>}
       </div>
+      {accounts.length === 0 ? null : (
+        <div className="oc-table-scroll" style={{ marginTop: 8 }}>
+          <table className="oc-table">
+            <thead>
+              <tr>
+                <th>{t('accountLabel')}</th>
+                <th>{t('requests')}</th>
+                <th>{t('errors')}</th>
+                <th>{t('latency')}</th>
+                <th>{t('ttft')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {accounts.map((entry) => (
+                <tr key={entry.account}>
+                  <td>{entry.account}</td>
+                  <td>{entry.total}</td>
+                  <td>{entry.errors}</td>
+                  <td>{formatMs(entry.avgLatencyMs)}</td>
+                  <td>{formatMs(entry.avgTtftMs)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <div className="oc-heat-scroll">
         <div className="oc-heat">
           <span />

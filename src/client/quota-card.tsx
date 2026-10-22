@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { fetchAnalytics, fetchState, refreshState, type AccountRow, type AnalyticsReport, type HostState, type UsageWindow } from './api.ts'
+import { CONFIG_CHANGED_EVENT } from './events.ts'
 import { RequestHeatmapView } from './heatmap.tsx'
 import { UsageAnalyticsView } from './usage-analytics.tsx'
 import { UsageBars } from './usage-bars.tsx'
+import { accountRunway, type RunwaySummary } from '../quota-runway.ts'
 
 const PANEL_EVENT = 'dsh-opencode-panel-state'
 
@@ -34,7 +36,13 @@ function useHostState(intervalMs: number): HostState | null {
     }
     load()
     const timer = setInterval(load, intervalMs)
-    return () => { cancelled = true; clearInterval(timer) }
+    const onConfigChanged = (): void => { load() }
+    window.addEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+      window.removeEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
+    }
   }, [intervalMs])
   return state
 }
@@ -62,6 +70,20 @@ function usagePercent(window: UsageWindow | undefined): string {
   return window === undefined ? '—' : `${Math.round(window.percentUsed)}%`
 }
 
+function runwayText(summary: RunwaySummary): string {
+  if (summary.kind === 'safe') return 'safe'
+  if (summary.kind === 'unknown') return '—'
+  if (summary.etaMs <= 0) return 'now'
+  const hours = summary.etaMs / 3_600_000
+  if (hours >= 24) return `~${Math.round(hours / 24)}d`
+  if (hours >= 1) return `~${Math.round(hours)}h`
+  return `~${Math.max(1, Math.round(hours * 60))}m`
+}
+
+function runwayTitle(summary: RunwaySummary, t: (key: string) => string): string {
+  return summary.kind === 'eta' ? `${t('runway')}: ${summary.window}` : ''
+}
+
 function accountStatus(account: AccountRow, t: (key: string) => string): string | undefined {
   if (account.mark !== '') {
     const label = account.mark === 'invalid-credential'
@@ -79,6 +101,15 @@ function accountStatus(account: AccountRow, t: (key: string) => string): string 
   return [windows?.fiveHour, windows?.weekly, windows?.monthly]
     .map((window) => window?.status)
     .find((value) => value !== undefined && value !== 'ok')
+}
+
+function routingLabel(reason: string, t: (key: string) => string): string {
+  if (reason === 'rule') return t('routingRule')
+  if (reason === 'sticky') return t('routingSticky')
+  if (reason === 'pinned') return t('routingPinned')
+  if (reason === 'rotation') return t('routingRotation')
+  if (reason === 'quota-fallback') return t('routingFallback')
+  return t('routingDefault')
 }
 
 function fillClass(value: number): string {
@@ -261,8 +292,11 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
     load()
     loadAnalytics(days)
     const timer = setInterval(load, 60_000)
+    const onConfigChanged = (): void => { load() }
+    window.addEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
     return () => {
       clearInterval(timer)
+      window.removeEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
       analyticsSeq.current += 1
     }
   }, [days])
@@ -326,11 +360,13 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
                 <th>{t('fiveHour')}</th>
                 <th>{t('weekly')}</th>
                 <th>{t('monthly')}</th>
+                <th>{t('runway')}</th>
               </tr>
             </thead>
             <tbody>
               {state.accounts.map((account) => {
                 const accountWindows = account.usage?.report?.windows
+                const runway = accountRunway(accountWindows)
                 const status = accountStatus(account, t)
                 return (
                   <tr key={account.label}>
@@ -353,6 +389,9 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
                     <td>{usagePercent(accountWindows?.fiveHour)}</td>
                     <td>{usagePercent(accountWindows?.weekly)}</td>
                     <td>{usagePercent(accountWindows?.monthly)}</td>
+                    <td title={runwayTitle(runway, t)}>
+                      {runway.kind === 'safe' ? t('runwaySafe') : runwayText(runway)}
+                    </td>
                   </tr>
                 )
               })}
@@ -361,6 +400,41 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
           <p className="oc-hint">{t('accountsHint')}</p>
         </section>
       )}
+
+      <section className="oc-card">
+        <h3 className="oc-card-title">{t('routing')}</h3>
+        {(state?.routing ?? []).length === 0
+          ? <p className="oc-hint">{t('routingEmpty')}</p>
+          : (
+            <div className="oc-table-scroll">
+              <table className="oc-table">
+                <thead>
+                  <tr>
+                    <th>{t('date')}</th>
+                    <th>{t('accountLabel')}</th>
+                    <th>{t('model')}</th>
+                    <th>{t('routing')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(state?.routing ?? []).slice(0, 8).map((row) => (
+                    <tr key={`${row.at}-${row.account}-${row.model}-${row.reason}`}>
+                      <td>{new Date(row.at).toLocaleTimeString()}</td>
+                      <td>{row.account}</td>
+                      <td>{row.model}</td>
+                      <td>
+                        {routingLabel(row.reason, t)}
+                        {row.fallback ? ` · ${t('routingFallback')}` : ''}
+                        {row.ok ? '' : ` · ${t('routingFailed')}${row.error === undefined ? '' : ` (${row.error})`}`}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        <p className="oc-hint">{t('routingHint')}</p>
+      </section>
 
       <section className="oc-card">
         <div className="oc-row">

@@ -1,5 +1,14 @@
 # dsh-opencode-provider — архитектура и план
 
+## 0.5.15 — current release
+
+- Gitea `main` migrated from the published GitHub history after 0.5.1; source versions 0.5.2–0.5.15 are represented by tags and the migration PR.
+- Current provider ids are `opencode-direct` and `opencode-go-direct`; legacy `opencode`/`opencode-go` stay with the built-in `llm-pi-ai` catalog and are not re-registered.
+- Read routes accept loopback or a literal local interface address; writes require a same-origin `Origin`/`Referer`. DNS-rebinding hostnames are rejected.
+- DSH Desktop and DSH Web 0.2.1-rc.2 are the verified runtime targets. WEB 111 runs 0.5.15; Desktop runs 0.5.15.
+- The section below is the historical 0.5.1 design record; current behavior is defined by the 0.5.15 source and CHANGELOG.
+
+
 Плагин для DeepSeek Harness (DSH), добавляющий два LLM-маршрута:
 
 - `opencode` — OpenCode Console / Zen (pay-as-you-go, ключ из console).

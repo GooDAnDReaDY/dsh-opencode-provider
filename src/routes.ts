@@ -10,7 +10,9 @@ import type {} from '@deepseek-ai/dsh-settings'
 import type { OpenCodeAdapter } from './adapter.ts'
 import { effectiveModel, modelVisible, clearCatalogCache } from './catalog.ts'
 import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
+import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { publicConfig } from './routes-public.ts'
 import { cleanAccounts, cleanBooleanRecord, cleanModelAccountRules, cleanNumberRecord, cleanStringArray, cleanTransports } from './routes-values.ts'
 import { readOpenCodeAuthKey, listOpenCodeAuthEntries, type KeyPool } from './credentials.ts'
@@ -42,36 +44,26 @@ function json(res: ServerResponse, status: number, value: unknown): void {
 function allowedOrigin(req: IncomingMessage): boolean {
   const origin = req.headers.origin
   if (origin === undefined || origin === '') return true
-  try {
-    const parsed = new URL(origin)
-    const host = req.headers.host
-    if (host !== undefined && parsed.host === host) return true
-    return parsed.hostname === '127.0.0.1'
-      || parsed.hostname === 'localhost'
-      || parsed.hostname === '::1'
-      || parsed.hostname === '[::1]'
-  } catch {
-    return false
-  }
+  const host = req.headers.host
+  return host !== undefined && sameOrigin(host, origin)
 }
 
 /**
  * DNS rebinding keeps the browser's `Host` pointing at the attacker's name
- * while the socket reaches loopback. Same-origin checks alone cannot catch
- * that, so write endpoints accept only a literal loopback Host.
+ * while the socket reaches loopback. A trusted Host must therefore be either
+ * loopback or one of this machine's literal interface addresses; a hostname
+ * cannot pass on same-origin checks alone.
  */
-function loopbackHost(req: IncomingMessage): boolean {
+function trustedHost(req: IncomingMessage): boolean {
+  const hostname = authorityHostname(req.headers.host)
+  return hostname !== undefined && isLocalHostname(hostname)
+}
+
+function writeOrigin(req: IncomingMessage): boolean {
   const host = req.headers.host
-  if (host === undefined || host === '') return false
-  try {
-    const hostname = new URL(`http://${host}`).hostname
-    return hostname === '127.0.0.1'
-      || hostname === 'localhost'
-      || hostname === '::1'
-      || hostname === '[::1]'
-  } catch {
-    return false
-  }
+  const source = req.headers.origin ?? req.headers.referer
+  if (host === undefined || source === undefined || source === '') return false
+  return sameOrigin(host, source)
 }
 
 async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> {
@@ -96,18 +88,17 @@ function requirePost(req: IncomingMessage, res: ServerResponse): boolean {
     json(res, 405, { error: 'POST required' })
     return false
   }
-  if (!loopbackHost(req)) {
-    json(res, 403, { error: 'non-loopback Host refused' })
+  if (!trustedHost(req)) {
+    json(res, 403, { error: 'non-local Host refused' })
     return false
   }
-  if (!allowedOrigin(req)) {
-    json(res, 403, { error: 'cross-origin request refused' })
+  if (!writeOrigin(req)) {
+    json(res, 403, { error: 'same-origin Origin or Referer required' })
     return false
   }
-  const remote = req.socket.remoteAddress ?? ''
-  const loopback = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1'
-  if (!loopback) {
-    json(res, 403, { error: 'write endpoints are restricted to the local machine' })
+  const site = req.headers['sec-fetch-site']
+  if (site !== undefined && site !== 'same-origin' && site !== 'none') {
+    json(res, 403, { error: 'cross-site request refused' })
     return false
   }
   const type = req.headers['content-type'] ?? ''
@@ -158,6 +149,8 @@ function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset';
   if ('maxOutputTokens' in patch) set('maxOutputTokens', patch.maxOutputTokens)
   if ('accounts' in patch) set('accounts', cleanAccounts(patch.accounts))
   if ('modelAccountRules' in patch) set('modelAccountRules', cleanModelAccountRules(patch.modelAccountRules))
+  if ('quotaFallbackModel' in patch) set('quotaFallbackModel', patch.quotaFallbackModel)
+  if ('stickySession' in patch) set('stickySession', patch.stickySession === true)
   if ('activeAccount' in patch) set('activeAccount', patch.activeAccount)
   if ('showSidebarQuota' in patch) set('showSidebarQuota', patch.showSidebarQuota === true)
   if ('userAgent' in patch) set('userAgent', patch.userAgent)
@@ -184,7 +177,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     }
   }
 
-  const resolved = await deps.pool.resolveAll('opencode-go').catch(() => [])
+  const resolved = await deps.pool.resolveAll(GO_PROVIDER).catch(() => [])
   if (!keyInfo.configured) {
     keyInfo = { ...keyInfo, configured: resolved.length > 0 }
   }
@@ -192,7 +185,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
   // One usage read per distinct key: labels may share a credential.
   const usageByKey = new Map<string, UsageValue>()
   await Promise.all([...new Set(resolved.map((entry) => entry.key))].map(async (key) => {
-    const result = await deps.usage('opencode-go', key)
+    const result = await deps.usage(GO_PROVIDER, key)
     usageByKey.set(key, result ?? null)
   }))
   const usageByLabel = new Map<string, UsageValue>()
@@ -260,7 +253,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
 
   let models: Array<Record<string, unknown>> = []
   try {
-    const listed = await deps.adapter.listModels('opencode-go', { unfiltered: true })
+    const listed = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true })
     models = listed.map((model) => {
       const meta = effectiveModel(model.id, config)
       return {
@@ -292,6 +285,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     accounts,
     models,
     usage: usage ?? null,
+    routing: deps.adapter.routingTrace(),
     auth: {
       entry: config.openCodeAuthEntry,
       hasStoredKey: (await readOpenCodeAuthKey(config.openCodeAuthEntry)) !== undefined,
@@ -310,8 +304,12 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
   }
 
   route('/dsh-opencode/state', async (req, res) => {
-    if (req.method !== 'GET' && req.method !== 'POST') {
+    if (req.method !== 'GET') {
       json(res, 405, { error: 'GET required' })
+      return
+    }
+    if (!trustedHost(req)) {
+      json(res, 403, { error: 'non-local Host refused' })
       return
     }
     if (!allowedOrigin(req)) {
@@ -330,16 +328,20 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       json(res, 405, { error: 'GET required' })
       return
     }
+    if (!trustedHost(req)) {
+      json(res, 403, { error: 'non-local Host refused' })
+      return
+    }
     if (!allowedOrigin(req)) {
       json(res, 403, { error: 'cross-origin request refused' })
       return
     }
     try {
       const config = deps.config()
-      const models = await deps.adapter.listModels('opencode-go', { unfiltered: true }).catch(() => [])
+      const models = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true }).catch(() => [])
       json(res, 200, {
         ok: true,
-        providers: ['opencode', 'opencode-go'],
+        providers: [CONSOLE_PROVIDER, GO_PROVIDER],
         accounts: config.accounts.length + 1,
         models: models.length,
       })
@@ -351,6 +353,10 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
   route('/dsh-opencode/analytics', async (req, res) => {
     if (req.method !== 'GET') {
       json(res, 405, { error: 'GET required' })
+      return
+    }
+    if (!trustedHost(req)) {
+      json(res, 403, { error: 'non-local Host refused' })
       return
     }
     if (!allowedOrigin(req)) {
@@ -456,13 +462,16 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const entry = typeof body.entry === 'string' && body.entry.trim() !== ''
         ? body.entry.trim()
         : deps.config().openCodeAuthEntry
+      const ref = typeof body.ref === 'string' && body.ref.trim() !== ''
+        ? body.ref.trim()
+        : deps.config().apiKeyEnv
       const key = await readOpenCodeAuthKey(entry)
       if (key === undefined) {
         json(res, 404, { error: `no key in auth.json entry "${entry}"` })
         return
       }
-      await credentials.set(credentialRef(deps.config().apiKeyEnv), key)
-      json(res, 200, { ok: true, entry })
+      await credentials.set(credentialRef(ref), key)
+      json(res, 200, { ok: true, entry, ref })
     } catch (error) {
       json(res, 500, { error: error instanceof Error ? error.message : 'import failed' })
     }
@@ -498,7 +507,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       return
     }
     const model = typeof body.model === 'string' && body.model !== '' ? body.model : 'deepseek-v4.1-flash'
-    const provider = body.provider === 'opencode' ? 'opencode' : 'opencode-go'
+    const provider = body.provider === CONSOLE_PROVIDER ? CONSOLE_PROVIDER : GO_PROVIDER
     const started = Date.now()
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 60_000)

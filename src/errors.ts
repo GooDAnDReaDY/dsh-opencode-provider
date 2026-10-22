@@ -73,7 +73,7 @@ export function classifyResponseError(status: number, text: string, headers: Hea
     return new LlmError(
       `OpenCode refused the free tier: ${message}. Free models require a Go/paid key;`
       + ' an anonymous free key is only accepted inside the OpenCode client.',
-      'INVALID_CREDENTIAL',
+      'RATE_LIMIT',
       options,
     )
   }

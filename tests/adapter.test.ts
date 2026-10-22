@@ -7,12 +7,18 @@ import test, { after } from 'node:test'
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 
 import { OpenCodeAdapter } from '../src/adapter.ts'
-import { resolveConfig } from '../src/config.ts'
+import { resolveConfig, type Config } from '../src/config.ts'
+import { CONSOLE_PROVIDER, GO_PROVIDER } from '../src/provider-ids.ts'
+import type { RequestOutcome } from '../src/request-log.ts'
 
 const testDir = mkdtempSync(join(tmpdir(), 'dsh-opencode-adapter-'))
+process.env.DSH_HOME = testDir
 let cooldownSeq = 0
 function testCooldownPath(): string {
   return join(testDir, `cooldowns-${cooldownSeq++}.json`)
+}
+function testStickyPath(): string {
+  return join(testDir, `sticky-${cooldownSeq++}.json`)
 }
 after(() => { rmSync(testDir, { recursive: true, force: true }) })
 
@@ -24,15 +30,26 @@ function streamOf(text = 'OK'): string {
 
 function adapterWith(
   fetchImpl: typeof fetch,
-  recordRequest?: (provider: string, model: string) => void,
+  recordRequest?: (
+    provider: string,
+    model: string,
+    purpose?: string,
+    account?: string,
+    reason?: string,
+    outcome?: RequestOutcome,
+  ) => void,
   cooldownPath = testCooldownPath(),
   warn?: (message: string) => void,
+  overrides: Partial<Config> = {},
+  stickyPath = testStickyPath(),
 ) {
   const config = resolveConfig({
     apiKeyEnv: 'OPENCODE_TEST_KEY',
+    apiBase: 'https://example.test/console',
     goApiBase: 'https://example.test/go',
     goZenBase: 'https://example.test/zen/go/v1',
     requestTimeoutMs: 5000,
+    ...overrides,
   })
   return new OpenCodeAdapter({
     config: () => config,
@@ -44,6 +61,7 @@ function adapterWith(
     fetchImpl,
     recordRequest: recordRequest ?? (() => {}),
     cooldownPath,
+    stickyPath,
     ...(warn === undefined ? {} : { warn }),
   })
 }
@@ -56,7 +74,7 @@ async function collect(
   let text = ''
   let finish: unknown
   for await (const chunk of adapter.stream({
-    provider: 'opencode-go',
+    provider: GO_PROVIDER,
     model,
     messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
     maxTokens: 8,
@@ -70,11 +88,15 @@ async function collect(
 
 test('warns once when the provider tool cap drops declarations', async () => {
   const warnings: string[] = []
+  let body: { tools?: unknown[] } | undefined
   const adapter = adapterWith(
-    (async () => new Response(streamOf(), {
-      status: 200,
-      headers: { 'content-type': 'text/event-stream' },
-    })) as typeof fetch,
+    (async (_url, init) => {
+      body = JSON.parse(String(init?.body)) as { tools?: unknown[] }
+      return new Response(streamOf(), {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      })
+    }) as typeof fetch,
     undefined,
     testCooldownPath(),
     (message) => warnings.push(message),
@@ -90,6 +112,7 @@ test('warns once when the provider tool cap drops declarations', async () => {
 
   assert.equal(warnings.length, 1)
   assert.match(warnings[0] ?? '', /128/)
+  assert.equal(body?.tools?.length, 128)
 })
 
 test('rotates to the next account on a pre-stream quota rejection', async () => {
@@ -178,7 +201,7 @@ test('records one request per stream call', async () => {
   )
 
   await collect(adapter)
-  assert.deepEqual(recorded, ['opencode-go/deepseek-v4.1-flash'])
+  assert.deepEqual(recorded, [`${GO_PROVIDER}/deepseek-v4.1-flash`])
 })
 
 test('model-account rules make the matching key serve first', async () => {
@@ -212,6 +235,165 @@ test('model-account rules make the matching key serve first', async () => {
   const result = await collect(adapter, 'minimax-m3.1-flash-free')
   assert.equal(result.text, 'OK')
   assert.deepEqual(seen, ['Bearer free'])
+})
+
+test('falls back once to the configured free model on a Go quota error', async () => {
+  const recorded: string[] = []
+  const calls: Array<{ url: string; model: string }> = []
+  const adapter = adapterWith(
+    (async (url, init) => {
+      const body = JSON.parse(String(init?.body)) as { model?: string }
+      const text = String(url)
+      calls.push({ url: text, model: body.model ?? '' })
+      if (text.includes('/go')) {
+        return new Response(JSON.stringify({
+          error: { type: 'quota_exceeded', message: 'Go usage limit exceeded' },
+        }), { status: 400, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response(streamOf('fallback-ok'), {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream' },
+      })
+    }) as typeof fetch,
+    (provider, model) => recorded.push(`${provider}/${model}`),
+    testCooldownPath(),
+    undefined,
+    { quotaFallbackModel: 'beam-free' },
+  )
+
+  const result = await collect(adapter)
+  assert.equal(result.text, 'fallback-ok')
+  assert.ok(calls.some((call) => call.url.includes('/console') && call.model === 'beam-free'))
+  assert.ok(recorded.includes(`${CONSOLE_PROVIDER}/beam-free`))
+  const trace = adapter.routingTrace()
+  assert.ok(trace.some((entry) => entry.reason === 'quota-fallback' && entry.ok))
+  assert.ok(trace.some((entry) => !entry.ok && entry.error === 'QUOTA'))
+})
+
+test('persists the sticky account across adapter instances', async () => {
+  const seen: string[] = []
+  const stickyPath = testStickyPath()
+  const fetchImpl = (async (_url: string, init?: RequestInit) => {
+    const headers = init?.headers as Record<string, string>
+    const auth = headers.authorization ?? ''
+    seen.push(auth)
+    if (auth === 'Bearer bad') {
+      return new Response(JSON.stringify({
+        error: { type: 'quota_exceeded', message: 'Monthly usage limit reached' },
+      }), { status: 400, headers: { 'content-type': 'application/json' } })
+    }
+    return new Response(streamOf(), {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    })
+  }) as typeof fetch
+
+  const first = adapterWith(
+    fetchImpl,
+    undefined,
+    testCooldownPath(),
+    undefined,
+    {},
+    stickyPath,
+  )
+  await collect(first)
+  await first.flushSticky()
+
+  const second = adapterWith(
+    fetchImpl,
+    undefined,
+    testCooldownPath(),
+    undefined,
+    {},
+    stickyPath,
+  )
+  await collect(second)
+  assert.deepEqual(seen, ['Bearer bad', 'Bearer good', 'Bearer good'])
+})
+
+test('records success latency and TTFT for the request log', async () => {
+  const outcomes: RequestOutcome[] = []
+  const adapter = adapterWith(
+    (async () => new Response(streamOf(), {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    })) as typeof fetch,
+    (_provider, _model, _purpose, _account, _reason, outcome) => {
+      if (outcome !== undefined) outcomes.push(outcome)
+    },
+  )
+  await collect(adapter)
+  assert.equal(outcomes.length, 1)
+  assert.equal(outcomes[0]?.ok, true)
+  assert.ok((outcomes[0]?.latencyMs ?? -1) >= 0)
+  assert.ok((outcomes[0]?.ttftMs ?? -1) >= 0)
+  assert.equal(outcomes[0]?.error, undefined)
+})
+
+test('prefers the last successful account for the same conversation', async () => {
+  const seen: string[] = []
+  const adapter = adapterWith((async (_url, init) => {
+    const headers = init?.headers as Record<string, string>
+    const auth = headers.authorization ?? ''
+    seen.push(auth)
+    if (auth === 'Bearer bad') {
+      return new Response(JSON.stringify({
+        error: { type: 'quota_exceeded', message: 'Monthly usage limit reached' },
+      }), { status: 400, headers: { 'content-type': 'application/json' } })
+    }
+    return new Response(streamOf(), {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    })
+  }) as typeof fetch, undefined, testCooldownPath(), undefined, { stickySession: true })
+
+  await collect(adapter)
+  await collect(adapter)
+  assert.deepEqual(seen, ['Bearer bad', 'Bearer good', 'Bearer good'])
+  const trace = adapter.routingTrace()
+  assert.ok(trace.some((entry) => entry.reason === 'rotation' && entry.ok))
+  assert.ok(trace.some((entry) => entry.reason === 'sticky' && entry.ok))
+})
+
+test('treats a free-tier rejection as a short rate-limit and rotates', async () => {
+  const seen: string[] = []
+  const adapter = adapterWith((async (_url, init) => {
+    const headers = init?.headers as Record<string, string>
+    const auth = headers.authorization ?? ''
+    seen.push(auth)
+    if (auth === 'Bearer bad') {
+      return new Response(JSON.stringify({
+        error: { type: 'FreeTierError', message: 'free tier can only be used from within OpenCode' },
+      }), { status: 403, headers: { 'content-type': 'application/json' } })
+    }
+    return new Response(streamOf(), {
+      status: 200,
+      headers: { 'content-type': 'text/event-stream' },
+    })
+  }) as typeof fetch)
+
+  const result = await collect(adapter)
+  assert.equal(result.text, 'OK')
+  assert.deepEqual(seen, ['Bearer bad', 'Bearer good'])
+  const health = adapter.accountHealth('bad')
+  assert.equal(health?.reason, 'rate-limit')
+  assert.ok((health?.coolingUntil ?? 0) < Date.now() + 2 * 60 * 1000)
+})
+
+test('does not record a successful route when the stream breaks after content', async () => {
+  const body = `data: ${JSON.stringify({
+    choices: [{ index: 0, delta: { content: 'OK' } }],
+  })}\n\n`
+    + `data: ${JSON.stringify({ error: { type: 'server_error', message: 'boom' } })}\n\n`
+  const adapter = adapterWith((async () => new Response(body, {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  })) as typeof fetch)
+
+  await assert.rejects(() => collect(adapter))
+  const trace = adapter.routingTrace()
+  assert.equal(trace[0]?.ok, false)
+  assert.equal(trace[0]?.error, 'PROVIDER_HTTP_ERROR')
 })
 
 test('rotates on a usage-limit 429 as well', async () => {

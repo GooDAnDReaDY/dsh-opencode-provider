@@ -23,9 +23,9 @@ interface LooseSlots {
 
 function injectCss(): () => void {
   if (typeof document === 'undefined') return () => {}
-  if (document.querySelector(`style[data-plugin-css="${CSS_ID}"]`) !== null) return () => {}
+  if (document.querySelector(`style[data-dsh-plugin="${CSS_ID}"]`) !== null) return () => {}
   const tag = document.createElement('style')
-  tag.dataset.plugin = 'dsh-opencode-provider'
+  tag.dataset.dshPlugin = 'dsh-opencode-provider'
   tag.dataset.pluginCss = CSS_ID
   tag.textContent = CSS
   document.head.appendChild(tag)
