@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.16
+
+- **Current DSH core compatibility**: added `0.2.1-rc.3` (the current Desktop runtime) to `engines.dsh`, peer ranges and `dsh.compatibility.dshReleases`, while retaining `0.2.0-rc.2` and `0.2.1-rc.2` for DSH Web 111.
+- Development/typecheck dependencies moved to `@deepseek-ai/*@0.2.1-rc.3`; typecheck, build, and 102 tests pass against rc.3.
+- 102 tests.
+
 ## 0.5.15
 
 - **Write security**: all write endpoints now require a same-origin `Origin` or `Referer` whose host matches `Host`; a request with neither is rejected with 403 instead of being treated as local. Regression tests cover missing headers, Referer fallback and the DSH LAN bridge path.

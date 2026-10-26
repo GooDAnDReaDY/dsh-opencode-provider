@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.15 — current release
+## 0.5.16 — current release
+
+- DSH core **0.2.1-rc.3** is supported (current Desktop runtime); `0.2.1-rc.2` remains supported for DSH Web 111.
+- Typecheck/build/tests use `@deepseek-ai/*@0.2.1-rc.3`.
+
+## 0.5.15 — previous release
 
 - Gitea `main` migrated from the published GitHub history after 0.5.1; source versions 0.5.2–0.5.15 are represented by tags and the migration PR.
 - Current provider ids are `opencode-direct` and `opencode-go-direct`; legacy `opencode`/`opencode-go` stay with the built-in `llm-pi-ai` catalog and are not re-registered.
