@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.16 — current release
+## 0.5.17 — current release
+
+- DSH core **0.2.1-rc.4** is supported; rc.2/rc.3 remain supported.
+- Verified on isolated DSH 0.2.1-rc.4: provider activation, 33-model live catalog and a real provider request (credential expired, transport reached OpenCode).
+
+## 0.5.16 — previous release
 
 - DSH core **0.2.1-rc.3** is supported (current Desktop runtime); `0.2.1-rc.2` remains supported for DSH Web 111.
 - Typecheck/build/tests use `@deepseek-ai/*@0.2.1-rc.3`.

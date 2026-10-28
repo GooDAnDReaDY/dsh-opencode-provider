@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.17
+
+- **DSH 0.2.1-rc.4 compatibility**: added rc.4 to `engines.dsh`, peer ranges and `dsh.compatibility.dshReleases`; rc.2 and rc.3 remain supported. Development/typecheck dependencies moved to `@deepseek-ai/*@0.2.1-rc.4`.
+- Verified plugin activation, provider catalog and a real request on an isolated DSH 0.2.1-rc.4 web runtime.
+- 102 tests.
+
 ## 0.5.16
 
 - **Current DSH core compatibility**: added `0.2.1-rc.3` (the current Desktop runtime) to `engines.dsh`, peer ranges and `dsh.compatibility.dshReleases`, while retaining `0.2.0-rc.2` and `0.2.1-rc.2` for DSH Web 111.

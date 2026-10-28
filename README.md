@@ -130,12 +130,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.16.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.17.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.16.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.17.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.16
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.17
 ```
 
 Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.
@@ -147,7 +147,7 @@ Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (
 
 ## Verified in DSH Desktop
 
-Tested against DSH Desktop **0.2.1-rc.3** (and DSH Web **0.2.1-rc.2**):
+Tested against DSH **0.2.1-rc.4** (and retained rc.2/rc.3 compatibility):
 
 - the plugin loads and `/dsh-opencode/state` returns `200`;
 - the key is picked up from `~/.local/share/opencode/auth.json`;
