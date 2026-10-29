@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.18 — current release
+## 0.5.19 — current release
+
+- Quota/free-tier/rate-limit rejections are scoped to key+model (quota 5m, rate-limit 60s); other models on the same account remain usable.
+- Service status exposes usage check time, latency/error and catalog source/count/fetch time.
+
+## 0.5.18 — previous release
 
 - DSH compatibility is a range: `>=0.2.1-rc.2 <0.2.2-0`; tested releases remain rc.2/rc.3/rc.4.
 - `test:engine` and `test:install` verify isolated install and provider activation for each tested engine.

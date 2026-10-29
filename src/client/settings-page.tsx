@@ -41,6 +41,14 @@ function keyStatusClass(status: KeyStatus): string {
   return 'oc-badge-warn'
 }
 
+function ageText(at: number | undefined): string {
+  if (at === undefined) return ''
+  const minutes = Math.max(0, Math.round((Date.now() - at) / 60_000))
+  if (minutes < 1) return 'now'
+  if (minutes < 60) return `${minutes}m`
+  return `${Math.round(minutes / 60)}h`
+}
+
 export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?: () => void }): ReactNode {
   const { t } = props
   const [state, setState] = useState<HostState | null>(null)
@@ -385,6 +393,39 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                 </span>
               )
               : <span className="oc-error">{t('testFailed')}: {testResult.error}</span>}
+        </div>
+      </section>
+
+      <section className="oc-card">
+        <h3 className="oc-card-title">
+          {t('serviceStatus')}
+          <span className={`oc-badge ${state.service.usageError === undefined ? 'oc-badge-ok' : 'oc-badge-warn'}`}>
+            {state.service.usageError === undefined ? t('serviceOk') : t('serviceDegraded')}
+          </span>
+        </h3>
+        <div className="oc-row">
+          <span className="oc-hint">{t('usageEndpoint')}</span>
+          <span className={`oc-badge ${state.service.usageError === undefined ? 'oc-badge-ok' : 'oc-badge-bad'}`}>
+            {state.service.usageCheckedAt === undefined
+              ? t('notChecked')
+              : t('checkedAt').replace('{time}', new Date(state.service.usageCheckedAt).toLocaleTimeString())}
+          </span>
+          {state.service.usageLatencyMs === undefined
+            ? null
+            : <span className="oc-badge">{t('latencyValue').replace('{ms}', String(state.service.usageLatencyMs))}</span>}
+        </div>
+        {state.service.usageError === undefined
+          ? null
+          : <p className="oc-hint">{state.service.usageError}</p>}
+        <div className="oc-row">
+          <span className="oc-hint">{t('catalogStatus')}</span>
+          <span className={`oc-badge ${state.catalog.source === 'live' ? 'oc-badge-ok' : 'oc-badge-warn'}`}>
+            {state.catalog.source === 'live' ? t('catalogLive') : t('catalogSnapshot')}
+            {' · '}{state.catalog.count} {t('modelCount')}
+          </span>
+          {state.catalog.fetchedAt === undefined
+            ? null
+            : <span className="oc-badge">{t('catalogAge').replace('{age}', ageText(state.catalog.fetchedAt))}</span>}
         </div>
       </section>
 

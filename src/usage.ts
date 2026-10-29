@@ -24,6 +24,7 @@ export interface UsageResult {
   readonly report?: UsageReport
   readonly error?: string
   readonly keyStatus?: UsageKeyStatus
+  readonly latencyMs?: number
   readonly checkedAt: number
 }
 
@@ -109,7 +110,9 @@ export function createUsageReader(
     }
 
     const result = async (): Promise<UsageResult> => {
+      const startedAt = Date.now()
       const signal = AbortSignal.timeout(USAGE_TIMEOUT_MS)
+      const latency = (): number => Math.max(0, Date.now() - startedAt)
       try {
         let response: Response | undefined
         let lastNetworkError: unknown
@@ -138,6 +141,7 @@ export function createUsageReader(
           return {
             error: 'usage endpoint rejected the key (inference may still work)',
             keyStatus: /expired/i.test(body) ? 'expired' : 'invalid',
+            latencyMs: latency(),
             checkedAt: Date.now(),
           }
         }
@@ -145,15 +149,22 @@ export function createUsageReader(
           return {
             error: `usage endpoint returned HTTP ${response.status}`,
             keyStatus: 'unavailable',
+            latencyMs: latency(),
             checkedAt: Date.now(),
           }
         }
         const payload = await response.json() as UsagePayload
-        return { report: normalizeUsage(payload), keyStatus: 'ok', checkedAt: Date.now() }
+        return {
+          report: normalizeUsage(payload),
+          keyStatus: 'ok',
+          latencyMs: latency(),
+          checkedAt: Date.now(),
+        }
       } catch (error) {
         return {
           error: error instanceof Error ? error.message : 'usage request failed',
           keyStatus: 'unavailable',
+          latencyMs: latency(),
           checkedAt: Date.now(),
         }
       }

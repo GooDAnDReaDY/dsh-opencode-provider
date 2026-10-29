@@ -153,6 +153,23 @@ export function describeModel(meta: EffectiveModel, provider?: string): string {
   return parts.join(' · ')
 }
 
+export interface CatalogStatus {
+  readonly source: 'live' | 'snapshot'
+  readonly count: number
+  readonly fetchedAt?: number
+}
+
+export function catalogStatus(
+  provider: string,
+  config: ResolvedConfig,
+  count: number,
+): CatalogStatus {
+  const cached = catalogCache.get(`${provider}|${modelsUrlFor(provider, config)}`)
+  return cached === undefined
+    ? { source: 'snapshot', count }
+    : { source: 'live', count, fetchedAt: cached.at }
+}
+
 export function clearCatalogCache(): void {
   catalogCache.clear()
 }

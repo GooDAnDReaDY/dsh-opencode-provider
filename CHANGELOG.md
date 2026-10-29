@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.19
+
+- **Per-model soft cooldown**: quota/free-tier/rate-limit rejections now cool only that key+model (`quota` 5m, `rate-limit` 60s); other models on the same account remain usable. Invalid credentials still cool the account. If every key is cooling, the request degrades to the normal candidate list instead of failing before dispatch.
+- **Service status**: `/state` exposes the usage check time, latency and error, plus catalog source (`live`/`snapshot`), count and fetch time. Settings shows a compact Service status card.
+- 105 tests; engine matrix/install matrix remain green.
+
 ## 0.5.18
 
 - **Compatibility range**: `engines.dsh`, DSH peer ranges and `dsh.compatibility.dsh` now use `>=0.2.1-rc.2 <0.2.2-0`; `dshReleases` keeps the tested rc.2/rc.3/rc.4 records. Future `0.2.1` RCs are admitted automatically; the next minor remains excluded.

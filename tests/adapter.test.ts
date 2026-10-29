@@ -132,12 +132,12 @@ test('rotates to the next account on a pre-stream quota rejection', async () => 
   assert.deepEqual(seen, ['Bearer bad', 'Bearer good'])
   assert.equal(result.text, 'OK')
   assert.deepEqual(result.finish, { kind: 'stop' })
-  const health = adapter.accountHealth('bad')
+  const health = adapter.modelHealth('bad', 'deepseek-v4.1-flash')
   assert.equal(health?.reason, 'quota')
   assert.ok((health?.coolingUntil ?? 0) > Date.now())
 })
 
-test('marks a quota cooldown even when no account remains to rotate to', async () => {
+test('marks a model-scoped quota cooldown even when no account remains', async () => {
   const adapter = new OpenCodeAdapter({
     config: () => resolveConfig({
       apiKeyEnv: 'OPENCODE_TEST_KEY',
@@ -157,24 +157,55 @@ test('marks a quota cooldown even when no account remains to rotate to', async (
   await assert.rejects(() => collect(adapter), (error: unknown) => {
     return error instanceof Error && (error as { code?: string }).code === 'QUOTA'
   })
-  assert.equal(adapter.accountHealth('only')?.reason, 'quota')
+  assert.equal(adapter.modelHealth('only', 'deepseek-v4.1-flash')?.reason, 'quota')
 })
 
-test('persists cooldowns across adapter instances', async () => {
+test('does not skip the same account for another model after a quota rejection', async () => {
+  const seen: string[] = []
+  const adapter = new OpenCodeAdapter({
+    config: () => resolveConfig({
+      apiKeyEnv: 'OPENCODE_TEST_KEY',
+      goApiBase: 'https://example.test/go',
+      goZenBase: 'https://example.test/zen/go/v1',
+      requestTimeoutMs: 5000,
+    }),
+    resolveKey: async () => ({ key: 'only', source: 'test' }),
+    resolveKeys: async () => [{ key: 'only', source: 'test', label: 'only' }],
+    fetchImpl: (async (_url, init) => {
+      seen.push(String((init?.body as string | undefined) ?? ''))
+      if (seen.length === 1) {
+        return new Response(JSON.stringify({
+          error: { type: 'quota_exceeded', message: 'Go usage limit exceeded' },
+        }), { status: 400, headers: { 'content-type': 'application/json' } })
+      }
+      return new Response(streamOf(), { status: 200, headers: { 'content-type': 'text/event-stream' } })
+    }) as typeof fetch,
+    recordRequest: () => {},
+    cooldownPath: testCooldownPath(),
+  })
+
+  await assert.rejects(() => collect(adapter, 'model-quota'))
+  assert.equal(adapter.modelHealth('only', 'model-quota')?.reason, 'quota')
+  const result = await collect(adapter, 'deepseek-v4.1-flash')
+  assert.equal(result.text, 'OK')
+  assert.equal(seen.length, 2)
+})
+
+test('persists account cooldowns across adapter instances', async () => {
   const cooldownPath = testCooldownPath()
   const first = adapterWith((async (_url, init) => {
     const headers = init?.headers as Record<string, string>
     if (headers.authorization === 'Bearer bad') {
       return new Response(JSON.stringify({
-        error: { type: 'quota_exceeded', message: 'Go usage limit exceeded' },
-      }), { status: 400, headers: { 'content-type': 'application/json' } })
+        error: { type: 'invalid_request_error', message: 'invalid key' },
+      }), { status: 401, headers: { 'content-type': 'application/json' } })
     }
     return new Response(streamOf(), { status: 200, headers: { 'content-type': 'text/event-stream' } })
   }) as typeof fetch, undefined, cooldownPath)
 
   const result = await collect(first)
   assert.equal(result.text, 'OK')
-  assert.equal(first.accountHealth('bad')?.reason, 'quota')
+  assert.equal(first.accountHealth('bad')?.reason, 'invalid-credential')
   await first.flushCooldowns()
 
   const second = adapterWith(
@@ -186,7 +217,7 @@ test('persists cooldowns across adapter instances', async () => {
     cooldownPath,
   )
   const health = second.accountHealth('bad')
-  assert.equal(health?.reason, 'quota')
+  assert.equal(health?.reason, 'invalid-credential')
   assert.ok((health?.coolingUntil ?? 0) > Date.now())
 })
 
@@ -375,7 +406,7 @@ test('treats a free-tier rejection as a short rate-limit and rotates', async () 
   const result = await collect(adapter)
   assert.equal(result.text, 'OK')
   assert.deepEqual(seen, ['Bearer bad', 'Bearer good'])
-  const health = adapter.accountHealth('bad')
+  const health = adapter.modelHealth('bad', 'deepseek-v4.1-flash')
   assert.equal(health?.reason, 'rate-limit')
   assert.ok((health?.coolingUntil ?? 0) < Date.now() + 2 * 60 * 1000)
 })
