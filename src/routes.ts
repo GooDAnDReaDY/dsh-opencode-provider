@@ -18,7 +18,7 @@ import { cleanAccounts, cleanBooleanRecord, cleanModelAccountRules, cleanNumberR
 import { readOpenCodeAuthKey, listOpenCodeAuthEntries, type KeyPool } from './credentials.ts'
 import type { RequestHeatmap } from './request-log.ts'
 import { limitsFor } from './subscription-limits.ts'
-import type { UsageReader } from './usage.ts'
+import type { UsageKeyStatus, UsageReader } from './usage.ts'
 
 const MAX_BODY_BYTES = 256 * 1024
 
@@ -220,6 +220,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     active: boolean
     coolingUntil: number
     mark: string
+    keyStatus: UsageKeyStatus | 'unchecked'
     usage: UsageValue
   }> = []
   for (const slot of slots) {
@@ -240,6 +241,12 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
       source = hit.source
     }
     const health = hit === undefined ? undefined : deps.adapter.accountHealth(hit.key)
+    const usage = hit === undefined ? null : usageByLabel.get(slot.label) ?? null
+    const keyStatus: UsageKeyStatus | 'unchecked' = !configured
+      ? 'missing'
+      : health?.reason === 'invalid-credential'
+        ? 'invalid'
+        : usage?.keyStatus ?? 'unchecked'
     accounts.push({
       ...slot,
       configured,
@@ -247,7 +254,8 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
       active: activeLabel === slot.label,
       coolingUntil: health?.coolingUntil ?? 0,
       mark: health?.reason ?? '',
-      usage: hit === undefined ? null : usageByLabel.get(slot.label) ?? null,
+      keyStatus,
+      usage,
     })
   }
 
@@ -484,6 +492,32 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       json(res, 200, await buildState(ctx, deps))
     } catch (error) {
       json(res, 500, { error: error instanceof Error ? error.message : 'refresh failed' })
+    }
+  })
+
+  route('/dsh-opencode/accounts/check', async (req, res) => {
+    if (!requirePost(req, res)) return
+    try {
+      const body = await readJson(req)
+      const label = typeof body.label === 'string' && body.label.trim() !== ''
+        ? body.label.trim()
+        : 'default'
+      const entries = await deps.pool.resolveAll(GO_PROVIDER).catch(() => [])
+      const hit = entries.find((entry) => (entry.label ?? 'default') === label)
+      if (hit === undefined) {
+        json(res, 404, { error: `account "${label}" is not configured` })
+        return
+      }
+      deps.usage.clear()
+      const result = await deps.usage(GO_PROVIDER, hit.key)
+      const keyStatus = result?.keyStatus ?? 'unchecked'
+      json(res, 200, {
+        ok: keyStatus === 'ok',
+        keyStatus,
+        ...(result?.error === undefined ? {} : { error: result.error }),
+      })
+    } catch (error) {
+      json(res, 500, { error: error instanceof Error ? error.message : 'account check failed' })
     }
   })
 

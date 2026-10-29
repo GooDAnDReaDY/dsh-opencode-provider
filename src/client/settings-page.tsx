@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
+  checkAccount,
   clearKey,
   fetchState,
   importAuth,
@@ -11,6 +12,7 @@ import {
   saveKey,
   testConnection,
   type HostState,
+  type KeyStatus,
   type TestResult,
   type TransportId,
   type ModelRow,
@@ -23,6 +25,21 @@ import { PluginUpdateCard } from './update-card.tsx'
 import { authRefForEntry } from './auth-ref.ts'
 import { GO_PROVIDER } from '../provider-ids.ts'
 import { describeLimitsFull, formatRequests } from '../subscription-limits.ts'
+
+function keyStatusLabel(status: KeyStatus, t: (key: string) => string): string {
+  if (status === 'ok') return t('keyStatusOk')
+  if (status === 'expired') return t('keyStatusExpired')
+  if (status === 'invalid') return t('keyStatusInvalid')
+  if (status === 'missing') return t('keyStatusMissing')
+  if (status === 'unavailable') return t('keyStatusUnavailable')
+  return t('keyStatusUnchecked')
+}
+
+function keyStatusClass(status: KeyStatus): string {
+  if (status === 'ok') return 'oc-badge-ok'
+  if (status === 'expired' || status === 'invalid') return 'oc-badge-bad'
+  return 'oc-badge-warn'
+}
 
 export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?: () => void }): ReactNode {
   const { t } = props
@@ -39,6 +56,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [importing, setImporting] = useState(false)
+  const [checking, setChecking] = useState<string | null>(null)
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -79,6 +97,19 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       setError(caught instanceof Error ? caught.message : t('saveFailed'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const checkKey = async (label: string): Promise<void> => {
+    setChecking(label)
+    setError(null)
+    try {
+      await checkAccount(label)
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t('failed'))
+    } finally {
+      setChecking(null)
     }
   }
 
@@ -241,6 +272,11 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             const mark = accountMark(state.accounts.find((account) => account.default), t)
             return mark === undefined ? null : <span className="oc-badge oc-badge-bad">{mark}</span>
           })()}
+          {defaultAccount === undefined ? null : (
+            <span className={`oc-badge ${keyStatusClass(defaultAccount.keyStatus)}`}>
+              {keyStatusLabel(defaultAccount.keyStatus, t)}
+            </span>
+          )}
         </h3>
         <p className="oc-hint">{t('keyHint')}</p>
         {(() => {
@@ -375,6 +411,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       <section className="oc-card">
         <h3 className="oc-card-title">{t('accounts')} <span className="oc-badge">{draft.accounts.length} {t('accountCount')}</span></h3>
         <p className="oc-hint">{t('accountsHint')}</p>
+        <p className="oc-hint">{t('keyStatusHint')}</p>
         {draft.accounts.map((account, index) => {
           const known = state.accounts.find((row) =>
             (account.apiKeyEnv !== '' && row.ref === account.apiKeyEnv)
@@ -405,6 +442,9 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                 <span className={`oc-badge ${configured ? 'oc-badge-ok' : 'oc-badge-warn'}`}>
                   {configured ? t('keyConfigured') : t('keyMissing')}
                 </span>
+                {known === undefined
+                  ? null
+                  : <span className={`oc-badge ${keyStatusClass(known.keyStatus)}`}>{keyStatusLabel(known.keyStatus, t)}</span>}
                 {known === undefined || known.mark === ''
                   ? null
                   : <span className="oc-badge oc-badge-bad">{accountMark(known, t)}</span>}
@@ -445,6 +485,14 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                   }}
                 >
                   {t('saveKey')}
+                </button>
+                <button
+                  type="button"
+                  className="oc-button"
+                  disabled={known === undefined || checking === known.label}
+                  onClick={() => { if (known !== undefined) void checkKey(known.label) }}
+                >
+                  {checking === known?.label ? t('loading') : t('checkKey')}
                 </button>
                 <button
                   type="button"

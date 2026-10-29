@@ -1,6 +1,12 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.17 — current release
+## 0.5.18 — current release
+
+- DSH compatibility is a range: `>=0.2.1-rc.2 <0.2.2-0`; tested releases remain rc.2/rc.3/rc.4.
+- `test:engine` and `test:install` verify isolated install and provider activation for each tested engine.
+- Key status is exposed per account (`ok`/`expired`/`invalid`/`missing`/`unavailable`/`unchecked`) with a per-account Check key action.
+
+## 0.5.17 — previous release
 
 - DSH core **0.2.1-rc.4** is supported; rc.2/rc.3 remain supported.
 - Verified on isolated DSH 0.2.1-rc.4: provider activation, 33-model live catalog and a real provider request (credential expired, transport reached OpenCode).

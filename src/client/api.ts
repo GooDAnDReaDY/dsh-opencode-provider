@@ -69,8 +69,11 @@ export interface UsageState {
     }
   }
   error?: string
+  keyStatus?: 'ok' | 'invalid' | 'expired' | 'missing' | 'unavailable'
   checkedAt: number
 }
+
+export type KeyStatus = 'ok' | 'invalid' | 'expired' | 'missing' | 'unavailable' | 'unchecked'
 
 export interface AccountRow {
   label: string
@@ -81,6 +84,7 @@ export interface AccountRow {
   active: boolean
   coolingUntil: number
   mark: string
+  keyStatus: KeyStatus
   usage: UsageState | null
 }
 
@@ -120,6 +124,16 @@ export function refreshState(): Promise<HostState> {
 
 export function refreshModels(): Promise<HostState> {
   return call<HostState>('/dsh-opencode/models/refresh', { method: 'POST', body: '{}' })
+}
+
+export interface AccountCheckResult {
+  ok: boolean
+  keyStatus: KeyStatus
+  error?: string
+}
+
+export function checkAccount(label: string): Promise<AccountCheckResult> {
+  return call('/dsh-opencode/accounts/check', { method: 'POST', body: JSON.stringify({ label }) })
 }
 
 export function saveConfig(patch: Record<string, unknown>): Promise<{ ok: true }> {

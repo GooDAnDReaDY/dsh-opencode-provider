@@ -18,9 +18,12 @@ export interface UsageReport {
   }
 }
 
+export type UsageKeyStatus = 'ok' | 'invalid' | 'expired' | 'missing' | 'unavailable'
+
 export interface UsageResult {
   readonly report?: UsageReport
   readonly error?: string
+  readonly keyStatus?: UsageKeyStatus
   readonly checkedAt: number
 }
 
@@ -95,7 +98,7 @@ export function createUsageReader(
       try {
         key = (await resolveKey(provider)).key
       } catch {
-        return { error: 'no credential', checkedAt: Date.now() }
+        return { error: 'no credential', keyStatus: 'missing', checkedAt: Date.now() }
       }
     }
     const cacheKey = `${provider}:${fingerprint(key)}`
@@ -131,19 +134,26 @@ export function createUsageReader(
         }
         if (response === undefined) throw lastNetworkError ?? new Error('usage request failed')
         if (response.status === 401 || response.status === 403) {
+          const body = await response.text().catch(() => '')
           return {
             error: 'usage endpoint rejected the key (inference may still work)',
+            keyStatus: /expired/i.test(body) ? 'expired' : 'invalid',
             checkedAt: Date.now(),
           }
         }
         if (!response.ok) {
-          return { error: `usage endpoint returned HTTP ${response.status}`, checkedAt: Date.now() }
+          return {
+            error: `usage endpoint returned HTTP ${response.status}`,
+            keyStatus: 'unavailable',
+            checkedAt: Date.now(),
+          }
         }
         const payload = await response.json() as UsagePayload
-        return { report: normalizeUsage(payload), checkedAt: Date.now() }
+        return { report: normalizeUsage(payload), keyStatus: 'ok', checkedAt: Date.now() }
       } catch (error) {
         return {
           error: error instanceof Error ? error.message : 'usage request failed',
+          keyStatus: 'unavailable',
           checkedAt: Date.now(),
         }
       }

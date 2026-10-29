@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.18
+
+- **Compatibility range**: `engines.dsh`, DSH peer ranges and `dsh.compatibility.dsh` now use `>=0.2.1-rc.2 <0.2.2-0`; `dshReleases` keeps the tested rc.2/rc.3/rc.4 records. Future `0.2.1` RCs are admitted automatically; the next minor remains excluded.
+- **Engine matrix**: added `test:engine` and `test:install`, which install the packed plugin into isolated web profiles for every `dshReleases` version, then boot the host and assert provider activation and a non-empty live catalog.
+- **Key status**: `/state` now reports `keyStatus` per account (`ok`, `expired`, `invalid`, `missing`, `unavailable`, `unchecked`); usage 401/403 bodies are classified as expired/invalid. Settings shows the badge and adds a per-account **Check key** action backed by the new `/dsh-opencode/accounts/check` route. A check only reads the usage endpoint and does not send a model request.
+- 104 tests.
+
 ## 0.5.17
 
 - **DSH 0.2.1-rc.4 compatibility**: added rc.4 to `engines.dsh`, peer ranges and `dsh.compatibility.dshReleases`; rc.2 and rc.3 remain supported. Development/typecheck dependencies moved to `@deepseek-ai/*@0.2.1-rc.4`.

@@ -39,6 +39,27 @@ test('reads usage per key and caches each key separately', async () => {
   assert.ok(resolved >= 1)
 })
 
+test('classifies expired and rejected keys from usage responses', async () => {
+  const fetchImpl = (async (_url, init) => {
+    const headers = init?.headers as Record<string, string>
+    if (headers.authorization === 'Bearer expired') {
+      return new Response('{"error":{"message":"This API key has expired"}}', { status: 401 })
+    }
+    if (headers.authorization === 'Bearer invalid') {
+      return new Response('{"error":{"message":"invalid key"}}', { status: 403 })
+    }
+    return new Response('{"usage":{"rolling":{"percent":1}}}', { status: 200 })
+  }) as typeof fetch
+  const reader = createUsageReader(
+    () => config,
+    async () => ({ key: 'active', source: 'test' }),
+    fetchImpl,
+  )
+  assert.equal((await reader('opencode-go', 'expired'))?.keyStatus, 'expired')
+  assert.equal((await reader('opencode-go', 'invalid'))?.keyStatus, 'invalid')
+  assert.equal((await reader('opencode-go', 'ok'))?.keyStatus, 'ok')
+})
+
 test('fail-open per key and clear the cache on demand', async () => {
   let calls = 0
   const fetchImpl = (async () => {
