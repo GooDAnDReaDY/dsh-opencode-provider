@@ -128,6 +128,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
   const usage = Object.assign(
     async () => ({
       report: { windows: { fiveHour: { percentUsed: 1 }, weekly: { percentUsed: 2 }, monthly: { percentUsed: 3 } } },
+      keyStatus: 'ok',
       checkedAt: Date.now(),
     }),
     { clear: () => {} },
@@ -243,7 +244,23 @@ test('state route reports config, key, accounts, models and usage', async () => 
   assert.equal(body.models[0].id, 'deepseek-v4.1-flash')
   assert.equal(body.usage.report.windows.fiveHour.percentUsed, 1)
   assert.equal(body.accounts[0].usage.report.windows.monthly.percentUsed, 3)
+  assert.equal(body.accounts[0].keyStatus, 'ok')
   assert.equal(body.key.configured, true)
+})
+
+test('account check re-reads one account key status', async () => {
+  const { routes } = harness()
+  const result = await call(routes.get('/dsh-opencode/accounts/check')!, {
+    method: 'POST',
+    path: '/dsh-opencode/accounts/check',
+    headers: {
+      'content-type': 'application/json',
+      origin: 'http://127.0.0.1:3080',
+    },
+    body: { label: 'default' },
+  })
+  assert.equal(result.status, 200)
+  assert.equal((result.body as Record<string, unknown>).keyStatus, 'ok')
 })
 
 test('config route writes path ops with the current revision', async () => {
