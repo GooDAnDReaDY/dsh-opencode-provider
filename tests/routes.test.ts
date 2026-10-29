@@ -129,6 +129,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
     async () => ({
       report: { windows: { fiveHour: { percentUsed: 1 }, weekly: { percentUsed: 2 }, monthly: { percentUsed: 3 } } },
       keyStatus: 'ok',
+      latencyMs: 12,
       checkedAt: Date.now(),
     }),
     { clear: () => {} },
@@ -246,6 +247,9 @@ test('state route reports config, key, accounts, models and usage', async () => 
   assert.equal(body.accounts[0].usage.report.windows.monthly.percentUsed, 3)
   assert.equal(body.accounts[0].keyStatus, 'ok')
   assert.equal(body.key.configured, true)
+  assert.equal(body.catalog.source, 'snapshot')
+  assert.equal(body.catalog.count, 1)
+  assert.equal(body.service.usageLatencyMs, 12)
 })
 
 test('account check re-reads one account key status', async () => {

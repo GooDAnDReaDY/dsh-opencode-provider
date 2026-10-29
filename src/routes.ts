@@ -8,7 +8,7 @@ import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-settings'
 
 import type { OpenCodeAdapter } from './adapter.ts'
-import { effectiveModel, modelVisible, clearCatalogCache } from './catalog.ts'
+import { effectiveModel, modelVisible, clearCatalogCache, catalogStatus } from './catalog.ts'
 import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
 import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
@@ -292,7 +292,13 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     key: keyInfo,
     accounts,
     models,
+    catalog: catalogStatus(GO_PROVIDER, config, models.length),
     usage: usage ?? null,
+    service: {
+      ...(usage?.checkedAt === undefined ? {} : { usageCheckedAt: usage.checkedAt }),
+      ...(usage?.latencyMs === undefined ? {} : { usageLatencyMs: usage.latencyMs }),
+      ...(usage?.error === undefined ? {} : { usageError: usage.error }),
+    },
     routing: deps.adapter.routingTrace(),
     auth: {
       entry: config.openCodeAuthEntry,

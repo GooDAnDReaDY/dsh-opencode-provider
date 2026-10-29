@@ -97,6 +97,8 @@ export class OpenCodeAdapter extends LlmAdapter {
   private stickyWrites: Promise<void> = Promise.resolve()
   /** key fingerprint → cooldown deadline and the rejection that caused it. */
   private readonly cooldowns = new Map<string, { until: number; reason: string }>()
+  /** key + model → short soft rejection; other models stay usable. */
+  private readonly modelCooldowns = new Map<string, { until: number; reason: string }>()
   private readonly sticky = new Map<string, {
     fingerprint: string
     label: string
@@ -225,7 +227,12 @@ export class OpenCodeAdapter extends LlmAdapter {
         }
       }
     }
-    const initial = keys.find((entry) => fallback || !this.coolingDown(entry.key)) ?? keys[0]
+    const eligible = fallback
+      ? keys
+      : keys.filter((entry) => !this.coolingDown(entry.key) && !this.modelCoolingDown(entry.key, options.model))
+    const ordered = eligible.length > 0 ? eligible : keys
+    const forced = !fallback && eligible.length === 0
+    const initial = ordered[0]
     const url = endpointFor(options.provider, model.transport, options.model, config)
     let images: ImageMap | undefined
     if (hasImages(options)) {
@@ -261,8 +268,9 @@ export class OpenCodeAdapter extends LlmAdapter {
     let lastError: LlmError | undefined
     let lastAccount = initial?.label ?? 'default'
     let loggedAny = false
-    for (const [index, entry] of keys.entries()) {
-      if (!fallback && this.coolingDown(entry.key)) continue
+    for (const [index, entry] of ordered.entries()) {
+      if (!fallback && !forced
+        && (this.coolingDown(entry.key) || this.modelCoolingDown(entry.key, options.model))) continue
       lastAccount = entry.label ?? 'default'
       const attemptReason: RoutingReason = index === 0 ? reason : 'rotation'
       const attemptStartedAt = Date.now()
@@ -306,14 +314,14 @@ export class OpenCodeAdapter extends LlmAdapter {
           const error = classifyResponseError(response.status, text, response.headers)
           lastError = error
           logAttempt(false, error.code)
-          const canRotate = index < keys.length - 1
+          const canRotate = index < ordered.length - 1
           const retryable = error.code === 'INVALID_CREDENTIAL'
             || error.code === 'RATE_LIMIT'
             || error.code === 'QUOTA'
           if (retryable) {
-            // Mark even the last account: its rejection is the reason the turn
-            // ends, and the next request (and the UI) must see the cooldown.
-            if (!fallback) this.markCooldown(entry.key, response.status, response.headers, error.code)
+            // Quota/free-tier is scoped to key+model; an invalid key remains
+            // account-wide.
+            if (!fallback) this.markRejection(entry.key, options.model, response.status, response.headers, error.code)
             responseFailure = true
             if (canRotate) continue
           }
@@ -359,8 +367,10 @@ export class OpenCodeAdapter extends LlmAdapter {
         }
         lastError = classified
         const transient = this.isTransient(classified)
-        if (transient && !responseFailure && !fallback) this.markCooldown(entry.key, 0)
-        const canRotate = index < keys.length - 1 && transient
+        if (transient && !responseFailure && !fallback) {
+          this.markRejection(entry.key, options.model, 0, undefined, classified.code)
+        }
+        const canRotate = index < ordered.length - 1 && transient
         if (!canRotate) {
           const canFallback = !fallback
             && config.quotaFallbackModel !== ''
@@ -575,6 +585,18 @@ export class OpenCodeAdapter extends LlmAdapter {
     return true
   }
 
+  /** Current model-scoped soft cooldown for one key, if any. */
+  modelHealth(key: string, model: string): { coolingUntil: number; reason: string } | undefined {
+    const id = `${this.keyId(key)}:${model}`
+    const entry = this.modelCooldowns.get(id)
+    if (entry === undefined) return undefined
+    if (entry.until <= Date.now()) {
+      this.modelCooldowns.delete(id)
+      return undefined
+    }
+    return { coolingUntil: entry.until, reason: entry.reason }
+  }
+
   /** Current cooldown for one resolved key, if any. */
   accountHealth(key: string): { coolingUntil: number; reason: string } | undefined {
     const id = this.keyId(key)
@@ -633,6 +655,39 @@ export class OpenCodeAdapter extends LlmAdapter {
         await writeFile(this.cooldownPath, payload, 'utf8')
       })
       .catch(() => {})
+  }
+
+  private modelCoolingDown(key: string, model: string): boolean {
+    const id = `${this.keyId(key)}:${model}`
+    const entry = this.modelCooldowns.get(id)
+    if (entry === undefined) return false
+    if (entry.until <= Date.now()) {
+      this.modelCooldowns.delete(id)
+      return false
+    }
+    return true
+  }
+
+  private markRejection(
+    key: string,
+    model: string,
+    status: number,
+    headers?: Headers,
+    code?: string,
+  ): void {
+    if (code === 'QUOTA' || code === 'RATE_LIMIT') {
+      this.markModelCooldown(key, model, code)
+      return
+    }
+    this.markCooldown(key, status, headers, code)
+  }
+
+  private markModelCooldown(key: string, model: string, code: string): void {
+    const delayMs = code === 'QUOTA' ? 5 * 60 * 1000 : 60 * 1000
+    this.modelCooldowns.set(`${this.keyId(key)}:${model}`, {
+      until: Date.now() + delayMs,
+      reason: code === 'QUOTA' ? 'quota' : 'rate-limit',
+    })
   }
 
   private markCooldown(key: string, status: number, headers?: Headers, code?: string): void {

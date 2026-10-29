@@ -70,6 +70,7 @@ export interface UsageState {
   }
   error?: string
   keyStatus?: 'ok' | 'invalid' | 'expired' | 'missing' | 'unavailable'
+  latencyMs?: number
   checkedAt: number
 }
 
@@ -93,7 +94,9 @@ export interface HostState {
   key: { configured: boolean; writable: boolean; source?: string }
   accounts: AccountRow[]
   models: ModelRow[]
+  catalog: { source: 'live' | 'snapshot'; count: number; fetchedAt?: number }
   usage: UsageState | null
+  service: { usageCheckedAt?: number; usageLatencyMs?: number; usageError?: string }
   routing: RoutingTraceRow[]
   auth: { entry: string; hasStoredKey: boolean; entries: readonly string[] }
   revision?: number
