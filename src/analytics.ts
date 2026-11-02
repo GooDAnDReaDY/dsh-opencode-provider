@@ -1,4 +1,4 @@
-import { readdir, readFile } from 'node:fs/promises'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -110,6 +110,8 @@ export interface AnalyticsReport {
   summary: AnalyticsSummary
   days: DayUsageRow[]
   sessions: SessionUsageRow[]
+  /** True when the projection scan hit a cap or skipped unreadable files. */
+  partial?: boolean
 }
 
 interface ProjectionRow<T> {
@@ -418,9 +420,26 @@ export async function readModelAnalytics(days = 30): Promise<AnalyticsReport> {
 
   const dir = projectionDirectory()
   const sessions: SessionMetadata[] = []
+  let partial = false
   try {
     const entries = await readdir(dir, { withFileTypes: true })
-    const files = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.json')).slice(0, MAX_FILES)
+    let files = entries.filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+    if (files.length > MAX_FILES) {
+      // readdir has no ordering guarantee. Pick the newest files by metadata
+      // instead of silently taking an arbitrary first page.
+      const ranked = await Promise.all(files.map(async (entry) => {
+        try {
+          return { entry, at: (await stat(join(dir, entry.name))).mtimeMs }
+        } catch {
+          return { entry, at: 0 }
+        }
+      }))
+      files = ranked
+        .sort((left, right) => right.at - left.at)
+        .slice(0, MAX_FILES)
+        .map((item) => item.entry)
+      partial = true
+    }
     let cursor = 0
     const workers = Array.from({ length: Math.min(16, files.length) }, async () => {
       while (true) {
@@ -437,15 +456,18 @@ export async function readModelAnalytics(days = 30): Promise<AnalyticsReport> {
           }
         } catch {
           // A half-written or foreign projection file is simply skipped.
+          partial = true
         }
       }
     })
     await Promise.all(workers)
   } catch {
     // No projection cache yet: an empty report is the honest answer.
+    partial = true
   }
 
   const report = aggregateSessions(sessions, clamped)
+  report.partial = partial
   cache.set(clamped, { at: Date.now(), report })
   return report
 }

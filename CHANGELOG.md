@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.21
+
+- **Analytics completeness**: projection scans above 5000 files now select the newest files by metadata instead of an arbitrary readdir page; file-limit and unreadable-projection cases set `AnalyticsReport.partial`, surfaced in the dashboard.
+- 113 tests.
+
 ## 0.5.20
 
 - **CI/reproducibility**: regenerated `package-lock.json` with the normal npm resolver; clean `npm ci --ignore-scripts` now succeeds and `npm run check` passes.

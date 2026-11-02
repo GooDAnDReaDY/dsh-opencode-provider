@@ -1,6 +1,10 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.20 — current release
+## 0.5.21 — current release
+
+- Analytics projection scans above 5000 files select newest files and mark partial reports.
+
+## 0.5.20 — previous release
 
 - Clean npm ci uses a complete lockfile.
 - SSE CRLF/CR chunk boundaries and missing transport terminal events are handled.
