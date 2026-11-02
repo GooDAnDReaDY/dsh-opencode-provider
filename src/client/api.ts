@@ -302,6 +302,7 @@ export interface AnalyticsReport {
   summary: AnalyticsSummary
   days: DayUsageRow[]
   sessions: SessionUsageRow[]
+  partial?: boolean
   heatmap?: RequestHeatmap
 }
 

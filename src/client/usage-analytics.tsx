@@ -181,6 +181,7 @@ export function UsageAnalyticsView(props: {
         />
       </div>
 
+      {analytics.partial === true ? <p className="oc-hint">{t('analyticsPartial')}</p> : null}
       <p className="oc-hint">{t('analyticsHint')}</p>
       {tab === 'models' ? modelRows(analytics, t) : null}
       {tab === 'days' ? dayRows(analytics, t) : null}
