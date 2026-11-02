@@ -296,6 +296,10 @@ export async function* parseGoogleStream(
     }
   }
 
+  if (sawContent && finishReason === undefined) {
+    throw new LlmError('Google stream ended without a finish reason', 'TRANSPORT')
+  }
+
   if (textIndex !== undefined) {
     yield { type: 'block-end', index: textIndex, block: { type: 'text', text } }
   }

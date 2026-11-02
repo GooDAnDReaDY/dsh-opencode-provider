@@ -284,6 +284,18 @@ test('config route writes path ops with the current revision', async () => {
   assert.equal(tuiRefreshes.count, 1)
 })
 
+test('config route uses the draft revision for compare-and-swap', async () => {
+  const { routes, mutations } = harness()
+  const result = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: { revision: 4, patch: { showSidebarQuota: true } },
+  })
+  assert.equal(result.status, 200)
+  assert.equal(mutations[0]?.revision, 4)
+})
+
 test('config route normalizes model-account rules', async () => {
   const { routes, mutations } = harness()
   const result = await call(routes.get('/dsh-opencode/config')!, {

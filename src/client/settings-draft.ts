@@ -1,6 +1,7 @@
 import type { HostState, TransportId } from './api.ts'
 
 export interface Draft {
+  revision: number
   apiKeyEnv: string
   apiBase: string
   goApiBase: string
@@ -26,6 +27,7 @@ export interface Draft {
 export function draftOf(state: HostState): Draft {
   const allIds = state.models.map((model) => model.id)
   return {
+    revision: state.revision ?? 0,
     apiKeyEnv: state.config.apiKeyEnv,
     apiBase: state.config.apiBase,
     goApiBase: state.config.goApiBase,

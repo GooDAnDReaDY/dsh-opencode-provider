@@ -95,7 +95,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     setSaving(true)
     setError(null)
     try {
-      await saveConfig(patchOf(draft))
+      await saveConfig(patchOf(draft), draft.revision)
       window.dispatchEvent(new CustomEvent(CONFIG_CHANGED_EVENT))
       setNotice(t('saved'))
       setState(null)
@@ -332,6 +332,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             className="oc-button oc-button-danger"
             onClick={() => {
               const ref = draft.apiKeyEnv.trim() === '' ? state.config.apiKeyEnv : draft.apiKeyEnv.trim()
+              if (!window.confirm(t('clearKeyConfirm').replace('{ref}', ref))) return
               void clearKey(ref)
                 .then(() => { setNotice(t('saved')); return load() })
                 .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : t('failed')))
@@ -399,13 +400,23 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       <section className="oc-card">
         <h3 className="oc-card-title">
           {t('serviceStatus')}
-          <span className={`oc-badge ${state.service.usageError === undefined ? 'oc-badge-ok' : 'oc-badge-warn'}`}>
-            {state.service.usageError === undefined ? t('serviceOk') : t('serviceDegraded')}
+          <span className={`oc-badge ${
+            state.service.usageCheckedAt === undefined
+              ? 'oc-badge-warn'
+              : state.service.usageError === undefined ? 'oc-badge-ok' : 'oc-badge-bad'
+          }`}>
+            {state.service.usageCheckedAt === undefined
+              ? t('notChecked')
+              : state.service.usageError === undefined ? t('serviceOk') : t('serviceDegraded')}
           </span>
         </h3>
         <div className="oc-row">
           <span className="oc-hint">{t('usageEndpoint')}</span>
-          <span className={`oc-badge ${state.service.usageError === undefined ? 'oc-badge-ok' : 'oc-badge-bad'}`}>
+          <span className={`oc-badge ${
+            state.service.usageCheckedAt === undefined
+              ? 'oc-badge-warn'
+              : state.service.usageError === undefined ? 'oc-badge-ok' : 'oc-badge-bad'
+          }`}>
             {state.service.usageCheckedAt === undefined
               ? t('notChecked')
               : t('checkedAt').replace('{time}', new Date(state.service.usageCheckedAt).toLocaleTimeString())}
@@ -545,7 +556,10 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                 <button
                   type="button"
                   className="oc-button oc-button-danger"
-                  onClick={() => update({ accounts: draft.accounts.filter((_, i) => i !== index) })}
+                  onClick={() => {
+                    setKeyDrafts({})
+                    update({ accounts: draft.accounts.filter((_, i) => i !== index) })
+                  }}
                 >
                   {t('removeAccount')}
                 </button>

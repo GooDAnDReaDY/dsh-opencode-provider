@@ -27,7 +27,10 @@ export interface SelectedRequestImages {
  * dropped first; the transports render them as an "image omitted" placeholder
  * instead of failing the whole request.
  */
-export function selectRequestImages(refs: readonly ImageAttachmentRef[]): SelectedRequestImages {
+export function selectRequestImages(
+  refs: readonly ImageAttachmentRef[],
+  occurrences?: ReadonlyMap<string, number>,
+): SelectedRequestImages {
   const unique: ImageAttachmentRef[] = []
   const seen = new Set<string>()
   for (const ref of refs) {
@@ -36,12 +39,20 @@ export function selectRequestImages(refs: readonly ImageAttachmentRef[]): Select
     unique.push(ref)
   }
 
+  const countOf = (ref: ImageAttachmentRef): number =>
+    Math.max(1, occurrences?.get(ref.attachmentId) ?? 1)
+  const encoded = (bytes: number): number => Math.ceil(Math.max(0, bytes) * 4 / 3)
   let start = 0
-  let bytes = unique.reduce((sum, ref) => sum + Math.max(0, ref.bytes), 0)
+  let totalImages = unique.reduce((sum, ref) => sum + countOf(ref), 0)
+  let bytes = unique.reduce((sum, ref) => sum + encoded(ref.bytes) * countOf(ref), 0)
   while (start < unique.length
-    && (unique.length - start > MAX_REQUEST_IMAGES || bytes > MAX_REQUEST_IMAGE_BYTES)) {
+    && (totalImages > MAX_REQUEST_IMAGES || bytes > MAX_REQUEST_IMAGE_BYTES)) {
     const dropped = unique[start]
-    if (dropped !== undefined) bytes -= Math.max(0, dropped.bytes)
+    if (dropped !== undefined) {
+      const count = countOf(dropped)
+      totalImages -= count
+      bytes -= encoded(dropped.bytes) * count
+    }
     start += 1
   }
 
@@ -67,7 +78,7 @@ function targetOf(ref: ImageAttachmentRef): { width: number; height: number; max
 
 export function hasImages(options: GenerateOptions): boolean {
   return options.messages.some((message) =>
-    message.content.some((block) => block.type === 'image'))
+    message.content.some((block) => block.type === 'image' && block.offloaded !== true))
 }
 
 /** Decode the distinct request images that fit the request-wide budget. */
@@ -77,11 +88,13 @@ export async function resolveImages(
   signal: AbortSignal | undefined,
 ): Promise<ImageMap> {
   const refs: ImageAttachmentRef[] = []
+  const counts = new Map<string, number>()
   const seen = new Set<string>()
   for (const message of options.messages) {
     for (const block of message.content) {
       if (block.type !== 'image' || block.offloaded === true) continue
       const ref = block.attachment
+      counts.set(ref.attachmentId, (counts.get(ref.attachmentId) ?? 0) + 1)
       if (seen.has(ref.attachmentId)) continue
       seen.add(ref.attachmentId)
       refs.push(ref)
@@ -89,7 +102,7 @@ export async function resolveImages(
   }
 
   const images = new Map<string, ResolvedImage>()
-  for (const ref of selectRequestImages(refs).kept) {
+  for (const ref of selectRequestImages(refs, counts).kept) {
     const request = await store.readImageRequest(ref, targetOf(ref), signal)
     const base64 = Buffer.from(request.data).toString('base64')
     images.set(ref.attachmentId, {

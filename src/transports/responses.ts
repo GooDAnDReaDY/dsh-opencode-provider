@@ -217,6 +217,7 @@ export async function* parseResponsesStream(
   const tools = new Map<string, LiveTool>()
   let sawContent = false
   let hasTools = false
+  let completed = false
   let usage: TokenUsage | undefined
   let incomplete: string | undefined
 
@@ -322,10 +323,14 @@ export async function* parseResponsesStream(
     }
 
     if (type === 'response.completed') {
+      completed = true
       usage = mapUsage(event.response?.usage)
       incomplete = event.response?.incomplete_details?.reason
       continue
     }
+  }
+  if (sawContent && !completed) {
+    throw new LlmError('OpenAI Responses stream ended without response.completed', 'TRANSPORT')
   }
 
   if (textIndex !== undefined) {

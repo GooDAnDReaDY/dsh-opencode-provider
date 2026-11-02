@@ -538,6 +538,12 @@ export class OpenCodeAdapter extends LlmAdapter {
       ...(transport === 'anthropic' ? { 'anthropic-version': '2023-06-01' } : {}),
     }
 
+    const callerAborted = (): boolean => signal?.aborted === true
+    if (callerAborted()) {
+      throw signal?.reason instanceof Error
+        ? signal.reason
+        : new LlmError('OpenCode request was aborted before dispatch', 'TRANSPORT')
+    }
     const controller = new AbortController()
     let timedOut = false
     const onAbort = (): void => controller.abort(signal?.reason)
@@ -556,7 +562,7 @@ export class OpenCodeAdapter extends LlmAdapter {
         signal: controller.signal,
       })
     } catch (error) {
-      if (signal?.aborted === true) throw signal.reason ?? error
+      if (callerAborted()) throw signal?.reason ?? error
       if (timedOut) {
         throw new LlmError(
           `OpenCode did not return response headers within ${config.requestTimeoutMs}ms`,
