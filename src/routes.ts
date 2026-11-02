@@ -412,12 +412,17 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         json(res, 400, { error: 'no known fields in patch' })
         return
       }
-      await settings.mutate(NS, ops, settingsRevision(ctx))
+      const revision = typeof body.revision === 'number' && Number.isInteger(body.revision)
+        ? body.revision
+        : settingsRevision(ctx)
+      await settings.mutate(NS, ops, revision)
       deps.usage.clear()
       deps.refreshTui?.()
       json(res, 200, { ok: true })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'config write failed' })
+      const message = error instanceof Error ? error.message : 'config write failed'
+      const conflict = /revision|conflict|stale/i.test(message)
+      json(res, conflict ? 409 : 500, { error: message })
     }
   })
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.20
+
+- **CI/reproducibility**: regenerated `package-lock.json` with the normal npm resolver; clean `npm ci --ignore-scripts` now succeeds and `npm run check` passes.
+- **Streaming correctness**: SSE parsing now normalizes CRLF/CR across chunk boundaries; all four transports reject streams that end without their protocol terminal event. Pre-aborted caller signals are rejected before provider dispatch.
+- **Concurrent settings**: settings saves carry the draft revision and use the settings compare-and-swap; revision conflicts return 409 instead of overwriting another page's changes.
+- **UI safety**: removing an account clears unsaved per-row key drafts; clearing a credential asks for confirmation; update checks distinguish registry failure from “up to date”; service status never reports healthy before a successful check.
+- **Images**: request budget counts repeated image occurrences and base64 overhead; offloaded images no longer require the attachment service.
+- **Docs/tests**: added project `AGENTS.md`; removed the unsafe local engine-matrix script pending the approved DSH test contour (`#55`).
+
 ## 0.5.19
 
 - **Per-model soft cooldown**: quota/free-tier/rate-limit rejections now cool only that key+model (`quota` 5m, `rate-limit` 60s); other models on the same account remain usable. Invalid credentials still cool the account. If every key is cooling, the request degrades to the normal candidate list instead of failing before dispatch.

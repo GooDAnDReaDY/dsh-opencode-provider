@@ -139,8 +139,11 @@ export function checkAccount(label: string): Promise<AccountCheckResult> {
   return call('/dsh-opencode/accounts/check', { method: 'POST', body: JSON.stringify({ label }) })
 }
 
-export function saveConfig(patch: Record<string, unknown>): Promise<{ ok: true }> {
-  return call('/dsh-opencode/config', { method: 'POST', body: JSON.stringify({ patch }) })
+export function saveConfig(patch: Record<string, unknown>, revision?: number): Promise<{ ok: true }> {
+  return call('/dsh-opencode/config', {
+    method: 'POST',
+    body: JSON.stringify(revision === undefined ? { patch } : { patch, revision }),
+  })
 }
 
 export interface UpdateStatus {

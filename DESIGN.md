@@ -1,6 +1,15 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.19 — current release
+## 0.5.20 — current release
+
+- Clean npm ci uses a complete lockfile.
+- SSE CRLF/CR chunk boundaries and missing transport terminal events are handled.
+- Pre-aborted signals are rejected before provider dispatch.
+- Settings saves use draft revision CAS; account key drafts clear on row removal; update/service states distinguish failure/unchecked.
+- Image budgets count repeated occurrences and base64; offloaded images do not require attachments.
+- Unsafe local engine matrix script removed pending the approved test contour (#55).
+
+## 0.5.19 — previous release
 
 - Quota/free-tier/rate-limit rejections are scoped to key+model (quota 5m, rate-limit 60s); other models on the same account remain usable.
 - Service status exposes usage check time, latency/error and catalog source/count/fetch time.

@@ -34,6 +34,15 @@ async function readWithIdleTimeout(
   })
 }
 
+function appendDecoded(buffer: string, decoded: string): string {
+  // Normalize CRLF/CR line endings across chunk boundaries. A trailing CR is
+  // held because the following chunk may begin with LF.
+  let text = buffer + decoded
+  const trailingCR = text.endsWith('\r')
+  if (trailingCR) text = text.slice(0, -1)
+  return text.replace(/\r\n?/g, '\n') + (trailingCR ? '\r' : '')
+}
+
 /** Yield the `data:` payload of every SSE event, honoring cancellation and idle timeouts. */
 export async function* sseData(
   body: ReadableStream<Uint8Array>,
@@ -47,7 +56,7 @@ export async function* sseData(
     for (;;) {
       const result = await readWithIdleTimeout(reader, idleTimeoutMs, signal)
       if (result.done) break
-      buffer += decoder.decode(result.value, { stream: true }).replace(/\r\n/g, '\n')
+      buffer = appendDecoded(buffer, decoder.decode(result.value, { stream: true }))
       for (;;) {
         const boundary = buffer.indexOf('\n\n')
         if (boundary < 0) break
@@ -88,7 +97,7 @@ export async function* sseEvents(
     for (;;) {
       const result = await readWithIdleTimeout(reader, idleTimeoutMs, signal)
       if (result.done) break
-      buffer += decoder.decode(result.value, { stream: true }).replace(/\r\n/g, '\n')
+      buffer = appendDecoded(buffer, decoder.decode(result.value, { stream: true }))
       for (;;) {
         const boundary = buffer.indexOf('\n\n')
         if (boundary < 0) break

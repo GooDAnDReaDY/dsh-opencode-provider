@@ -100,9 +100,13 @@ export async function* parseChatStream(
   let finishReason: string | undefined
   let usage: TokenUsage | undefined
   let sawContent = false
+  let sawTerminal = false
 
   for await (const data of sseData(response.body, idleTimeoutMs, signal)) {
-    if (data === '[DONE]') break
+    if (data === '[DONE]') {
+      sawTerminal = true
+      break
+    }
     let chunk: ChatChunk
     try {
       chunk = JSON.parse(data) as ChatChunk
@@ -174,8 +178,12 @@ export async function* parseChatStream(
 
       if (choice.finish_reason !== undefined && choice.finish_reason !== null) {
         finishReason = choice.finish_reason
+        sawTerminal = true
       }
     }
+  }
+  if (sawContent && !sawTerminal) {
+    throw new LlmError('OpenCode stream ended without a terminal finish event', 'TRANSPORT')
   }
 
   if (textIndex !== undefined) {

@@ -221,6 +221,28 @@ test('persists account cooldowns across adapter instances', async () => {
   assert.ok((health?.coolingUntil ?? 0) > Date.now())
 })
 
+test('does not dispatch a request when the caller signal is already aborted', async () => {
+  let calls = 0
+  const adapter = adapterWith((async () => {
+    calls += 1
+    return new Response(streamOf(), { status: 200, headers: { 'content-type': 'text/event-stream' } })
+  }) as typeof fetch)
+  const controller = new AbortController()
+  controller.abort()
+  await assert.rejects(async () => {
+    for await (const _chunk of adapter.stream({
+      provider: GO_PROVIDER,
+      model: 'deepseek-v4.1-flash',
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+      maxTokens: 8,
+      signal: controller.signal,
+    })) {
+      void _chunk
+    }
+  })
+  assert.equal(calls, 0)
+})
+
 test('records one request per stream call', async () => {
   const recorded: string[] = []
   const adapter = adapterWith(

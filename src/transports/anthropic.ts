@@ -268,6 +268,7 @@ export async function* parseAnthropicStream(
   let nextIndex = 0
   let sawContent = false
   let sawToolUse = false
+  let sawMessageStop = false
   let stopReason: string | undefined
   let inputUsage: AnthropicUsage | undefined
   let outputTokens: number | undefined
@@ -394,7 +395,13 @@ export async function* parseAnthropicStream(
       if (typeof event.usage?.output_tokens === 'number') outputTokens = event.usage.output_tokens
       continue
     }
-    if (event.type === 'message_stop') break
+    if (event.type === 'message_stop') {
+      sawMessageStop = true
+      break
+    }
+  }
+  if (sawContent && !sawMessageStop) {
+    throw new LlmError('Anthropic stream ended without message_stop', 'TRANSPORT')
   }
 
   const toolBlocks = [...blocks.values()].filter((block) => block.kind === 'tool-call')
