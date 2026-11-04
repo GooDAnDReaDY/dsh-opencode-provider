@@ -1,6 +1,12 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.22 — current release
+## 0.5.23 — current release
+
+- **DSH 0.2.2**: compatibility range is `>=0.2.1-rc.2 <0.2.3-0`; all 0.2.2 prereleases/final are admitted. Verified `0.2.2-rc.1` with both routes, 29 discovered models and a real `deepseek-v4.1-flash` request (`OK`); 0.2.1-rc.2/rc.4 activation regression passes.
+- **Host webserver**: handlers are typed as `WebRoute['handler']` to compile against the 0.2.2 `WebRoute | WebResourceRoute` union without changing runtime registration.
+- **Dependencies**: dev/typecheck packages moved to `@deepseek-ai/*@0.2.2-rc.1`, Cordis 4.1.0, Schemastery 3.19.0; the peer range still admits the 0.2.1 line.
+
+## 0.5.22 — previous release
 
 - **Proxy**: `proxyUrl` supports HTTP/HTTPS/SOCKS5 for inference, catalog and usage. Credentials in the proxy URL are intentionally rejected because `/state` returns the address to the browser; a credential-bearing proxy would leak a secret. A future credential-aware proxy needs a separate secret field, not a URL in public config.
 - **Accounts**: 20-slot cap; drag order is the failover order; the last successful account is promoted and persisted in `sticky.json`. Conversation sticky routing still wins inside an existing dialog. Invalid credentials cool for 5 minutes.
