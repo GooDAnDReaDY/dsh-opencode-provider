@@ -14,6 +14,7 @@ import type { ResolvedConfig } from '../config.ts'
 import { filePlaceholder } from '../files.ts'
 import { offloadPlaceholder, type ImageMap } from '../images.ts'
 import { sseData } from './sse.ts'
+import { toolCallName } from './tool-call.ts'
 
 function textOnly(content: readonly ContentBlock[]): string {
   const parts: string[] = []
@@ -242,7 +243,7 @@ export async function* parseGoogleStream(
           const id = typeof part.functionCall.id === 'string' && part.functionCall.id !== ''
             ? part.functionCall.id
             : `call_${toolCounter++}`
-          const name = part.functionCall.name ?? ''
+          const name = toolCallName(part.functionCall.name)
           const args = JSON.stringify(part.functionCall.args ?? {})
           hasTools = true
           sawContent = true

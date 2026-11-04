@@ -84,8 +84,11 @@ test('settings draft and patch keep client edits normalized', () => {
       openCodeAuthEntry: 'opencode-go',
       requestTimeoutMs: 300000,
       streamIdleTimeoutMs: 300000,
+      proxyUrl: '',
       maxOutputTokens: null,
+      maxOutputTokensOverrides: {},
       contextWindow: null,
+      contextWindowOverrides: {},
       accounts: [{ label: 'Go #2', apiKeyEnv: 'OPENCODE_API_KEY_2' }],
       modelAccountRules: [{ pattern: '*free*', account: 'Go #2' }],
       quotaFallbackModel: '',
@@ -420,10 +423,12 @@ test('routing uses the Go unified gateway for chat and native paths for the rest
 test('model overrides win over generated metadata', () => {
   const config = resolved({
     contextWindowOverrides: { 'deepseek-v4.1-flash': 4096 },
+    maxOutputTokensOverrides: { 'deepseek-v4.1-flash': 1234 },
     modelTransports: { 'deepseek-v4.1-flash': 'anthropic' },
   })
   const model = effectiveModel('deepseek-v4.1-flash', config)
   assert.equal(model.contextWindow, 4096)
+  assert.equal(effectiveMaxTokens(model, config), 1234)
   assert.equal(model.transport, 'anthropic')
   assert.match(describeModel(model), /anthropic/)
 })

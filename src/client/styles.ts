@@ -76,6 +76,10 @@ export const CSS = `
 .oc-bar-fill-bad { background: var(--oc-danger); opacity: 1; }
 .oc-models { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow: auto; padding-right: 4px; }
 .oc-model { display: grid; grid-template-columns: 22px minmax(0,1fr) 120px; gap: 8px; align-items: center; font-size: 12px; padding: 3px 0; }
+.oc-model-entry { display: flex; flex-direction: column; gap: 2px; }
+.oc-model-overrides { display: flex; gap: 8px; padding-left: 30px; }
+.oc-model-override { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--oc-text-tertiary); }
+.oc-model-override .oc-input { width: 92px; padding: 3px 6px; font-size: 11px; }
 .oc-model-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oc-model-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; color: var(--oc-text-secondary); font-size: 11px; }
 .oc-model-legend > span { display: inline-flex; align-items: center; gap: 5px; }
@@ -84,8 +88,10 @@ export const CSS = `
 .oc-model-section-head { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 12px; font-weight: 650; }
 .oc-model-section-head .oc-badge { padding: 0 6px; font-size: 10px; }
 .oc-model-section .oc-hint { margin: 0 0 4px; }
-.oc-account { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap: 8px; align-items: center; }
+.oc-account { display: grid; grid-template-columns: 18px minmax(0,1fr) minmax(0,1fr) auto; gap: 8px; align-items: center; }
 .oc-account-block { display: flex; flex-direction: column; gap: 6px; padding: 9px; border: 1px solid var(--oc-border-soft); border-radius: 8px; background: var(--oc-fill); }
+.oc-drag { cursor: grab; color: var(--oc-text-tertiary); user-select: none; font-size: 13px; line-height: 1; }
+.oc-drag:active { cursor: grabbing; }
 .oc-notice { font-size: 12px; padding: 7px 10px; border-radius: 7px; background: var(--oc-accent-soft); border: 1px solid var(--oc-accent-border); }
 .oc-error { font-size: 12px; padding: 7px 10px; border-radius: 7px; background: var(--oc-danger-soft); border: 1px solid var(--oc-danger-border); color: var(--oc-danger); }
 [class*="_footerActions"]:has(.oc-foot), [class*="_footerActions"]:has(.oc-railButton) { flex-direction: column; }

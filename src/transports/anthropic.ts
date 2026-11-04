@@ -14,6 +14,7 @@ import type { ResolvedConfig } from '../config.ts'
 import { filePlaceholder } from '../files.ts'
 import { offloadPlaceholder, type ImageMap } from '../images.ts'
 import { sseEvents } from './sse.ts'
+import { toolCallId, toolCallName } from './tool-call.ts'
 
 interface AnthropicBlockMeta {
   type?: string
@@ -209,8 +210,8 @@ interface AnthropicEvent {
     thinking?: string
     signature?: string
     data?: string
-    id?: string
-    name?: string
+    id?: unknown
+    name?: unknown
   }
   delta?: {
     type?: string
@@ -299,8 +300,8 @@ export async function* parseAnthropicStream(
           dshIndex,
           kind: 'tool-call',
           text: '',
-          id: source.id ?? `call_${dshIndex}`,
-          name: source.name ?? '',
+          id: toolCallId(source.id, `call_${dshIndex}`),
+          name: toolCallName(source.name),
           args: '',
         }
         sawContent = true

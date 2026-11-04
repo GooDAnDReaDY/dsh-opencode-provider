@@ -43,7 +43,7 @@ import { buildGoogleBody, parseGoogleStream } from './transports/google.ts'
 import { parseChatStream } from './transports/openai-chat.ts'
 import { buildResponsesBody, parseResponsesStream } from './transports/responses.ts'
 
-export type RoutingReason = 'rule' | 'sticky' | 'pinned' | 'default' | 'rotation' | 'quota-fallback'
+export type RoutingReason = 'rule' | 'sticky' | 'pinned' | 'promoted' | 'default' | 'rotation' | 'quota-fallback'
 
 export interface RoutingTraceEntry {
   readonly at: number
@@ -106,6 +106,8 @@ export class OpenCodeAdapter extends LlmAdapter {
     model: string
     at: number
   }>()
+  /** provider → fingerprint of the account that last served a request. */
+  private readonly lastGood = new Map<string, string>()
   private readonly routing: RoutingTraceEntry[] = []
   private warnedTools = false
 
@@ -226,6 +228,12 @@ export class OpenCodeAdapter extends LlmAdapter {
           reason = 'sticky'
         }
       }
+    } else if (rule === undefined && this.lastGood.has(options.provider)) {
+      const preferred = rawKeys.find((entry) => this.keyId(entry.key) === this.lastGood.get(options.provider))
+      if (preferred !== undefined && rawKeys[0] !== preferred) {
+        keys = [preferred, ...rawKeys.filter((entry) => entry !== preferred)]
+        reason = 'promoted'
+      }
     }
     const eligible = fallback
       ? keys
@@ -335,6 +343,7 @@ export class OpenCodeAdapter extends LlmAdapter {
         }
         logAttempt(true)
         this.rememberSticky(sessionId, options, entry)
+        this.rememberGood(options.provider, entry)
         this.pushTrace({
           at: Date.now(),
           provider: options.provider,
@@ -447,6 +456,12 @@ export class OpenCodeAdapter extends LlmAdapter {
     this.persistSticky()
   }
 
+  /** Promote the account that actually served the request on the next call. */
+  private rememberGood(provider: string, entry: ResolvedKey): void {
+    this.lastGood.set(provider, this.keyId(entry.key))
+    this.persistSticky()
+  }
+
   /** Await pending sticky persistence writes (tests and shutdown). */
   async flushSticky(): Promise<void> {
     await this.stickyWrites
@@ -454,7 +469,12 @@ export class OpenCodeAdapter extends LlmAdapter {
 
   private loadSticky(): void {
     try {
-      const parsed = JSON.parse(readFileSync(this.stickyPath, 'utf8')) as { sticky?: unknown }
+      const parsed = JSON.parse(readFileSync(this.stickyPath, 'utf8')) as { sticky?: unknown; lastGood?: unknown }
+      if (typeof parsed.lastGood === 'object' && parsed.lastGood !== null && !Array.isArray(parsed.lastGood)) {
+        for (const [provider, fingerprint] of Object.entries(parsed.lastGood as Record<string, unknown>)) {
+          if (typeof fingerprint === 'string' && fingerprint !== '') this.lastGood.set(provider, fingerprint)
+        }
+      }
       const entries = parsed.sticky
       if (typeof entries !== 'object' || entries === null || Array.isArray(entries)) return
       for (const [sessionId, value] of Object.entries(entries as Record<string, unknown>)) {
@@ -493,7 +513,10 @@ export class OpenCodeAdapter extends LlmAdapter {
 
   private persistSticky(): void {
     this.pruneSticky()
-    const payload = JSON.stringify({ sticky: Object.fromEntries(this.sticky) })
+    const payload = JSON.stringify({
+      sticky: Object.fromEntries(this.sticky),
+      lastGood: Object.fromEntries(this.lastGood),
+    })
     this.stickyWrites = this.stickyWrites
       .then(async () => {
         await mkdir(dirname(this.stickyPath), { recursive: true })
@@ -712,7 +735,7 @@ export class OpenCodeAdapter extends LlmAdapter {
       delayMs = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 60_000
       reason = 'rate-limit'
     } else if (status === 401 || status === 403) {
-      delayMs = 24 * 60 * 60 * 1000
+      delayMs = 5 * 60 * 1000
       reason = 'invalid-credential'
     }
     this.cooldowns.set(this.keyId(key), { until: Date.now() + delayMs, reason })

@@ -10,8 +10,11 @@ export interface Draft {
   openCodeAuthEntry: string
   requestTimeoutMs: string
   streamIdleTimeoutMs: string
+  proxyUrl: string
   maxOutputTokens: string
   contextWindow: string
+  contextWindowOverrides: Record<string, string>
+  maxOutputTokensOverrides: Record<string, string>
   showSidebarQuota: boolean
   activeAccount: string
   accounts: Array<{ label: string; apiKeyEnv: string }>
@@ -36,8 +39,15 @@ export function draftOf(state: HostState): Draft {
     openCodeAuthEntry: state.config.openCodeAuthEntry,
     requestTimeoutMs: String(state.config.requestTimeoutMs),
     streamIdleTimeoutMs: String(state.config.streamIdleTimeoutMs),
+    proxyUrl: state.config.proxyUrl,
     maxOutputTokens: state.config.maxOutputTokens === null ? '' : String(state.config.maxOutputTokens),
     contextWindow: state.config.contextWindow === null ? '' : String(state.config.contextWindow),
+    contextWindowOverrides: Object.fromEntries(
+      Object.entries(state.config.contextWindowOverrides).map(([id, value]) => [id, String(value)]),
+    ),
+    maxOutputTokensOverrides: Object.fromEntries(
+      Object.entries(state.config.maxOutputTokensOverrides).map(([id, value]) => [id, String(value)]),
+    ),
     showSidebarQuota: state.config.showSidebarQuota,
     activeAccount: state.config.activeAccount,
     accounts: state.config.accounts.map((account) => ({ ...account })),
@@ -59,6 +69,18 @@ export function numberOrNull(text: string): number | null {
   return value
 }
 
+function numberRecordOrNull(record: Record<string, string>): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const [id, text] of Object.entries(record)) {
+    const trimmed = text.trim()
+    if (trimmed === '') continue
+    const value = Number(trimmed)
+    if (!Number.isInteger(value) || value < 0) throw new Error(`Invalid number: ${text}`)
+    out[id] = value
+  }
+  return out
+}
+
 export function patchOf(draft: Draft): Record<string, unknown> {
   return {
     apiKeyEnv: draft.apiKeyEnv.trim(),
@@ -69,8 +91,11 @@ export function patchOf(draft: Draft): Record<string, unknown> {
     openCodeAuthEntry: draft.openCodeAuthEntry.trim(),
     requestTimeoutMs: numberOrNull(draft.requestTimeoutMs) ?? 300000,
     streamIdleTimeoutMs: numberOrNull(draft.streamIdleTimeoutMs) ?? 300000,
+    proxyUrl: draft.proxyUrl.trim(),
     maxOutputTokens: numberOrNull(draft.maxOutputTokens),
     contextWindow: numberOrNull(draft.contextWindow),
+    contextWindowOverrides: numberRecordOrNull(draft.contextWindowOverrides),
+    maxOutputTokensOverrides: numberRecordOrNull(draft.maxOutputTokensOverrides),
     showSidebarQuota: draft.showSidebarQuota,
     activeAccount: draft.activeAccount.trim(),
     accounts: draft.accounts

@@ -107,6 +107,7 @@ function routingLabel(reason: string, t: (key: string) => string): string {
   if (reason === 'rule') return t('routingRule')
   if (reason === 'sticky') return t('routingSticky')
   if (reason === 'pinned') return t('routingPinned')
+  if (reason === 'promoted') return t('routingPromoted')
   if (reason === 'rotation') return t('routingRotation')
   if (reason === 'quota-fallback') return t('routingFallback')
   return t('routingDefault')

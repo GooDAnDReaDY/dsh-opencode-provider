@@ -9,6 +9,7 @@ export interface PublicConfig {
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
+  proxyUrl: string
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
   filterModelsByPlan: boolean
@@ -16,6 +17,7 @@ export interface PublicConfig {
   contextWindow: number | null
   contextWindowOverrides: Readonly<Record<string, number>>
   maxOutputTokens: number | null
+  maxOutputTokensOverrides: Readonly<Record<string, number>>
   accounts: ReadonlyArray<{ label: string; apiKeyEnv: string }>
   modelAccountRules: ReadonlyArray<{ pattern: string; account: string }>
   quotaFallbackModel: string
@@ -35,6 +37,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     openCodeAuthEntry: config.openCodeAuthEntry,
     requestTimeoutMs: config.requestTimeoutMs,
     streamIdleTimeoutMs: config.streamIdleTimeoutMs,
+    proxyUrl: config.proxyUrl,
     visibleModels: config.visibleModels,
     modelVisibility: config.modelVisibility,
     filterModelsByPlan: config.filterModelsByPlan,
@@ -42,6 +45,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     contextWindow: config.contextWindow ?? null,
     contextWindowOverrides: config.contextWindowOverrides,
     maxOutputTokens: config.maxOutputTokens ?? null,
+    maxOutputTokensOverrides: config.maxOutputTokensOverrides,
     accounts: config.accounts.map((account) => ({
       label: typeof account.label === 'string' ? account.label : '',
       apiKeyEnv: typeof account.apiKeyEnv === 'string' ? account.apiKeyEnv : '',

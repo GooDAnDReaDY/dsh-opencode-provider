@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.22
+
+- **Proxy transport**: one live `proxyUrl` setting (HTTP, HTTPS or SOCKS5) now covers inference, catalog discovery and usage checks. Dispatchers are shared by address and released when the plugin unloads; proxy credentials are rejected so the settings API never returns a secret.
+- **Account pool parity**: up to 20 accounts, drag-and-drop priority in Settings, promotion of the account that served the last request (persisted alongside sticky state), and a 5-minute invalid-credential cooldown matching the reference plugin.
+- **Per-model overrides**: per-model context window and output caps are now editable per model; `0` omits the output cap. The output override also applies to request construction, not only the model descriptor.
+- **Tool-call validation**: numeric/null ids and names from OpenAI Chat, Anthropic, Responses and Google streams are normalized to string fallbacks before emitting `tool-call-delta`; a repeated `id:null` no longer overwrites the id from the first fragment. Six regression tests cover streaming, continuation, non-SSE and all transports (GitHub #2).
+- **Docs/TUI**: README/RU/ZH mirrors and the TUI connection section expose the same fields; 124 tests.
+- **Not added**: a separate keyless Free route. A live probe returned HTTP 429 `FreeUsageLimitError`; the existing keyed Console/Zen route remains the reliable path.
+
 ## 0.5.21
 
 - **Analytics completeness**: projection scans above 5000 files now select the newest files by metadata instead of an arbitrary readdir page; file-limit and unreadable-projection cases set `AnalyticsReport.partial`, surfaced in the dashboard.
