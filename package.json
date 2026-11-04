@@ -1,6 +1,6 @@
 {
   "name": "@goodandready/dsh-opencode-provider",
-  "version": "0.5.21",
+  "version": "0.5.22",
   "description": "OpenCode / OpenCode Go LLM provider plugin for DeepSeek Harness (dsh).",
   "license": "MIT",
   "type": "module",
@@ -69,7 +69,7 @@
     "build": "tsdown",
     "prepare": "tsdown 1>&2",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/tools.test.ts tests/plugin-updater.test.ts tests/client-render.test.tsx tests/sse.test.ts",
+    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/tools.test.ts tests/plugin-updater.test.ts tests/client-render.test.tsx tests/sse.test.ts tests/proxy.test.ts tests/tool-call-validation.test.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "release": "npm run check && npm pack",
     "sync:models": "node scripts/sync-models.mjs"
@@ -121,5 +121,8 @@
     "tsdown": "^0.22.2",
     "tsx": "^4.23.12",
     "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "undici": "^7.30.0"
   }
 }

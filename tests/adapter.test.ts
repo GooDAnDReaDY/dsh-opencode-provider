@@ -433,6 +433,28 @@ test('treats a free-tier rejection as a short rate-limit and rotates', async () 
   assert.ok((health?.coolingUntil ?? 0) < Date.now() + 2 * 60 * 1000)
 })
 
+test('promotes the account that served the previous request', async () => {
+  const seen: string[] = []
+  const adapter = adapterWith((async (_url, init) => {
+    const headers = init?.headers as Record<string, string>
+    const auth = headers.authorization ?? ''
+    seen.push(auth)
+    if (auth === 'Bearer bad') {
+      return new Response(JSON.stringify({ error: { type: 'auth_error', message: 'invalid key' } }), {
+        status: 401,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+    return new Response(streamOf(), { status: 200, headers: { 'content-type': 'text/event-stream' } })
+  }) as typeof fetch, undefined, testCooldownPath(), undefined, { stickySession: false })
+
+  await collect(adapter)
+  await collect(adapter)
+
+  assert.deepEqual(seen, ['Bearer bad', 'Bearer good', 'Bearer good'])
+  assert.ok(adapter.routingTrace().some((entry) => entry.reason === 'promoted' && entry.ok))
+})
+
 test('does not record a successful route when the stream breaks after content', async () => {
   const body = `data: ${JSON.stringify({
     choices: [{ index: 0, delta: { content: 'OK' } }],

@@ -1,6 +1,14 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.21 — current release
+## 0.5.22 — current release
+
+- **Proxy**: `proxyUrl` supports HTTP/HTTPS/SOCKS5 for inference, catalog and usage. Credentials in the proxy URL are intentionally rejected because `/state` returns the address to the browser; a credential-bearing proxy would leak a secret. A future credential-aware proxy needs a separate secret field, not a URL in public config.
+- **Accounts**: 20-slot cap; drag order is the failover order; the last successful account is promoted and persisted in `sticky.json`. Conversation sticky routing still wins inside an existing dialog. Invalid credentials cool for 5 minutes.
+- **Per-model limits**: context/output overrides apply to request construction; `0` omits the output cap.
+- **Tool calls**: untrusted ids/names from Chat, Anthropic, Responses and Google are normalized to strings; repeated `id:null` cannot overwrite a valid id.
+- **Known limitation**: Duskriver's keyless Free route is not copied. A live probe of `big-pickle` without a key returned HTTP 429 `FreeUsageLimitError`; the keyed Console/Zen route remains the reliable path.
+
+## 0.5.21 — previous release
 
 - Analytics projection scans above 5000 files select newest files and mark partial reports.
 

@@ -12,6 +12,7 @@ export interface PublicConfig {
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
+  proxyUrl: string
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
   filterModelsByPlan: boolean
@@ -19,6 +20,7 @@ export interface PublicConfig {
   contextWindow: number | null
   contextWindowOverrides: Readonly<Record<string, number>>
   maxOutputTokens: number | null
+  maxOutputTokensOverrides: Readonly<Record<string, number>>
   accounts: ReadonlyArray<{ label: string; apiKeyEnv: string }>
   modelAccountRules: ReadonlyArray<{ pattern: string; account: string }>
   quotaFallbackModel: string
@@ -33,7 +35,7 @@ export interface RoutingTraceRow {
   provider: string
   model: string
   account: string
-  reason: 'rule' | 'sticky' | 'pinned' | 'default' | 'rotation' | 'quota-fallback'
+  reason: 'rule' | 'sticky' | 'pinned' | 'promoted' | 'default' | 'rotation' | 'quota-fallback'
   fallback: boolean
   ok: boolean
   error?: string

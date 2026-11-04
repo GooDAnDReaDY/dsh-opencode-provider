@@ -1,4 +1,5 @@
 import z from '@deepseek-ai/schemastery'
+import { normalizeProxyUrl } from './proxy.ts'
 
 export const NS = 'llm-opencode'
 export const DEFAULT_API_KEY_ENV = 'OPENCODE_API_KEY'
@@ -7,10 +8,11 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.21'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.22'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 32_768
+export const MAX_ACCOUNTS = 20
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'
 
@@ -48,6 +50,8 @@ export interface Config {
   requestTimeoutMs?: number
   /** Milliseconds a stream may stall; defaults to 300s. */
   streamIdleTimeoutMs?: number
+  /** HTTP/HTTPS/SOCKS5 proxy for inference, catalog and usage requests. */
+  proxyUrl?: string
   /** Visible-model allowlist; an empty list means "show everything". */
   visibleModels?: string[]
   /** Per-model visibility overrides; wins over `visibleModels`. */
@@ -62,6 +66,8 @@ export interface Config {
   contextWindowOverrides?: Record<string, number>
   /** Per-turn output cap; `0` omits `max_tokens`. */
   maxOutputTokens?: number
+  /** Per-model output caps; `0` omits `max_tokens` for that model. */
+  maxOutputTokensOverrides?: Record<string, number>
   /** Extra accounts for rotation (parsed now, used by the account pool later). */
   accounts?: AccountConfig[]
   /** Preferred account per model glob; other accounts remain fallbacks. */
@@ -93,6 +99,7 @@ export const Config: z<Config> = z.object({
   openCodeAuthEntry: markVolatile(z.string().default(DEFAULT_AUTH_ENTRY)),
   requestTimeoutMs: markVolatile(z.number().min(1).max(2_147_483_647).default(300_000)),
   streamIdleTimeoutMs: markVolatile(z.number().min(1).max(2_147_483_647).default(300_000)),
+  proxyUrl: markVolatile(z.string().default('')),
   visibleModels: markVolatile(z.array(z.string()).default([])),
   modelVisibility: markVolatile(z.dict(z.boolean()).default({})),
   filterModelsByPlan: markVolatile(z.boolean().default(true)),
@@ -102,11 +109,12 @@ export const Config: z<Config> = z.object({
   contextWindow: markVolatile(z.number().min(1).max(10_000_000).step(1)),
   contextWindowOverrides: markVolatile(z.dict(z.number().min(1).max(10_000_000).step(1)).default({})),
   maxOutputTokens: markVolatile(z.number().min(0).max(10_000_000).step(1)),
+  maxOutputTokensOverrides: markVolatile(z.dict(z.number().min(0).max(10_000_000).step(1)).default({})),
   accounts: markVolatile(z.array(z.object({
     label: z.string(),
     apiKeyEnv: z.string().role('credential-ref'),
     apiKey: z.string().role('secret'),
-  })).default([])),
+  })).max(MAX_ACCOUNTS).default([])),
   modelAccountRules: markVolatile(z.array(z.object({
     pattern: z.string(),
     account: z.string(),
@@ -128,6 +136,7 @@ export interface ResolvedConfig {
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
+  proxyUrl: string
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
   filterModelsByPlan: boolean
@@ -135,6 +144,7 @@ export interface ResolvedConfig {
   contextWindow?: number
   contextWindowOverrides: Readonly<Record<string, number>>
   maxOutputTokens?: number
+  maxOutputTokensOverrides: Readonly<Record<string, number>>
   accounts: readonly AccountConfig[]
   modelAccountRules: readonly ModelAccountRule[]
   quotaFallbackModel: string
@@ -177,6 +187,15 @@ function numberRecord(value: unknown): Record<string, number> {
   const out: Record<string, number> = {}
   for (const [key, entry] of Object.entries(value)) {
     if (typeof entry === 'number' && Number.isInteger(entry) && entry > 0) out[key] = entry
+  }
+  return out
+}
+
+function nonNegativeNumberRecord(value: unknown): Record<string, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+  const out: Record<string, number> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'number' && Number.isInteger(entry) && entry >= 0) out[key] = entry
   }
   return out
 }
@@ -232,6 +251,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
       : DEFAULT_AUTH_ENTRY,
     requestTimeoutMs: positiveInt(config.requestTimeoutMs, 300_000),
     streamIdleTimeoutMs: positiveInt(config.streamIdleTimeoutMs, 300_000),
+    proxyUrl: normalizeProxyUrl(config.proxyUrl),
     visibleModels: Array.isArray(config.visibleModels)
       ? config.visibleModels.filter((id): id is string => typeof id === 'string' && id !== '')
       : [],
@@ -245,6 +265,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     ...(typeof config.maxOutputTokens === 'number' && Number.isInteger(config.maxOutputTokens) && config.maxOutputTokens >= 0
       ? { maxOutputTokens: config.maxOutputTokens }
       : {}),
+    maxOutputTokensOverrides: nonNegativeNumberRecord(config.maxOutputTokensOverrides),
     accounts: Array.isArray(config.accounts) ? config.accounts : [],
     modelAccountRules: modelAccountRuleList(config.modelAccountRules),
     quotaFallbackModel: typeof config.quotaFallbackModel === 'string' ? config.quotaFallbackModel.trim() : '',

@@ -50,6 +50,7 @@ export interface OpenCodeTuiSettingsDeps {
   readonly apiKeyRef: () => string
   readonly accountSlots: () => readonly { id: string; label: string }[]
   readonly visibleModels: () => readonly string[]
+  readonly proxyUrl: () => string
   readonly activeAccount: () => string
   readonly filterModelsByPlan: () => boolean
   readonly quotaFallbackModel: () => string
@@ -133,6 +134,15 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         kind: 'text',
         label: 'Usage endpoint',
         placeholder: 'https://opencode.ai/zen/go/v1/usage',
+        parse: setOrClear,
+      },
+      {
+        path: ['proxyUrl'],
+        group: 'connection',
+        kind: 'text',
+        label: 'Proxy URL',
+        hint: 'HTTP, HTTPS or SOCKS5; empty disables it.',
+        format: () => deps.proxyUrl(),
         parse: setOrClear,
       },
       {

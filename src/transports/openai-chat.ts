@@ -8,12 +8,13 @@ import {
 
 import { classifyStreamError } from '../errors.ts'
 import { sseData } from './sse.ts'
+import { toolCallArguments, toolCallId, toolCallName } from './tool-call.ts'
 
 interface ChatToolCallDelta {
   index?: number
-  id?: string
+  id?: unknown
   type?: string
-  function?: { name?: string; arguments?: string }
+  function?: { name?: unknown; arguments?: unknown }
 }
 
 interface ChatDelta {
@@ -149,22 +150,22 @@ export async function* parseChatStream(
         if (entry === undefined) {
           entry = {
             dshIndex: nextIndex++,
-            id: toolCall.id ?? `call_${key}`,
+            id: toolCallId(toolCall.id, `call_${key}`),
             name: '',
             args: '',
             started: false,
           }
           toolCalls.set(key, entry)
         }
-        if (toolCall.id !== undefined && toolCall.id !== '') entry.id = toolCall.id
-        if (toolCall.function?.name !== undefined && toolCall.function.name !== '') {
-          entry.name = toolCall.function.name
-        }
+        const id = toolCallId(toolCall.id, '')
+        if (id !== '') entry.id = id
+        const name = toolCallName(toolCall.function?.name)
+        if (name !== '') entry.name = name
         if (!entry.started) {
           entry.started = true
           yield { type: 'block-start', index: entry.dshIndex, blockType: 'tool-call' }
         }
-        const argumentsDelta = toolCall.function?.arguments ?? ''
+        const argumentsDelta = toolCallArguments(toolCall.function?.arguments)
         if (argumentsDelta !== '') entry.args += argumentsDelta
         sawContent = true
         yield {
@@ -236,9 +237,9 @@ async function* parseCompletion(chunk: ChatChunk): AsyncIterable<StreamChunk> {
     sawContent = true
   }
   for (const call of message?.tool_calls ?? []) {
-    const id = ToolCallId(call.id ?? `call_${index}`)
-    const name = call.function?.name ?? ''
-    const args = call.function?.arguments ?? '{}'
+    const id = ToolCallId(toolCallId(call.id, `call_${index}`))
+    const name = toolCallName(call.function?.name)
+    const args = toolCallArguments(call.function?.arguments) || '{}'
     yield { type: 'block-start', index, blockType: 'tool-call' }
     yield { type: 'tool-call-delta', index, id, ...(name === '' ? {} : { name }), argumentsDelta: args }
     yield { type: 'block-end', index, block: { type: 'tool-call', id, name, arguments: args } }

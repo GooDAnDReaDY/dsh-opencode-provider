@@ -65,6 +65,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [importing, setImporting] = useState(false)
   const [checking, setChecking] = useState<string | null>(null)
+  const [dragFrom, setDragFrom] = useState<number | null>(null)
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -200,7 +201,8 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     const hasPrice = model.cost.input > 0 || model.cost.output > 0
     const zen = !model.free && model.limits === null
     return (
-      <div className="oc-model" key={model.id}>
+      <div className="oc-model-entry" key={model.id}>
+      <div className="oc-model">
         <input type="checkbox" checked={checked} onChange={() => toggleModel(model.id)} />
         <span className="oc-model-name" title={model.name + ' · ' + model.description}>
           {model.name}
@@ -238,6 +240,41 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <option value="anthropic">anthropic</option>
           <option value="google">google</option>
         </select>
+      </div>
+      <div className="oc-model-overrides">
+        <label className="oc-model-override">
+          <span>{t('contextOverrideShort')}</span>
+          <input
+            className="oc-input"
+            type="number"
+            min={1}
+            placeholder={String(model.contextWindow)}
+            value={draft.contextWindowOverrides[model.id] ?? ''}
+            onChange={(event) => {
+              const next = { ...draft.contextWindowOverrides }
+              if (event.target.value === '') delete next[model.id]
+              else next[model.id] = event.target.value
+              update({ contextWindowOverrides: next })
+            }}
+          />
+        </label>
+        <label className="oc-model-override">
+          <span>{t('maxOutputOverrideShort')}</span>
+          <input
+            className="oc-input"
+            type="number"
+            min={0}
+            placeholder={String(model.maxTokens)}
+            value={draft.maxOutputTokensOverrides[model.id] ?? ''}
+            onChange={(event) => {
+              const next = { ...draft.maxOutputTokensOverrides }
+              if (event.target.value === '') delete next[model.id]
+              else next[model.id] = event.target.value
+              update({ maxOutputTokensOverrides: next })
+            }}
+          />
+        </label>
+      </div>
       </div>
     )
   }
@@ -471,8 +508,32 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           const configured = known?.configured === true
           const draftKey = keyDrafts[index] ?? ''
           return (
-            <div className="oc-account-block" key={index}>
+            <div
+              className="oc-account-block"
+              key={index}
+              onDragOver={(event) => { if (dragFrom !== null) event.preventDefault() }}
+              onDrop={() => {
+                if (dragFrom === null || dragFrom === index) return
+                const accounts = [...draft.accounts]
+                const [moved] = accounts.splice(dragFrom, 1)
+                if (moved !== undefined) accounts.splice(index, 0, moved)
+                update({ accounts })
+                setDragFrom(null)
+              }}
+            >
               <div className="oc-account">
+                <span
+                  className="oc-drag"
+                  draggable
+                  title={t('dragAccount')}
+                  onDragStart={(event) => {
+                    setDragFrom(index)
+                    event.dataTransfer.effectAllowed = 'move'
+                  }}
+                  onDragEnd={() => setDragFrom(null)}
+                >
+                  ⋮⋮
+                </span>
                 <input
                   className="oc-input"
                   placeholder={t('accountLabel')}
@@ -571,10 +632,12 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <button
             type="button"
             className="oc-button"
+            disabled={draft.accounts.length >= 20}
             onClick={() => update({ accounts: [...draft.accounts, { label: '', apiKeyEnv: '' }] })}
           >
             {t('addAccount')}
           </button>
+          {draft.accounts.length >= 20 ? <span className="oc-hint">{t('accountLimit')}</span> : null}
           <button
             type="button"
             className="oc-button"
@@ -766,6 +829,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <Field label={t('usageUrl')} value={draft.usageUrl} onChange={(value) => update({ usageUrl: value })} />
           <Field label={t('requestTimeoutMs')} type="number" value={draft.requestTimeoutMs} onChange={(value) => update({ requestTimeoutMs: value })} />
           <Field label={t('streamIdleTimeoutMs')} type="number" value={draft.streamIdleTimeoutMs} onChange={(value) => update({ streamIdleTimeoutMs: value })} />
+          <Field label={t('proxyUrl')} hint={t('proxyUrlHint')} value={draft.proxyUrl} onChange={(value) => update({ proxyUrl: value })} />
           <Field label={t('maxOutputTokens')} type="number" value={draft.maxOutputTokens} onChange={(value) => update({ maxOutputTokens: value })} />
           <Field label={t('contextWindow')} type="number" value={draft.contextWindow} onChange={(value) => update({ contextWindow: value })} />
         </div>

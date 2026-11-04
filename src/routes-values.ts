@@ -1,4 +1,4 @@
-import type { TransportId } from './config.ts'
+import { MAX_ACCOUNTS, type TransportId } from './config.ts'
 
 const TRANSPORTS = new Set<TransportId>(['openai-chat', 'openai-responses', 'anthropic', 'google'])
 
@@ -11,6 +11,7 @@ export function cleanAccounts(value: unknown): Array<{ label: string; apiKeyEnv:
     const label = typeof record.label === 'string' ? record.label.trim() : ''
     const apiKeyEnv = typeof record.apiKeyEnv === 'string' ? record.apiKeyEnv.trim() : ''
     if (label === '' && apiKeyEnv === '') continue
+    if (out.length >= MAX_ACCOUNTS) break
     out.push({ label: label === '' ? `account-${out.length + 2}` : label, apiKeyEnv })
   }
   return out
@@ -48,6 +49,15 @@ export function cleanNumberRecord(value: unknown): Record<string, number> {
   const out: Record<string, number> = {}
   for (const [key, entry] of Object.entries(value)) {
     if (typeof entry === 'number' && Number.isInteger(entry) && entry > 0) out[key] = entry
+  }
+  return out
+}
+
+export function cleanNonNegativeNumberRecord(value: unknown): Record<string, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+  const out: Record<string, number> = {}
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === 'number' && Number.isInteger(entry) && entry >= 0) out[key] = entry
   }
   return out
 }

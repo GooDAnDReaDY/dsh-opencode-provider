@@ -13,8 +13,9 @@ import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
 import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
+import { normalizeProxyUrl } from './proxy.ts'
 import { publicConfig } from './routes-public.ts'
-import { cleanAccounts, cleanBooleanRecord, cleanModelAccountRules, cleanNumberRecord, cleanStringArray, cleanTransports } from './routes-values.ts'
+import { cleanAccounts, cleanBooleanRecord, cleanModelAccountRules, cleanNonNegativeNumberRecord, cleanNumberRecord, cleanStringArray, cleanTransports } from './routes-values.ts'
 import { readOpenCodeAuthKey, listOpenCodeAuthEntries, type KeyPool } from './credentials.ts'
 import type { RequestHeatmap } from './request-log.ts'
 import { limitsFor } from './subscription-limits.ts'
@@ -140,6 +141,7 @@ function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset';
   if ('openCodeAuthEntry' in patch) set('openCodeAuthEntry', patch.openCodeAuthEntry)
   if ('requestTimeoutMs' in patch) set('requestTimeoutMs', patch.requestTimeoutMs)
   if ('streamIdleTimeoutMs' in patch) set('streamIdleTimeoutMs', patch.streamIdleTimeoutMs)
+  if ('proxyUrl' in patch) set('proxyUrl', normalizeProxyUrl(typeof patch.proxyUrl === 'string' ? patch.proxyUrl : ''))
   if ('visibleModels' in patch) set('visibleModels', cleanStringArray(patch.visibleModels))
   if ('modelVisibility' in patch) set('modelVisibility', cleanBooleanRecord(patch.modelVisibility))
   if ('filterModelsByPlan' in patch) set('filterModelsByPlan', patch.filterModelsByPlan === true)
@@ -147,6 +149,7 @@ function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset';
   if ('contextWindow' in patch) set('contextWindow', patch.contextWindow)
   if ('contextWindowOverrides' in patch) set('contextWindowOverrides', cleanNumberRecord(patch.contextWindowOverrides))
   if ('maxOutputTokens' in patch) set('maxOutputTokens', patch.maxOutputTokens)
+  if ('maxOutputTokensOverrides' in patch) set('maxOutputTokensOverrides', cleanNonNegativeNumberRecord(patch.maxOutputTokensOverrides))
   if ('accounts' in patch) set('accounts', cleanAccounts(patch.accounts))
   if ('modelAccountRules' in patch) set('modelAccountRules', cleanModelAccountRules(patch.modelAccountRules))
   if ('quotaFallbackModel' in patch) set('quotaFallbackModel', patch.quotaFallbackModel)

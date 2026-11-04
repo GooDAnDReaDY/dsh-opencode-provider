@@ -45,9 +45,10 @@ export function effectiveModel(id: string, config: ResolvedConfig): EffectiveMod
 /** Effective per-request output default; `0` means "omit the field". */
 export function effectiveMaxTokens(meta: OpenCodeModelMeta, config: ResolvedConfig): number | undefined {
   const ceiling = Math.min(meta.maxTokens, DEFAULT_GENERATE_MAX_TOKENS)
-  if (config.maxOutputTokens === undefined) return ceiling
-  if (config.maxOutputTokens === 0) return undefined
-  return Math.min(ceiling, config.maxOutputTokens)
+  const configured = config.maxOutputTokensOverrides[meta.id] ?? config.maxOutputTokens
+  if (configured === undefined) return ceiling
+  if (configured === 0) return undefined
+  return Math.min(ceiling, configured)
 }
 
 export function modelVisible(id: string, config: ResolvedConfig): boolean {

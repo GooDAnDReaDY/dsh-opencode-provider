@@ -10,6 +10,7 @@ function deps(): OpenCodeTuiSettingsDeps {
     apiKeyRef: () => 'OPENCODE_API_KEY',
     accountSlots: () => [{ id: 'Go #2', label: 'Go #2' }],
     visibleModels: () => ['deepseek-v4.1-flash'],
+    proxyUrl: () => '',
     activeAccount: () => '',
     filterModelsByPlan: () => true,
     quotaFallbackModel: () => '',
@@ -26,6 +27,14 @@ test('builds a secret API-key field bound to the credential ref', () => {
   assert.ok(field)
   assert.deepEqual(field.secret, { ref: 'OPENCODE_API_KEY' })
   assert.equal(field.group, 'connection')
+})
+
+test('exposes the proxy URL in connection settings', () => {
+  const field = buildOpenCodeTuiSection(deps()).fields.find((entry) => entry.path[0] === 'proxyUrl')
+  assert.ok(field)
+  assert.equal(field.group, 'connection')
+  assert.deepEqual(field.parse?.('socks5://127.0.0.1:1080'), { kind: 'set', value: 'socks5://127.0.0.1:1080' })
+  assert.deepEqual(field.parse?.('  '), { kind: 'clear' })
 })
 
 test('formats and parses the visible-model allowlist', () => {

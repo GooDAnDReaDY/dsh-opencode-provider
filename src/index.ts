@@ -11,6 +11,7 @@ import { createKeyPool, openCodeAuthPath } from './credentials.ts'
 import { registerPluginUpdater } from './plugin-updater.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { applyRoutes } from './routes.ts'
+import { createProxyFetch } from './proxy.ts'
 import { readRequestHeatmap } from './request-log.ts'
 import { applyOpenCodeTuiSettings } from './tui-settings.ts'
 import { createUsageReader } from './usage.ts'
@@ -47,14 +48,17 @@ export { clearCatalogCache, describeModel, effectiveModel } from './catalog.ts'
 export function apply(ctx: Context, config: Config): void {
   const current = () => resolveConfig(unwrapVolatileConfig(config))
   const keys = createKeyPool(ctx, current)
-  const usage = createUsageReader(current, (provider) => keys.resolve(provider))
+  const proxy = createProxyFetch(() => current().proxyUrl)
+  const usage = createUsageReader(current, (provider) => keys.resolve(provider), proxy.fetch)
   const adapter = new OpenCodeAdapter({
     config: current,
     resolveKey: (provider) => keys.resolve(provider),
     resolveKeys: (provider) => keys.resolveAll(provider),
     resolveAttachments: () => ctx.get('attachments'),
+    fetchImpl: proxy.fetch,
     warn: (message) => ctx.logger('llm-opencode').warn(message),
   })
+  ctx.effect(() => () => { void proxy.dispose() })
 
   ctx.llm.registerConfigurableProviders([
     { provider: CONSOLE_PROVIDER, displayName: 'OpenCode (plugin)', settingsNs: NS, settingsPath: [] },
@@ -92,6 +96,7 @@ export function apply(ctx: Context, config: Config): void {
         })),
       ],
       visibleModels: () => current().visibleModels,
+      proxyUrl: () => current().proxyUrl,
       activeAccount: () => current().activeAccount,
       filterModelsByPlan: () => current().filterModelsByPlan,
       quotaFallbackModel: () => current().quotaFallbackModel,

@@ -14,6 +14,7 @@ import type { ResolvedConfig } from '../config.ts'
 import { filePlaceholder } from '../files.ts'
 import { offloadPlaceholder, type ImageMap } from '../images.ts'
 import { sseEvents } from './sse.ts'
+import { toolCallArguments, toolCallId, toolCallName } from './tool-call.ts'
 
 const EFFORT_LEVELS = new Set(['minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
 
@@ -152,11 +153,11 @@ interface ResponsesUsage {
 }
 
 interface ResponsesItem {
-  id?: string
+  id?: unknown
   type?: string
-  call_id?: string
-  name?: string
-  arguments?: string
+  call_id?: unknown
+  name?: unknown
+  arguments?: unknown
   encrypted_content?: string
 }
 
@@ -245,12 +246,12 @@ export async function* parseResponsesStream(
           yield { type: 'block-start', index: reasoningIndex, blockType: 'reasoning' }
         }
       } else if (item?.type === 'function_call') {
-        const key = item.id ?? item.call_id ?? `tool_${event.output_index ?? tools.size}`
+        const key = toolCallId(item.id, toolCallId(item.call_id, `tool_${event.output_index ?? tools.size}`))
         const live: LiveTool = {
           dshIndex: nextIndex++,
-          id: item.call_id ?? item.id ?? `call_${tools.size}`,
-          name: item.name ?? '',
-          args: item.arguments ?? '',
+          id: toolCallId(item.call_id, toolCallId(item.id, `call_${tools.size}`)),
+          name: toolCallName(item.name),
+          args: toolCallArguments(item.arguments),
         }
         tools.set(key, live)
         hasTools = true
@@ -312,11 +313,13 @@ export async function* parseResponsesStream(
     if (type === 'response.output_item.done') {
       const item = event.item
       if (item?.type === 'function_call') {
-        const key = item.id ?? item.call_id
-        const live = key === undefined ? undefined : tools.get(key)
+        const id = toolCallId(item.id, toolCallId(item.call_id, ''))
+        const live = id === '' ? undefined : tools.get(id)
         if (live !== undefined) {
-          if (item.name !== undefined) live.name = item.name
-          if (item.arguments !== undefined) live.args = item.arguments
+          const name = toolCallName(item.name)
+          if (name !== '') live.name = name
+          const args = toolCallArguments(item.arguments)
+          if (args !== '') live.args = args
         }
       }
       continue
