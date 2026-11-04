@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.23
+
+- **DSH 0.2.2 support**: compatibility now accepts every `0.2.2` prerelease and final release with `>=0.2.1-rc.2 <0.2.3-0`; `0.2.2-rc.1` is recorded as verified. Dev/typecheck dependencies moved to `@deepseek-ai/*@0.2.2-rc.1`, Cordis 4.1.0 and Schemastery 3.19.0; peer ranges admit both the 0.2.1 and 0.2.2 lines.
+- **Host webserver compatibility**: route registration now types handlers against `WebRoute` instead of indexing the new `WebRoute | WebResourceRoute` union, preserving 0.2.1 behavior while compiling on 0.2.2.
+- **Verification**: isolated DSH 0.2.2-rc.1 web profile activated both routes, discovered 29 models and completed a real `deepseek-v4.1-flash` request (`OK`); 0.2.1-rc.4 and 0.2.1-rc.2 activation regressions also pass. `npm run check`: 124/124 tests.
+
 ## 0.5.22
 
 - **Proxy transport**: one live `proxyUrl` setting (HTTP, HTTPS or SOCKS5) now covers inference, catalog discovery and usage checks. Dispatchers are shared by address and released when the plugin unloads; proxy credentials are rejected so the settings API never returns a secret.

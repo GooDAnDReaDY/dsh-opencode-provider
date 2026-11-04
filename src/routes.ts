@@ -3,7 +3,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import { credentialRef, type CredentialProvider } from '@deepseek-ai/dsh-credentials'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import type { WebServer } from '@deepseek-ai/dsh-host-webserver'
+import type { WebRoute, WebServer } from '@deepseek-ai/dsh-host-webserver'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-settings'
 
@@ -316,7 +316,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
 export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void {
   const disposers: Array<() => void> = []
 
-  const route = (path: string, handler: Parameters<WebServer['register']>[0]['handler']): void => {
+  const route = (path: string, handler: WebRoute['handler']): void => {
     disposers.push(web.register({ kind: 'exact', path, handler }))
   }
 
