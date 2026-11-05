@@ -873,6 +873,11 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <Field label={t('usageUrl')} value={draft.usageUrl} onChange={(value) => update({ usageUrl: value })} />
           <Field label={t('requestTimeoutMs')} type="number" value={draft.requestTimeoutMs} onChange={(value) => update({ requestTimeoutMs: value })} />
           <Field label={t('streamIdleTimeoutMs')} type="number" value={draft.streamIdleTimeoutMs} onChange={(value) => update({ streamIdleTimeoutMs: value })} />
+          <Field label={t('requestPreparationTimeoutMs')} type="number" value={draft.requestPreparationTimeoutMs} onChange={(value) => update({ requestPreparationTimeoutMs: value })} />
+          <Field label={t('maxImages')} type="number" value={draft.maxImages} onChange={(value) => update({ maxImages: value })} />
+          <Field label={t('maxRequestImageBytes')} type="number" value={draft.maxRequestImageBytes} onChange={(value) => update({ maxRequestImageBytes: value })} />
+          <Field label={t('requestImagePixelBudget')} type="number" value={draft.requestImagePixelBudget} onChange={(value) => update({ requestImagePixelBudget: value })} />
+          <Field label={t('requestImageMaxBytes')} type="number" value={draft.requestImageMaxBytes} onChange={(value) => update({ requestImageMaxBytes: value })} />
           <Field label={t('proxyUrl')} hint={t('proxyUrlHint')} value={draft.proxyUrl} onChange={(value) => update({ proxyUrl: value })} />
           <Field label={t('maxOutputTokens')} type="number" value={draft.maxOutputTokens} onChange={(value) => update({ maxOutputTokens: value })} />
           <Field label={t('contextWindow')} type="number" value={draft.contextWindow} onChange={(value) => update({ contextWindow: value })} />

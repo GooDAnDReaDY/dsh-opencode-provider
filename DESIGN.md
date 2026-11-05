@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.27 — current release
+## 0.5.28 — current release
+
+- Image count/bytes/pixel policies are configurable with backwards-compatible defaults.
+- Preparation has its own 60s deadline, separate from response-header and stream deadlines.
+
+## 0.5.27 — previous release
 
 - Live catalog release dates feed a seven-UTC-day NEW badge; malformed/missing dates are ignored.
 - The default generated-output ceiling is 65,536 tokens, still bounded by model and caller limits.

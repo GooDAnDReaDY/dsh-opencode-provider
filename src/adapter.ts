@@ -255,7 +255,31 @@ export class OpenCodeAdapter extends LlmAdapter {
           'UNSUPPORTED_CONTENT',
         )
       }
-      images = await resolveImages(options, store, options.signal)
+      const preparation = new AbortController()
+      let timedOut = false
+      const onAbort = (): void => preparation.abort(options.signal?.reason)
+      options.signal?.addEventListener('abort', onAbort, { once: true })
+      const timer = setTimeout(() => {
+        timedOut = true
+        preparation.abort()
+      }, config.requestPreparationTimeoutMs)
+      timer.unref?.()
+      try {
+        images = await resolveImages(options, store, preparation.signal, config)
+      } catch (error) {
+        if (options.signal?.aborted === true) throw options.signal.reason ?? error
+        if (timedOut) {
+          throw new LlmError(
+            `OpenCode image preparation exceeded ${config.requestPreparationTimeoutMs}ms`,
+            'TIMEOUT',
+            { cause: error },
+          )
+        }
+        throw error
+      } finally {
+        clearTimeout(timer)
+        options.signal?.removeEventListener('abort', onAbort)
+      }
     }
     let bodyOptions: GenerateOptions = options
     if (options.tools !== undefined) {
