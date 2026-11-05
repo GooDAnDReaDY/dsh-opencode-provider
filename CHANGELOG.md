@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.30 — release 7: pricing accuracy
+
+- **#74 — peak/off-peak multipliers**: analytics now reads live gateway `cost.multipliers` and evaluates UTC weekday/hour/date conditions at the session timestamp.
+- **#84 — tiered pricing**: live gateway context overrides are normalized into tiers and selected from billed input (`input + cacheRead`) before multipliers. Malformed pricing metadata fails open to the generated flat cost.
+- 139 tests.
+
 ## 0.5.29 — release 6: catalog refresh and Free-lane decision
 
 - **#77 — catalog refresh**: `catalogRefreshMinutes` (1–10,080, default 10) controls the live `/models` cache; explicit `/models/refresh` still bypasses it. Exposed in Settings.

@@ -1,6 +1,10 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.29 — current release
+## 0.5.30 — current release
+
+- Analytics prices from live gateway cost metadata: context tiers select rates from billed input, then UTC multipliers apply at the session timestamp. Malformed metadata falls back to flat generated prices.
+
+## 0.5.29 — previous release
 
 - Catalog cache lifetime is configurable (`catalogRefreshMinutes`, 1–10,080; default 10). Explicit `/models/refresh` still bypasses the cache.
 - Keyless Free-route probe on 2026-11-05 returned HTTP 429 `FreeUsageLimitError` ("Free models work in OpenCode"). The keyed Console/Zen route remains the supported path; no header-spoofing lane is added.

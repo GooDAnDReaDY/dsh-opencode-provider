@@ -2,7 +2,9 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
+import { livePricingFor } from './catalog.ts'
 import { GENERATED_MODELS } from './models.generated.ts'
+import { priceUsage } from './pricing.ts'
 import { PLUGIN_PROVIDER_SET } from './provider-ids.ts'
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -253,11 +255,16 @@ export function aggregateSessions(
     matched += 1
 
     const meta = GENERATED_MODELS[model]
-    const priced = meta !== undefined
+    const livePricing = livePricingFor(provider, model)
+    const priced = meta !== undefined || livePricing !== undefined
     const free = meta?.free === true
     const partial = cacheWrite > 0 || !priced
-    const cost = priced && !free && meta !== undefined
-      ? (input * meta.cost.input + output * meta.cost.output + cacheRead * meta.cost.cacheRead) / 1_000_000
+    const cost = !free && priced
+      ? livePricing !== undefined
+        ? priceUsage(livePricing, { input, output, cacheRead }, at)
+        : meta !== undefined
+          ? (input * meta.cost.input + output * meta.cost.output + cacheRead * meta.cost.cacheRead) / 1_000_000
+          : 0
       : 0
 
     const key = `${provider}/${model}`
