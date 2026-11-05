@@ -100,6 +100,7 @@ export function apply(ctx: Context, config: Config): void {
       activeAccount: () => current().activeAccount,
       filterModelsByPlan: () => current().filterModelsByPlan,
       quotaFallbackModel: () => current().quotaFallbackModel,
+      autoSwitch: () => current().autoSwitch,
       stickySession: () => current().stickySession,
       showSidebarQuota: () => current().showSidebarQuota,
     })

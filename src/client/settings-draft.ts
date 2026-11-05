@@ -20,6 +20,7 @@ export interface Draft {
   accounts: Array<{ label: string; apiKeyEnv: string }>
   modelAccountRules: Array<{ pattern: string; account: string }>
   quotaFallbackModel: string
+  autoSwitch: boolean
   stickySession: boolean
   visibleModels: string[]
   filterModelsByPlan: boolean
@@ -53,6 +54,7 @@ export function draftOf(state: HostState): Draft {
     accounts: state.config.accounts.map((account) => ({ ...account })),
     modelAccountRules: state.config.modelAccountRules.map((rule) => ({ ...rule })),
     quotaFallbackModel: state.config.quotaFallbackModel,
+    autoSwitch: state.config.autoSwitch !== false,
     stickySession: state.config.stickySession,
     visibleModels: state.config.visibleModels.length === 0 ? allIds : [...state.config.visibleModels],
     filterModelsByPlan: state.config.filterModelsByPlan,
@@ -105,6 +107,7 @@ export function patchOf(draft: Draft): Record<string, unknown> {
       .map((rule) => ({ pattern: rule.pattern.trim(), account: rule.account.trim() }))
       .filter((rule) => rule.pattern !== '' && rule.account !== ''),
     quotaFallbackModel: draft.quotaFallbackModel.trim(),
+    autoSwitch: draft.autoSwitch,
     stickySession: draft.stickySession,
     visibleModels: draft.showAll ? [] : draft.visibleModels,
     filterModelsByPlan: draft.filterModelsByPlan,

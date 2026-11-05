@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.23 — current release
+## 0.5.24 — current release
+
+- Managed credential refs are tracked without secrets; account removal cleans up only plugin-managed keys after a successful config save.
+- `autoSwitch` can disable pre-output account failover and quota fallback while preserving the pinned/first usable account.
+
+## 0.5.23 — previous release
 
 - **DSH 0.2.2**: compatibility range is `>=0.2.1-rc.2 <0.2.3-0`; all 0.2.2 prereleases/final are admitted. Verified `0.2.2-rc.1` with both routes, 29 discovered models and a real `deepseek-v4.1-flash` request (`OK`); 0.2.1-rc.2/rc.4 activation regression passes.
 - **Host webserver**: handlers are typed as `WebRoute['handler']` to compile against the 0.2.2 `WebRoute | WebResourceRoute` union without changing runtime registration.

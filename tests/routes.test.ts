@@ -74,6 +74,8 @@ async function call(
   return captured
 }
 
+let managedSeq = 0
+
 function harness(overrides: { config?: Record<string, unknown>; heatmapError?: boolean } = {}) {
   const routes = new Map<string, (req: unknown, res: unknown) => void | Promise<void>>()
   const mutations: Array<{ ns: string; ops: unknown; revision: unknown }> = []
@@ -145,6 +147,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
     adapter,
     pool,
     usage,
+    managedPath: join(tmpdir(), `dsh-opencode-managed-${process.pid}-${managedSeq++}.json`),
     refreshTui: () => { tuiRefreshes.count += 1 },
     analytics: async (days) => ({
       since: Date.now() - days * 86_400_000,
@@ -356,6 +359,27 @@ test('key route stores the key through the credentials seam', async () => {
   })
   assert.equal(result.status, 200)
   assert.equal(stored.get('OPENCODE_API_KEY'), 'oc_sk_test')
+})
+
+test('state marks plugin-managed credentials and clearing removes the mark', async () => {
+  const { routes } = harness()
+  const save = await call(routes.get('/dsh-opencode/key')!, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: { key: 'oc_sk_test' },
+  })
+  assert.equal(save.status, 200)
+  const managedState = await call(routes.get('/dsh-opencode/state')!)
+  assert.equal((managedState.body as Record<string, any>).accounts[0].managed, true)
+
+  const clear = await call(routes.get('/dsh-opencode/key/clear')!, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: {},
+  })
+  assert.equal(clear.status, 200)
+  const clearedState = await call(routes.get('/dsh-opencode/state')!)
+  assert.equal((clearedState.body as Record<string, any>).accounts[0].managed, false)
 })
 
 test('DNS-rebinding Host is refused even when Origin matches', async () => {

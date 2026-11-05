@@ -12,6 +12,7 @@ import { effectiveModel, modelVisible, clearCatalogCache, catalogStatus } from '
 import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
 import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
+import { addManagedCredentialRef, readManagedCredentialRefs, removeManagedCredentialRef } from './managed-credentials.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { normalizeProxyUrl } from './proxy.ts'
 import { publicConfig } from './routes-public.ts'
@@ -31,6 +32,8 @@ export interface RouteDeps {
   readonly analytics?: (days: number) => Promise<AnalyticsReport>
   readonly heatmap?: (days: number) => Promise<RequestHeatmap>
   readonly refreshTui?: () => void
+  /** Test seam; defaults to the local managed-credentials registry. */
+  readonly managedPath?: string
 }
 
 type UsageValue = Awaited<ReturnType<UsageReader>> | null
@@ -153,6 +156,7 @@ function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset';
   if ('accounts' in patch) set('accounts', cleanAccounts(patch.accounts))
   if ('modelAccountRules' in patch) set('modelAccountRules', cleanModelAccountRules(patch.modelAccountRules))
   if ('quotaFallbackModel' in patch) set('quotaFallbackModel', patch.quotaFallbackModel)
+  if ('autoSwitch' in patch) set('autoSwitch', patch.autoSwitch === true)
   if ('stickySession' in patch) set('stickySession', patch.stickySession === true)
   if ('activeAccount' in patch) set('activeAccount', patch.activeAccount)
   if ('showSidebarQuota' in patch) set('showSidebarQuota', patch.showSidebarQuota === true)
@@ -196,6 +200,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     usageByLabel.set(entry.label ?? 'default', usageByKey.get(entry.key) ?? null)
   }
 
+  const managedRefs = await readManagedCredentialRefs(deps.managedPath)
   const slots = [
     { label: 'default', ref: config.apiKeyEnv, default: true },
     ...config.accounts.map((account, index) => ({
@@ -225,6 +230,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     mark: string
     keyStatus: UsageKeyStatus | 'unchecked'
     usage: UsageValue
+    managed: boolean
   }> = []
   for (const slot of slots) {
     let configured = false
@@ -259,6 +265,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
       mark: health?.reason ?? '',
       keyStatus,
       usage,
+      managed: slot.ref !== '' && managedRefs.has(slot.ref),
     })
   }
 
@@ -447,6 +454,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         return
       }
       await credentials.set(credentialRef(refName), key)
+      await addManagedCredentialRef(refName, deps.managedPath)
       json(res, 200, { ok: true, ref: refName })
     } catch (error) {
       json(res, 500, { error: error instanceof Error ? error.message : 'key write failed' })
@@ -466,6 +474,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         ? body.ref.trim()
         : deps.config().apiKeyEnv
       await credentials.unset(credentialRef(refName))
+      await removeManagedCredentialRef(refName, deps.managedPath)
       json(res, 200, { ok: true, ref: refName })
     } catch (error) {
       json(res, 500, { error: error instanceof Error ? error.message : 'key clear failed' })
@@ -493,6 +502,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         return
       }
       await credentials.set(credentialRef(ref), key)
+      await addManagedCredentialRef(ref, deps.managedPath)
       json(res, 200, { ok: true, entry, ref })
     } catch (error) {
       json(res, 500, { error: error instanceof Error ? error.message : 'import failed' })

@@ -8,7 +8,7 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.23'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.24'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 32_768
@@ -74,6 +74,8 @@ export interface Config {
   modelAccountRules?: ModelAccountRule[]
   /** Free model used once when the Go quota rejects a request; empty disables it. */
   quotaFallbackModel?: string
+  /** Try the next account after a pre-stream quota/credential failure. */
+  autoSwitch?: boolean
   /** Prefer the last successful account for a conversation. */
   stickySession?: boolean
   /** Pinned account id; empty means automatic. */
@@ -120,6 +122,7 @@ export const Config: z<Config> = z.object({
     account: z.string(),
   })).default([])),
   quotaFallbackModel: markVolatile(z.string().default('')),
+  autoSwitch: markVolatile(z.boolean().default(true)),
   stickySession: markVolatile(z.boolean().default(true)),
   activeAccount: markVolatile(z.string().default('')),
   showSidebarQuota: markVolatile(z.boolean().default(false)),
@@ -148,6 +151,7 @@ export interface ResolvedConfig {
   accounts: readonly AccountConfig[]
   modelAccountRules: readonly ModelAccountRule[]
   quotaFallbackModel: string
+  autoSwitch: boolean
   stickySession: boolean
   activeAccount: string
   showSidebarQuota: boolean
@@ -269,6 +273,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     accounts: Array.isArray(config.accounts) ? config.accounts : [],
     modelAccountRules: modelAccountRuleList(config.modelAccountRules),
     quotaFallbackModel: typeof config.quotaFallbackModel === 'string' ? config.quotaFallbackModel.trim() : '',
+    autoSwitch: config.autoSwitch !== false,
     stickySession: config.stickySession !== false,
     activeAccount: typeof config.activeAccount === 'string' ? config.activeAccount : '',
     showSidebarQuota: config.showSidebarQuota === true,

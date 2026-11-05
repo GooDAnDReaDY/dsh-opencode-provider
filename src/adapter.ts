@@ -239,8 +239,9 @@ export class OpenCodeAdapter extends LlmAdapter {
       ? keys
       : keys.filter((entry) => !this.coolingDown(entry.key) && !this.modelCoolingDown(entry.key, options.model))
     const ordered = eligible.length > 0 ? eligible : keys
+    const candidates = config.autoSwitch ? ordered : ordered.slice(0, 1)
     const forced = !fallback && eligible.length === 0
-    const initial = ordered[0]
+    const initial = candidates[0]
     const url = endpointFor(options.provider, model.transport, options.model, config)
     let images: ImageMap | undefined
     if (hasImages(options)) {
@@ -276,7 +277,7 @@ export class OpenCodeAdapter extends LlmAdapter {
     let lastError: LlmError | undefined
     let lastAccount = initial?.label ?? 'default'
     let loggedAny = false
-    for (const [index, entry] of ordered.entries()) {
+    for (const [index, entry] of candidates.entries()) {
       if (!fallback && !forced
         && (this.coolingDown(entry.key) || this.modelCoolingDown(entry.key, options.model))) continue
       lastAccount = entry.label ?? 'default'
@@ -322,7 +323,7 @@ export class OpenCodeAdapter extends LlmAdapter {
           const error = classifyResponseError(response.status, text, response.headers)
           lastError = error
           logAttempt(false, error.code)
-          const canRotate = index < ordered.length - 1
+          const canRotate = index < candidates.length - 1
           const retryable = error.code === 'INVALID_CREDENTIAL'
             || error.code === 'RATE_LIMIT'
             || error.code === 'QUOTA'
@@ -379,9 +380,10 @@ export class OpenCodeAdapter extends LlmAdapter {
         if (transient && !responseFailure && !fallback) {
           this.markRejection(entry.key, options.model, 0, undefined, classified.code)
         }
-        const canRotate = index < ordered.length - 1 && transient
+        const canRotate = index < candidates.length - 1 && transient
         if (!canRotate) {
           const canFallback = !fallback
+            && config.autoSwitch
             && config.quotaFallbackModel !== ''
             && isGoProvider(options.provider)
             && classified.code === 'QUOTA'
@@ -420,7 +422,7 @@ export class OpenCodeAdapter extends LlmAdapter {
       ok: false,
       error: finalError.code,
     })
-    if (!fallback && config.quotaFallbackModel !== ''
+    if (!fallback && config.autoSwitch && config.quotaFallbackModel !== ''
       && isGoProvider(options.provider)
       && (lastError === undefined || lastError.code === 'QUOTA')) {
       try {

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.24 — release 1: account safety
+
+- **#89 — managed credential cleanup**: keys saved through Settings or imported from `auth.json` are recorded in `~/.dsh/storages/dsh-opencode/managed-credentials.json` (refs only, never secrets). Removing an account asks for confirmation and deletes only plugin-managed credentials after the settings save succeeds; external environment/`auth.json` references are left intact. Cleanup failures are reported separately from the account removal.
+- **#83 — autoSwitch**: new `autoSwitch` setting (default `true`, preserving prior behavior). When off, the selected/first usable account serves alone; quota/credential failures do not rotate and quota fallback is disabled. Exposed in Settings and TUI.
+- 126 tests.
+
 ## 0.5.23
 
 - **DSH 0.2.2 support**: compatibility now accepts every `0.2.2` prerelease and final release with `>=0.2.1-rc.2 <0.2.3-0`; `0.2.2-rc.1` is recorded as verified. Dev/typecheck dependencies moved to `@deepseek-ai/*@0.2.2-rc.1`, Cordis 4.1.0 and Schemastery 3.19.0; peer ranges admit both the 0.2.1 and 0.2.2 lines.

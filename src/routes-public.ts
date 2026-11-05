@@ -21,6 +21,7 @@ export interface PublicConfig {
   accounts: ReadonlyArray<{ label: string; apiKeyEnv: string }>
   modelAccountRules: ReadonlyArray<{ pattern: string; account: string }>
   quotaFallbackModel: string
+  autoSwitch: boolean
   stickySession: boolean
   activeAccount: string
   showSidebarQuota: boolean
@@ -55,6 +56,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
       account: rule.account,
     })),
     quotaFallbackModel: config.quotaFallbackModel,
+    autoSwitch: config.autoSwitch,
     stickySession: config.stickySession,
     activeAccount: config.activeAccount,
     showSidebarQuota: config.showSidebarQuota,

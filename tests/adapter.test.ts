@@ -433,6 +433,22 @@ test('treats a free-tier rejection as a short rate-limit and rotates', async () 
   assert.ok((health?.coolingUntil ?? 0) < Date.now() + 2 * 60 * 1000)
 })
 
+test('autoSwitch off keeps the selected account and does not rotate', async () => {
+  const seen: string[] = []
+  const adapter = adapterWith((async (_url, init) => {
+    const headers = init?.headers as Record<string, string>
+    seen.push(headers.authorization ?? '')
+    return new Response(JSON.stringify({ error: { type: 'auth_error', message: 'invalid key' } }), {
+      status: 401,
+      headers: { 'content-type': 'application/json' },
+    })
+  }) as typeof fetch, undefined, testCooldownPath(), undefined, { autoSwitch: false })
+
+  await assert.rejects(() => collect(adapter))
+  assert.deepEqual(seen, ['Bearer bad'])
+  assert.ok(adapter.routingTrace().every((entry) => entry.account === 'bad'))
+})
+
 test('promotes the account that served the previous request', async () => {
   const seen: string[] = []
   const adapter = adapterWith((async (_url, init) => {
