@@ -25,6 +25,7 @@ import { draftOf, patchOf, safeSame, type Draft } from './settings-draft.ts'
 import { Field, accountMark, limitsCell, usageChip } from './settings-widgets.tsx'
 import { PluginUpdateCard } from './update-card.tsx'
 import { authRefForEntry } from './auth-ref.ts'
+import { setAdminToken } from './admin-token.ts'
 import { GO_PROVIDER } from '../provider-ids.ts'
 import { describeLimitsFull, formatRequests } from '../subscription-limits.ts'
 
@@ -62,6 +63,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [keyDraft, setKeyDraft] = useState('')
   const [proxyPassword, setProxyPassword] = useState('')
   const [proxyBusy, setProxyBusy] = useState(false)
+  const [tokenDraft, setTokenDraft] = useState('')
   const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({})
   const [search, setSearch] = useState('')
   const [testModel, setTestModel] = useState('deepseek-v4.1-flash')
@@ -214,6 +216,33 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
 
   if (loading && state === null) return <p className="oc-hint">{t('loading')}</p>
   if (state === null || draft === null) {
+    if (error?.includes('admin token required') === true) {
+      return (
+        <div className="oc-page">
+          <div className="oc-card">
+            <h3 className="oc-card-title">{t('adminToken')}</h3>
+            <p className="oc-hint">{t('adminTokenHint')}</p>
+            <input
+              className="oc-input"
+              type="password"
+              value={tokenDraft}
+              placeholder={t('adminTokenPlaceholder')}
+              onChange={(event) => setTokenDraft(event.target.value)}
+            />
+            <button
+              type="button"
+              className="oc-button"
+              disabled={tokenDraft.trim() === ''}
+              onClick={() => {
+                setAdminToken(tokenDraft)
+                setTokenDraft('')
+                void load()
+              }}
+            >{t('continue')}</button>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="oc-page">
         <div className="oc-error">{error ?? t('failed')}</div>

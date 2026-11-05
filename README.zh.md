@@ -127,12 +127,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.32.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.32.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.32
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.33
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。
@@ -188,7 +188,8 @@ modelAccountRules:
 
 ## 安全规范
 
-- 写入与配置路由均要求 Loopback（`127.0.0.1` / `::1`）与同源检查，防御 DNS 重新绑定。
+- 同源检查用于防御 CSRF，并非身份认证。在配置文件（`adminToken`）或 `OPENCODE_ADMIN_TOKEN` 中设置管理员令牌后，所有 `/dsh-opencode/*` 路由都要求 `x-opencode-token` 或 `Authorization: Bearer`；设置界面会要求输入一次并保存在当前浏览器。未设置令牌时仍只有 Loopback 与同源检查。
+- `npm audit` 仍报告 `zod < 4.6.6`（GHSA-mrhx-c7xc-m3w5）：`@deepseek-ai/dsh-*` 0.2.2-rc.1 固定使用 zod 4.4.3。目前没有使用 4.6.6 的 DSH 0.2.2 版本；本插件不打包 zod，也不使用强制 override。待上游 DSH 更新后重新审计。
 - 密钥冷却状态通过 SHA-256 哈希指纹持久化，本地日志不保存提示词与明文密钥。
 
 ## 许可证

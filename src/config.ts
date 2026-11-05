@@ -8,7 +8,7 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.32'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.33'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 65_536
@@ -45,6 +45,8 @@ export interface Config {
   apiKeyEnv?: string
   /** Literal key for composition config only; stripped from settings reads by `role('secret')`. */
   apiKey?: string
+  /** Optional admin token for the Host HTTP routes; also read from `OPENCODE_ADMIN_TOKEN`. */
+  adminToken?: string
   /** Console/Zen inference root; defaults to `https://opencode.ai/inference`. */
   apiBase?: string
   /** Go inference root; defaults to `https://opencode.ai/inference/go`. */
@@ -127,6 +129,7 @@ function markVolatile<T>(schema: T): T {
 export const Config: z<Config> = z.object({
   apiKeyEnv: markVolatile(z.string().role('credential-ref').default(DEFAULT_API_KEY_ENV)),
   apiKey: z.string().role('secret'),
+  adminToken: z.string().role('secret').default(''),
   apiBase: markVolatile(z.string().default(DEFAULT_API_BASE)),
   goApiBase: markVolatile(z.string().default(DEFAULT_GO_API_BASE)),
   goZenBase: markVolatile(z.string().default(DEFAULT_GO_ZEN_BASE)),
@@ -177,6 +180,7 @@ export const Config: z<Config> = z.object({
 export interface ResolvedConfig {
   apiKeyEnv: string
   apiKey?: string
+  adminToken: string
   apiBase: string
   goApiBase: string
   goZenBase: string
@@ -303,6 +307,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
       ? config.apiKeyEnv.trim()
       : DEFAULT_API_KEY_ENV,
     ...(apiKey === undefined ? {} : { apiKey }),
+    adminToken: typeof config.adminToken === 'string' ? config.adminToken.trim() : '',
     apiBase: typeof config.apiBase === 'string' && config.apiBase !== '' ? config.apiBase : DEFAULT_API_BASE,
     goApiBase: typeof config.goApiBase === 'string' && config.goApiBase !== '' ? config.goApiBase : DEFAULT_GO_API_BASE,
     goZenBase: typeof config.goZenBase === 'string' && config.goZenBase !== '' ? config.goZenBase : DEFAULT_GO_ZEN_BASE,

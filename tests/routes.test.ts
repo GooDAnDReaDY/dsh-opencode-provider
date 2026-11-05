@@ -151,6 +151,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
     managedPath: join(tmpdir(), `dsh-opencode-managed-${process.pid}-${managedSeq++}.json`),
     refreshTui: () => { tuiRefreshes.count += 1 },
     syncRoutes: () => { routeSyncs.count += 1 },
+    adminToken: () => config.adminToken,
     analytics: async (days) => ({
       since: Date.now() - days * 86_400_000,
       scannedSessions: 3,
@@ -316,6 +317,28 @@ test('config route accepts route switches and a proxy username', async () => {
     proxyUsername: 'alice',
   })
   assert.equal(routeSyncs.count, 1)
+})
+
+test('admin token gates reads and writes even with forged same-origin headers', async () => {
+  const { routes, mutations } = harness({ config: { adminToken: 'owner-secret' } })
+  const forged = { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' }
+  const read = await call(routes.get('/dsh-opencode/state')!, { headers: forged })
+  assert.equal(read.status, 401)
+  assert.deepEqual(read.body, { error: 'admin token required', authRequired: true })
+
+  const write = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: { ...forged, 'content-type': 'application/json', 'x-opencode-token': 'wrong' },
+    body: { patch: { showSidebarQuota: true } },
+  })
+  assert.equal(write.status, 401)
+  assert.equal(mutations.length, 0)
+
+  const authorized = await call(routes.get('/dsh-opencode/state')!, {
+    headers: { ...forged, authorization: 'Bearer owner-secret' },
+  })
+  assert.equal(authorized.status, 200)
 })
 
 test('proxy password is stored in credentials and never returned by state', async () => {

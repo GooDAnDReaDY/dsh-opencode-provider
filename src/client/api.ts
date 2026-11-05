@@ -1,6 +1,7 @@
 import type { UsageDisplay } from '../config.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from '../provider-ids.ts'
 import type { SubscriptionLimits } from '../subscription-limits.ts'
+import { getAdminToken } from './admin-token.ts'
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'
 
@@ -136,6 +137,7 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
     headers: {
       accept: 'application/json',
       ...(init?.body === undefined ? {} : { 'content-type': 'application/json' }),
+      ...(getAdminToken() === '' ? {} : { 'x-opencode-token': getAdminToken() }),
       ...(init?.headers ?? {}),
     },
   })

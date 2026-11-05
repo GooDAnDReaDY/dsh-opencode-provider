@@ -133,12 +133,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.32.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.32.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.32
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.33
 ```
 
 Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.
@@ -315,7 +315,8 @@ GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflow
 - `opencode-direct` (Console) billing shows no per-model allowance; the Go route is the primary target.
 - The anonymous free lane (`Bearer public` + CLI impersonation) is not implemented. A keyless `big-pickle` probe on 2026-11-05 returned HTTP 429 `FreeUsageLimitError`; use the keyed Console/Zen route for free models.
 - The UI requires a web profile (the Host needs `ctx.webServer`); the TUI keeps the `/opencode` command and the model routes.
-- Write routes are loopback-only; a web profile exposed to a LAN can read state but cannot save configuration or keys until the host auth token is integrated.
+- Same-origin checks are CSRF protection, not authentication. Set an owner admin token in the profile config (`adminToken`) or `OPENCODE_ADMIN_TOKEN`; every `/dsh-opencode/*` route then requires `x-opencode-token` or `Authorization: Bearer`. The settings UI asks for the token once and keeps it in this browser. Without a token, routes retain the loopback/same-origin guard only.
+- `npm audit` still reports `zod < 4.6.6` (GHSA-mrhx-c7xc-m3w5) because every `@deepseek-ai/dsh-*` 0.2.2-rc.1 package pins `zod` 4.4.3. No DSH 0.2.2 release with 4.6.6 exists yet; this plugin does not bundle zod and no forced override is used. Re-audit after the upstream DSH update.
 
 ## License
 
