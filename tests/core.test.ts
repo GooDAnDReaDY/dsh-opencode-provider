@@ -92,6 +92,7 @@ test('settings draft and patch keep client edits normalized', () => {
       accounts: [{ label: 'Go #2', apiKeyEnv: 'OPENCODE_API_KEY_2' }],
       modelAccountRules: [{ pattern: '*free*', account: 'Go #2' }],
       quotaFallbackModel: '',
+      autoSwitch: true,
       stickySession: true,
       activeAccount: '',
       showSidebarQuota: true,

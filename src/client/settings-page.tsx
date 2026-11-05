@@ -66,6 +66,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [importing, setImporting] = useState(false)
   const [checking, setChecking] = useState<string | null>(null)
   const [dragFrom, setDragFrom] = useState<number | null>(null)
+  const [pendingCleanup, setPendingCleanup] = useState<string[]>([])
 
   const load = useCallback(async (): Promise<void> => {
     setLoading(true)
@@ -96,12 +97,29 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     setSaving(true)
     setError(null)
     try {
-      await saveConfig(patchOf(draft), draft.revision)
+      const patch = patchOf(draft)
+      await saveConfig(patch, draft.revision)
+      const stillUsed = new Set(
+        (patch.accounts as Array<{ apiKeyEnv?: string }>)
+          .map((account) => account.apiKeyEnv?.trim() ?? '')
+          .filter((ref) => ref !== ''),
+      )
+      let cleanupError: string | null = null
+      for (const ref of pendingCleanup) {
+        if (stillUsed.has(ref)) continue
+        try {
+          await clearKey(ref)
+        } catch (caught) {
+          cleanupError = caught instanceof Error ? caught.message : String(caught)
+        }
+      }
+      setPendingCleanup([])
       window.dispatchEvent(new CustomEvent(CONFIG_CHANGED_EVENT))
       setNotice(t('saved'))
       setState(null)
       setDraft(null)
       await load()
+      if (cleanupError !== null) setError(`${t('accountCleanupFailed')} ${cleanupError}`)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : t('saveFailed'))
     } finally {
@@ -561,6 +579,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                 {known === undefined || known.mark === ''
                   ? null
                   : <span className="oc-badge oc-badge-bad">{accountMark(known, t)}</span>}
+                {known?.managed === true ? <span className="oc-badge">{t('managedKey')}</span> : null}
               </div>
               {known?.usage?.report === undefined ? null : (
                 <div className="oc-row">
@@ -618,6 +637,10 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                   type="button"
                   className="oc-button oc-button-danger"
                   onClick={() => {
+                    const ref = account.apiKeyEnv.trim()
+                    const managed = known?.managed === true && ref !== ''
+                    if (managed && !window.confirm(t('removeAccountConfirm').replace('{ref}', ref))) return
+                    if (managed) setPendingCleanup((current) => current.includes(ref) ? current : [...current, ref])
                     setKeyDrafts({})
                     update({ accounts: draft.accounts.filter((_, i) => i !== index) })
                   }}
@@ -717,6 +740,15 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       <section className="oc-card">
         <h3 className="oc-card-title">{t('routing')}</h3>
         <p className="oc-hint">{t('routingHint')}</p>
+        <label className="oc-row">
+          <input
+            type="checkbox"
+            checked={draft.autoSwitch}
+            onChange={(event) => update({ autoSwitch: event.target.checked })}
+          />
+          <span>{t('autoSwitch')}</span>
+        </label>
+        <p className="oc-hint">{t('autoSwitchHint')}</p>
         <label className="oc-row">
           <input
             type="checkbox"

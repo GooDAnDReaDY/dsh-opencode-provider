@@ -24,6 +24,7 @@ export interface PublicConfig {
   accounts: ReadonlyArray<{ label: string; apiKeyEnv: string }>
   modelAccountRules: ReadonlyArray<{ pattern: string; account: string }>
   quotaFallbackModel: string
+  autoSwitch: boolean
   stickySession: boolean
   activeAccount: string
   showSidebarQuota: boolean
@@ -89,6 +90,7 @@ export interface AccountRow {
   mark: string
   keyStatus: KeyStatus
   usage: UsageState | null
+  managed: boolean
 }
 
 export interface HostState {

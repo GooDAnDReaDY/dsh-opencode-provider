@@ -54,6 +54,7 @@ export interface OpenCodeTuiSettingsDeps {
   readonly activeAccount: () => string
   readonly filterModelsByPlan: () => boolean
   readonly quotaFallbackModel: () => string
+  readonly autoSwitch: () => boolean
   readonly stickySession: () => boolean
   readonly showSidebarQuota: () => boolean
   /** Poll interval for settings changed from inside the terminal UI. */
@@ -171,6 +172,15 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         hint: 'Free model id used once after a Go quota error; empty disables it.',
         format: () => deps.quotaFallbackModel(),
         parse: setOrClear,
+      },
+      {
+        path: ['autoSwitch'],
+        group: 'advanced',
+        kind: 'boolean',
+        label: 'Automatic account failover',
+        hint: 'Try the next account before output on quota or credential failure.',
+        format: (value) => String(value === undefined ? deps.autoSwitch() : value !== false),
+        parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
       },
       {
         path: ['stickySession'],
