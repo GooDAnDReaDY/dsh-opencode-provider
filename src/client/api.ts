@@ -58,6 +58,8 @@ export interface ModelRow {
   input: readonly string[]
   reasoning: readonly string[]
   visible: boolean
+  releaseDate?: string
+  isNew: boolean
 }
 
 export interface UsageWindow {

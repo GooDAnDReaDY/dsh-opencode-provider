@@ -8,10 +8,10 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.26'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.27'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
-export const DEFAULT_GENERATE_MAX_TOKENS = 32_768
+export const DEFAULT_GENERATE_MAX_TOKENS = 65_536
 export const MAX_ACCOUNTS = 20
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'

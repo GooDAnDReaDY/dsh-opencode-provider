@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.26 — current release
+## 0.5.27 — current release
+
+- Live catalog release dates feed a seven-UTC-day NEW badge; malformed/missing dates are ignored.
+- The default generated-output ceiling is 65,536 tokens, still bounded by model and caller limits.
+
+## 0.5.26 — previous release
 
 - `usageDisplay` supports auto/always/off; legacy `showSidebarQuota` maps to always.
 - Session-scoped routing notices use `conversation.composer.dock`; the routing trace carries an opaque DSH session id, not prompt content.
