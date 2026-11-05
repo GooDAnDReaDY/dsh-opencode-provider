@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.36 — audit remediation follow-up
+
+- Empty timeout/image/catalog numeric fields now unset the setting instead of silently writing hardcoded defaults; invalid values still fail on save.
+- Final audit artifact: 153 tests, client smoke, authenticated LAN route checks.
+
 ## 0.5.35 — audit remediation
 
 - **Proxy/auth (#106, #107, #112)**: authenticated proxy URLs are built after bare-address validation; non-loopback peers require the admin token; the updater is behind the same guard; credential refs are restricted to plugin-owned refs; custom endpoints require `allowCustomEndpoints`.
