@@ -1,6 +1,6 @@
 {
   "name": "@goodandready/dsh-opencode-provider",
-  "version": "0.5.33",
+  "version": "0.5.34",
   "description": "OpenCode / OpenCode Go LLM provider plugin for DeepSeek Harness (dsh).",
   "license": "MIT",
   "type": "module",
@@ -27,6 +27,7 @@
     "CHANGELOG.md",
     "LICENSE",
     "NOTICE",
+    "AUDIT.md",
     "media/visual-verification.png"
   ],
   "publishConfig": {
@@ -70,10 +71,11 @@
     "build": "tsdown",
     "prepare": "tsdown 1>&2",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/tools.test.ts tests/plugin-updater.test.ts tests/client-render.test.tsx tests/sse.test.ts tests/proxy.test.ts tests/tool-call-validation.test.ts tests/pricing.test.ts",
+    "test": "node --import tsx --test tests/core.test.ts tests/routes.test.ts tests/limits.test.ts tests/analytics.test.ts tests/adapter.test.ts tests/usage.test.ts tests/request-log.test.ts tests/account-rules.test.ts tests/commands.test.ts tests/tool-schema.test.ts tests/tui-settings.test.ts tests/plan-filter.test.ts tests/image-budget.test.ts tests/tools.test.ts tests/plugin-updater.test.ts tests/client-render.test.tsx tests/sse.test.ts tests/proxy.test.ts tests/tool-call-validation.test.ts tests/pricing.test.ts tests/engine-matrix.test.ts",
     "check": "npm run typecheck && npm test && npm run build",
     "release": "npm run check && npm pack",
-    "sync:models": "node scripts/sync-models.mjs"
+    "sync:models": "node scripts/sync-models.mjs",
+    "test:engine": "node scripts/test-engines.mjs"
   },
   "keywords": [
     "dsh",

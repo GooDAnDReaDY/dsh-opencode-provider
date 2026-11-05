@@ -133,12 +133,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.33
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.34
 ```
 
 Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.
@@ -304,6 +304,10 @@ npm run sync:models   # regenerate src/models.generated.ts from models.dev
 
 GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflows/ci.yml`).
 
+### Engine matrix
+
+`npm run test:engine -- <candidate.tgz>` validates one immutable, already-built package candidate against `engines.dsh` and `dsh.compatibility.dshReleases`, and checks that only production files are packaged. The command is read-only: it does not install DSH, start a runtime, extract the tarball, touch another plugin, or perform cleanup. Compatibility execution runs on the approved MiniPC test contour against the published candidate — never against a worktree path and never with forced processes or recursive deletion.
+
 ## Limitations
 
 - File attachments are forwarded as DSH handle text, not inline bytes; the harness normally supplies the read-only execution path. Tool-result images are inline on Anthropic, OpenAI Responses and Google; OpenAI Chat uses a placeholder.
@@ -317,6 +321,10 @@ GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflow
 - The UI requires a web profile (the Host needs `ctx.webServer`); the TUI keeps the `/opencode` command and the model routes.
 - Same-origin checks are CSRF protection, not authentication. Set an owner admin token in the profile config (`adminToken`) or `OPENCODE_ADMIN_TOKEN`; every `/dsh-opencode/*` route then requires `x-opencode-token` or `Authorization: Bearer`. The settings UI asks for the token once and keeps it in this browser. Without a token, routes retain the loopback/same-origin guard only.
 - `npm audit` still reports `zod < 4.6.6` (GHSA-mrhx-c7xc-m3w5) because every `@deepseek-ai/dsh-*` 0.2.2-rc.1 package pins `zod` 4.4.3. No DSH 0.2.2 release with 4.6.6 exists yet; this plugin does not bundle zod and no forced override is used. Re-audit after the upstream DSH update.
+
+## Audit
+
+The read-only project and security review, including residual dependency and deployment findings, is in [AUDIT.md](./AUDIT.md).
 
 ## License
 

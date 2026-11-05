@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.34 — release 11: engine matrix and audit closure
+
+- **#55 — engine matrix**: `npm run test:engine -- <candidate.tgz>` validates one immutable candidate against `engines.dsh` and `dsh.compatibility.dshReleases`, and rejects test/source content. It never installs DSH, starts a runtime, extracts the tarball, uses a worktree path, or performs forced cleanup; compatibility execution remains on the approved MiniPC contour.
+- **#39 — project/security audit**: added `AUDIT.md` with verified findings. Production dependencies audit clean; the dev/peer `zod` advisory and optional-auth/lockfile caveats are recorded as residuals.
+- **#82 — Duskriver parity**: all 18 child issues are closed; the parity parent is closed with the evidence index.
+- 149 tests.
+
 ## 0.5.33 — release 10: admin token and dependency audit
 
 - **#41 — authenticated HTTP routes**: optional owner `adminToken` (profile config or `OPENCODE_ADMIN_TOKEN`). When set, every `/dsh-opencode/*` route requires `x-opencode-token` or a Bearer token with constant-time comparison; forged Host/Origin alone no longer passes. The settings UI prompts for the token and keeps it in this browser.
