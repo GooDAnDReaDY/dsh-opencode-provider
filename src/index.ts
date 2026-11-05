@@ -75,7 +75,13 @@ export function apply(ctx: Context, config: Config): void {
   })
 
   ctx.inject(['commands'], (commandCtx) => {
-    applyCommands(commandCtx, { config: current, pool: keys, usage, adapter })
+    applyCommands(commandCtx, {
+      config: current,
+      pool: keys,
+      usage,
+      adapter,
+      locale: () => current().commandLocale,
+    })
   })
 
   let refreshTuiSettings: (() => void) | undefined

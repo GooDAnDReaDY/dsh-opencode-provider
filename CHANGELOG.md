@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.31 — release 8: command localization
+
+- **#48 — `/opencode` localization**: new `commandLocale` setting (`en` default, `zh`) localizes status, usage, accounts, models, rules and errors. Exposed in Settings → OpenCode.
+- **#72 — thinking budgets**: DSH exposes selectable `reasoningEffort` ids only; there is no numeric per-model token-budget seam, and the Anthropic transport uses `output_config.effort`. No synthetic mapping is added; limitation recorded in DESIGN and the issue is closed with evidence.
+- 140 tests.
+
 ## 0.5.30 — release 7: pricing accuracy
 
 - **#74 — peak/off-peak multipliers**: analytics now reads live gateway `cost.multipliers` and evaluates UTC weekday/hour/date conditions at the session timestamp.

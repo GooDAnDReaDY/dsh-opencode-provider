@@ -8,7 +8,7 @@ import { resolveConfig } from '../src/config.ts'
 import type { KeyPool } from '../src/credentials.ts'
 import type { UsageReader } from '../src/usage.ts'
 
-function harness() {
+function harness(overrides: Record<string, unknown> = {}) {
   let definition: unknown
   const ctx = {
     commands: {
@@ -18,6 +18,7 @@ function harness() {
 
   const config = resolveConfig({
     modelAccountRules: [{ pattern: '*free*', account: 'free' }],
+    ...overrides,
   })
   const pool = {
     resolve: async () => ({ key: 'secret', source: 'test' }),
@@ -57,6 +58,7 @@ function harness() {
     pool,
     usage: (provider, key) => usage(provider, key),
     adapter,
+    locale: () => config.commandLocale,
   }
   applyCommands(ctx, deps)
   return definition as {
@@ -88,4 +90,12 @@ test('/opencode rejects an unknown verb', async () => {
   const result = await harness().handler({ rawInput: 'nope' })
   assert.equal(result.kind, 'error')
   assert.match(result.text, /Unknown/)
+})
+
+test('/opencode follows the configured Chinese locale', async () => {
+  const result = await harness({ commandLocale: 'zh' }).handler({ rawInput: 'status' })
+  assert.equal(result.kind, 'success')
+  assert.match(result.text, /OpenCode 提供商/)
+  assert.match(result.text, /规则/)
+  assert.match(result.text, /认证/)
 })

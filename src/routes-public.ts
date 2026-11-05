@@ -1,4 +1,4 @@
-import type { ResolvedConfig, TransportId, UsageDisplay } from './config.ts'
+import type { CommandLocale, ResolvedConfig, TransportId, UsageDisplay } from './config.ts'
 
 export interface PublicConfig {
   apiKeyEnv: string
@@ -16,6 +16,7 @@ export interface PublicConfig {
   requestImageMaxBytes: number
   proxyUrl: string
   catalogRefreshMinutes: number
+  commandLocale: CommandLocale
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
   filterModelsByPlan: boolean
@@ -52,6 +53,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     requestImageMaxBytes: config.requestImageMaxBytes,
     proxyUrl: config.proxyUrl,
     catalogRefreshMinutes: config.catalogRefreshMinutes,
+    commandLocale: config.commandLocale,
     visibleModels: config.visibleModels,
     modelVisibility: config.modelVisibility,
     filterModelsByPlan: config.filterModelsByPlan,

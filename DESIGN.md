@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.30 — current release
+## 0.5.31 — current release
+
+- Command copy is selected from `commandLocale` (`en`/`zh`) at handler invocation, because DSH command handlers receive no host locale.
+- Thinking budgets: DSH only exposes adapter-owned `reasoningEffort` ids; there is no numeric token-budget option, and the Anthropic transport sends `output_config.effort`, not `thinking.budget_tokens`. A synthetic number-to-effort mapping would misrepresent the wire contract, so #72 is closed as unsupported with this evidence.
+
+## 0.5.30 — previous release
 
 - Analytics prices from live gateway cost metadata: context tiers select rates from billed input, then UTC multipliers apply at the session timestamp. Malformed metadata falls back to flat generated prices.
 
