@@ -15,6 +15,7 @@ export interface PublicConfig {
   requestImagePixelBudget: number
   requestImageMaxBytes: number
   proxyUrl: string
+  catalogRefreshMinutes: number
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
   filterModelsByPlan: boolean
@@ -50,6 +51,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     requestImagePixelBudget: config.requestImagePixelBudget,
     requestImageMaxBytes: config.requestImageMaxBytes,
     proxyUrl: config.proxyUrl,
+    catalogRefreshMinutes: config.catalogRefreshMinutes,
     visibleModels: config.visibleModels,
     modelVisibility: config.modelVisibility,
     filterModelsByPlan: config.filterModelsByPlan,

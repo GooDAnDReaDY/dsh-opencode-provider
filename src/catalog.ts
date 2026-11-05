@@ -8,7 +8,6 @@ import { GENERATED_MODELS, type OpenCodeModelMeta, type OpenCodeTransport } from
 import { isGoProvider, modelsUrlFor } from './routing.ts'
 import { describeLimitsShort, limitsFor } from './subscription-limits.ts'
 
-const CATALOG_TTL_MS = 10 * 60 * 1000
 const CATALOG_TIMEOUT_MS = 15_000
 
 const catalogCache = new Map<string, {
@@ -114,7 +113,7 @@ async function fetchLiveIds(
   const url = modelsUrlFor(provider, config)
   const cacheKey = `${provider}|${url}`
   const cached = catalogCache.get(cacheKey)
-  if (cached !== undefined && Date.now() - cached.at < CATALOG_TTL_MS) return cached.ids
+  if (cached !== undefined && Date.now() - cached.at < config.catalogRefreshMinutes * 60_000) return cached.ids
 
   const headers: Record<string, string> = {
     accept: 'application/json',

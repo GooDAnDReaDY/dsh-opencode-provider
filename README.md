@@ -132,12 +132,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.28.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.29.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.28.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.29.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.28
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.29
 ```
 
 Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.
@@ -310,7 +310,7 @@ GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflow
 - Subscription request counts are OpenCode's published estimates, not enforced quotas. They can change when OpenCode updates the Go pricing table; the gateway is the final authority.
 - Usage-by-model aggregates the local projection cache and attributes a whole session to its last-used model; a session that switched models is therefore approximate. It never reads prompt text or titles.
 - `opencode-direct` (Console) billing shows no per-model allowance; the Go route is the primary target.
-- The anonymous free lane (`Bearer public` + CLI impersonation) is not implemented.
+- The anonymous free lane (`Bearer public` + CLI impersonation) is not implemented. A keyless `big-pickle` probe on 2026-11-05 returned HTTP 429 `FreeUsageLimitError`; use the keyed Console/Zen route for free models.
 - The UI requires a web profile (the Host needs `ctx.webServer`); the TUI keeps the `/opencode` command and the model routes.
 - Write routes are loopback-only; a web profile exposed to a LAN can read state but cannot save configuration or keys until the host auth token is integrated.
 

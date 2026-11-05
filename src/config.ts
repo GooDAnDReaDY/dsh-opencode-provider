@@ -8,7 +8,7 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.28'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.29'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 65_536
@@ -17,6 +17,7 @@ export const DEFAULT_MAX_REQUEST_IMAGE_BYTES = 24 * 1024 * 1024
 export const DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET = 1_568 * 1_568
 export const DEFAULT_REQUEST_IMAGE_MAX_BYTES = 1_048_576
 export const DEFAULT_REQUEST_PREPARATION_TIMEOUT_MS = 60_000
+export const DEFAULT_CATALOG_REFRESH_MINUTES = 10
 export const MAX_ACCOUNTS = 20
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'
@@ -68,6 +69,8 @@ export interface Config {
   requestImageMaxBytes?: number
   /** HTTP/HTTPS/SOCKS5 proxy for inference, catalog and usage requests. */
   proxyUrl?: string
+  /** Live catalog cache lifetime in minutes; defaults to 10. */
+  catalogRefreshMinutes?: number
   /** Visible-model allowlist; an empty list means "show everything". */
   visibleModels?: string[]
   /** Per-model visibility overrides; wins over `visibleModels`. */
@@ -125,6 +128,7 @@ export const Config: z<Config> = z.object({
   requestImagePixelBudget: markVolatile(z.number().min(1).max(100_000_000).step(1).default(DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET)),
   requestImageMaxBytes: markVolatile(z.number().min(1).max(100_000_000).step(1).default(DEFAULT_REQUEST_IMAGE_MAX_BYTES)),
   proxyUrl: markVolatile(z.string().default('')),
+  catalogRefreshMinutes: markVolatile(z.number().min(1).max(10_080).step(1).default(DEFAULT_CATALOG_REFRESH_MINUTES)),
   visibleModels: markVolatile(z.array(z.string()).default([])),
   modelVisibility: markVolatile(z.dict(z.boolean()).default({})),
   filterModelsByPlan: markVolatile(z.boolean().default(true)),
@@ -169,6 +173,7 @@ export interface ResolvedConfig {
   requestImagePixelBudget: number
   requestImageMaxBytes: number
   proxyUrl: string
+  catalogRefreshMinutes: number
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
   filterModelsByPlan: boolean
@@ -291,6 +296,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     requestImagePixelBudget: positiveInt(config.requestImagePixelBudget, DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET),
     requestImageMaxBytes: positiveInt(config.requestImageMaxBytes, DEFAULT_REQUEST_IMAGE_MAX_BYTES),
     proxyUrl: normalizeProxyUrl(config.proxyUrl),
+    catalogRefreshMinutes: positiveInt(config.catalogRefreshMinutes, DEFAULT_CATALOG_REFRESH_MINUTES),
     visibleModels: Array.isArray(config.visibleModels)
       ? config.visibleModels.filter((id): id is string => typeof id === 'string' && id !== '')
       : [],

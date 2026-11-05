@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.29 — release 6: catalog refresh and Free-lane decision
+
+- **#77 — catalog refresh**: `catalogRefreshMinutes` (1–10,080, default 10) controls the live `/models` cache; explicit `/models/refresh` still bypasses it. Exposed in Settings.
+- **#76 — Free-lane decision**: re-probed keyless `big-pickle` on 2026-11-05; HTTP 429 `FreeUsageLimitError`. No keyless route or header-spoofing lane is added; the keyed Console/Zen path remains supported. Evidence recorded in DESIGN/README.
+- 137 tests.
+
 ## 0.5.28 — release 5: image policy and preparation timeout
 
 - **#73 — image policy**: `maxImages`, `maxRequestImageBytes`, `requestImagePixelBudget` and `requestImageMaxBytes` are configurable in Settings; defaults preserve the previous 50 images / 24 MiB / 1568px / 1 MiB behavior. Count and pixel policies are covered by tests.
