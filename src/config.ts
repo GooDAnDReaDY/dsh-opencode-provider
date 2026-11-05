@@ -8,7 +8,7 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.34'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.35'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 65_536
@@ -55,6 +55,8 @@ export interface Config {
   goZenBase?: string
   /** Go usage endpoint; defaults to `https://opencode.ai/zen/go/v1/usage`. */
   usageUrl?: string
+  /** Allow credential-bearing requests to a non-opencode.ai endpoint. */
+  allowCustomEndpoints?: boolean
   /** Entry in OpenCode's `auth.json` to import; defaults to `opencode-go`. */
   openCodeAuthEntry?: string
   /** Milliseconds to wait for response headers; defaults to 300s. */
@@ -134,6 +136,7 @@ export const Config: z<Config> = z.object({
   goApiBase: markVolatile(z.string().default(DEFAULT_GO_API_BASE)),
   goZenBase: markVolatile(z.string().default(DEFAULT_GO_ZEN_BASE)),
   usageUrl: markVolatile(z.string().default(DEFAULT_USAGE_URL)),
+  allowCustomEndpoints: markVolatile(z.boolean().default(false)),
   openCodeAuthEntry: markVolatile(z.string().default(DEFAULT_AUTH_ENTRY)),
   requestTimeoutMs: markVolatile(z.number().min(1).max(2_147_483_647).default(300_000)),
   streamIdleTimeoutMs: markVolatile(z.number().min(1).max(2_147_483_647).default(300_000)),
@@ -185,6 +188,7 @@ export interface ResolvedConfig {
   goApiBase: string
   goZenBase: string
   usageUrl: string
+  allowCustomEndpoints: boolean
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
@@ -312,6 +316,7 @@ export function resolveConfig(config: Config): ResolvedConfig {
     goApiBase: typeof config.goApiBase === 'string' && config.goApiBase !== '' ? config.goApiBase : DEFAULT_GO_API_BASE,
     goZenBase: typeof config.goZenBase === 'string' && config.goZenBase !== '' ? config.goZenBase : DEFAULT_GO_ZEN_BASE,
     usageUrl: typeof config.usageUrl === 'string' && config.usageUrl !== '' ? config.usageUrl : DEFAULT_USAGE_URL,
+    allowCustomEndpoints: config.allowCustomEndpoints === true,
     openCodeAuthEntry: typeof config.openCodeAuthEntry === 'string' && config.openCodeAuthEntry !== ''
       ? config.openCodeAuthEntry
       : DEFAULT_AUTH_ENTRY,

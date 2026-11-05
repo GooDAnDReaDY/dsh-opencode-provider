@@ -5,8 +5,10 @@ export interface PriceRates {
 }
 
 export interface PriceTier {
-  /** Billed input threshold (inclusive). */
+  /** Billed input threshold. */
   readonly at: number
+  /** True when the gateway condition is strict (`gt`), false for `gte`. */
+  readonly gt: boolean
   readonly rates: PriceRates
 }
 
@@ -144,7 +146,7 @@ export function priceUsage(pricing: Pricing, tokens: TokenCounts, at: number): n
   const context = billingContext(tokens)
   let rates = pricing.base
   for (const tier of pricing.tiers) {
-    if (tier.at <= context) rates = tier.rates
+    if (tier.gt ? tier.at < context : tier.at <= context) rates = tier.rates
     else break
   }
   const factor = pricing.multipliers.reduce(
@@ -156,6 +158,7 @@ export function priceUsage(pricing: Pricing, tokens: TokenCounts, at: number): n
 
 interface Override {
   readonly at: number
+  readonly gt: boolean
   readonly input?: number
   readonly cacheRead?: number
   readonly output?: number
@@ -175,6 +178,7 @@ function overridesOf(raw: unknown, field: 'input' | 'output'): Override[] {
     if (at === undefined || (price === undefined && cacheRead === undefined)) continue
     out.push({
       at,
+      gt: rate(context?.gt) !== undefined,
       ...(price === undefined ? {} : { [field]: price }),
       ...(cacheRead === undefined ? {} : { cacheRead }),
     })
@@ -209,6 +213,7 @@ export function parseGatewayPricing(raw: unknown): Pricing | undefined {
     const outputOverride = outputOverrides.filter((entry) => entry.at <= at).at(-1)
     tiers.push({
       at,
+      gt: inputOverride?.gt ?? outputOverride?.gt ?? false,
       rates: {
         input: inputOverride?.input ?? base.input,
         output: outputOverride?.output ?? base.output,

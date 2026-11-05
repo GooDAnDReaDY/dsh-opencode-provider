@@ -134,9 +134,9 @@ export function UsageAnalyticsView(props: {
             onChange={(event) => onDays(Number(event.target.value))}
             aria-label={t('days')}
           >
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-            <option value="90">90 days</option>
+            <option value="7">{t('days7')}</option>
+            <option value="30">{t('days30')}</option>
+            <option value="90">{t('days90')}</option>
           </select>
           <div className="oc-tabs" role="tablist">
             {(['models', 'days', 'sessions'] as const).map((entry) => (

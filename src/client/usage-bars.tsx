@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react'
 
 import type { UsageState, UsageWindow } from './api.ts'
+import { quotaSeverity } from './quota-severity.ts'
 
 function percentClass(percent: number): string {
-  if (percent >= 90) return 'oc-bar-fill oc-bar-fill-bad'
-  if (percent >= 75) return 'oc-bar-fill oc-bar-fill-warn'
+  const severity = quotaSeverity(percent)
+  if (severity === 'critical') return 'oc-bar-fill oc-bar-fill-bad'
+  if (severity === 'warn') return 'oc-bar-fill oc-bar-fill-warn'
   return 'oc-bar-fill'
 }
 

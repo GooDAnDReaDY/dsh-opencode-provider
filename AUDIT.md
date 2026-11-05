@@ -11,7 +11,7 @@ review.
 - Correctness: routing, account failover, streaming, tool-call normalization,
   pricing/analytics, image policy.
 - Security: HTTP boundary, secret handling, updater, dependency graph.
-- Tests and prior issues: 149 tests, tracked parity/security backlog.
+- Tests and prior issues: 153 tests, tracked parity/security backlog.
 
 ## Verified findings
 
@@ -29,7 +29,7 @@ cooldown state. Credential values are masked in the UI and diagnostics.
 ## Evidence
 
 ```bash
-npm run check                 # 149 tests + typecheck + build
+npm run check                 # 153 tests + typecheck + build + client smoke
 npm audit --omit=dev --json   # 0 production vulnerabilities
 npm ls zod --all              # zod 4.4.3 through DSH dev packages
 npm run test:engine -- <candidate.tgz>
@@ -41,6 +41,10 @@ npm run test:engine -- <candidate.tgz>
   Host, and the admin token when configured.
 - The updater is loopback-only and also sits behind the admin-token guard.
 - MOA and other plugins were not touched.
+
+## 0.5.35 remediation
+
+All confirmed findings from this audit were addressed in one release: proxy/auth, transport terminal events, abort lifecycle, retry-after, secret-write draft state, cache/data resilience, pricing boundaries, UI/CSS/accessibility, HTTP error mapping, test discovery and docs. The `zod` advisory remains upstream-blocked and is documented above. Verification: 153 tests, client smoke, typecheck and build.
 
 ## Conclusion
 

@@ -30,16 +30,25 @@ test('proxy fetch adds a dispatcher and disposes cleanly', async () => {
     seen.push(init as RequestInit & { dispatcher?: unknown })
     return new Response('{}', { status: 200 })
   }) as typeof fetch
-  const proxy = createProxyFetch(() => 'http://127.0.0.1:7890', base)
+  const proxy = createProxyFetch(() => 'http://127.0.0.1:7890', undefined, base)
 
   await proxy.fetch('https://example.test/v1/models')
   assert.equal(seen.length, 1)
   assert.notEqual(seen[0]?.dispatcher, undefined)
 
-  const asyncProxy = createProxyFetch(async () => 'http://127.0.0.1:7891', base)
+  const asyncProxy = createProxyFetch(async () => 'http://127.0.0.1:7891', undefined, base)
   await asyncProxy.fetch('https://example.test/v1/models')
   assert.equal(seen.length, 2)
   await asyncProxy.dispose()
+
+  const authed = createProxyFetch(
+    () => 'http://proxy.local:8080',
+    async () => ({ username: 'alice', password: 'secret' }),
+    base,
+  )
+  await authed.fetch('https://example.test/v1/models')
+  assert.equal(seen.length, 3)
+  await authed.dispose()
 
   await proxy.dispose()
   await assert.rejects(() => proxy.fetch('https://example.test'), /disposed/)

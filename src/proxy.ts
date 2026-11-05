@@ -48,6 +48,11 @@ export function buildProxyUrl(address: string | undefined, username: string | un
   return url.href
 }
 
+export interface ProxyAuth {
+  readonly username: string
+  readonly password: string
+}
+
 export interface ProxyFetch {
   readonly fetch: typeof fetch
   dispose(): Promise<void>
@@ -59,6 +64,7 @@ export interface ProxyFetch {
  */
 export function createProxyFetch(
   address: () => string | Promise<string>,
+  auth?: () => ProxyAuth | Promise<ProxyAuth>,
   baseFetch: typeof fetch = fetch,
 ): ProxyFetch {
   const agents = new Map<string, Dispatcher>()
@@ -66,8 +72,12 @@ export function createProxyFetch(
 
   const wrapped = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     if (disposed) throw new Error('proxy transport is disposed')
-    const proxy = normalizeProxyUrl(await address())
-    if (proxy === '') return baseFetch(input, init)
+    const bare = normalizeProxyUrl(await address())
+    if (bare === '') return baseFetch(input, init)
+    const credentials = await auth?.()
+    const proxy = credentials === undefined || credentials.username === ''
+      ? bare
+      : buildProxyUrl(bare, credentials.username, credentials.password)
     let agent = agents.get(proxy)
     if (agent === undefined) {
       const url = new URL(proxy)

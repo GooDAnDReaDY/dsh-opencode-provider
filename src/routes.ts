@@ -1,4 +1,3 @@
-import { timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -9,7 +8,8 @@ import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-settings'
 
 import type { OpenCodeAdapter } from './adapter.ts'
-import { effectiveModel, modelVisible, clearCatalogCache, catalogStatus, catalogReleaseDate, isNewRelease } from './catalog.ts'
+import { adminAllowed } from './admin-auth.ts'
+import { effectiveModel, modelVisible, clearCatalogCache, catalogStatus, catalogReleaseDate, isNewRelease, livePricingFor } from './catalog.ts'
 import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
 import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
@@ -40,6 +40,18 @@ export interface RouteDeps {
 }
 
 type UsageValue = Awaited<ReturnType<UsageReader>> | null
+
+class HttpError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message)
+  }
+}
+
+function fail(res: ServerResponse, error: unknown, fallback: string): void {
+  json(res, error instanceof HttpError ? error.status : 500, {
+    error: error instanceof HttpError ? error.message : fallback,
+  })
+}
 
 function json(res: ServerResponse, status: number, value: unknown): void {
   res.statusCode = status
@@ -79,13 +91,18 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     size += buffer.length
-    if (size > MAX_BODY_BYTES) throw new Error('payload too large')
+    if (size > MAX_BODY_BYTES) throw new HttpError(413, 'payload too large')
     chunks.push(buffer)
   }
   if (size === 0) return {}
-  const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
+  } catch {
+    throw new HttpError(400, 'invalid JSON body')
+  }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error('body must be a JSON object')
+    throw new HttpError(400, 'body must be a JSON object')
   }
   return parsed as Record<string, unknown>
 }
@@ -124,6 +141,16 @@ function getCredentials(ctx: Context): CredentialProvider | undefined {
   return ctx.get('credentials') as CredentialProvider | undefined
 }
 
+function ownedCredentialRefs(config: ResolvedConfig): Set<string> {
+  return new Set([
+    config.apiKeyEnv,
+    config.proxyPasswordRef,
+    ...config.accounts
+      .map((account) => typeof account.apiKeyEnv === 'string' ? account.apiKeyEnv.trim() : '')
+      .filter((ref) => ref !== ''),
+  ])
+}
+
 function settingsRevision(ctx: Context): number | undefined {
   const settings = getSettings(ctx)
   try {
@@ -133,17 +160,40 @@ function settingsRevision(ctx: Context): number | undefined {
   }
 }
 
-function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset'; path: string[]; value?: unknown }> {
+function validateEndpoint(value: unknown, allowCustom: boolean): string {
+  if (typeof value !== 'string' || value.trim() === '') return ''
+  let url: URL
+  try {
+    url = new URL(value.trim())
+  } catch {
+    throw new HttpError(400, 'endpoint must be a valid URL')
+  }
+  const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '::1'
+  if (url.protocol !== 'https:' && !(local && url.protocol === 'http:')) {
+    throw new HttpError(400, 'endpoint must use https://')
+  }
+  const opencode = url.hostname === 'opencode.ai' || url.hostname.endsWith('.opencode.ai')
+  if (!allowCustom && !opencode && !local) {
+    throw new HttpError(400, 'custom endpoints require allowCustomEndpoints')
+  }
+  return url.href
+}
+
+function configOps(
+  patch: Record<string, unknown>,
+  allowCustomEndpoints: boolean,
+): Array<{ op: 'set' | 'unset'; path: string[]; value?: unknown }> {
   const ops: Array<{ op: 'set' | 'unset'; path: string[]; value?: unknown }> = []
   const set = (field: keyof Config, value: unknown): void => {
     if (value === null || value === undefined) ops.push({ op: 'unset', path: [field] })
     else ops.push({ op: 'set', path: [field], value })
   }
   if ('apiKeyEnv' in patch) set('apiKeyEnv', patch.apiKeyEnv)
-  if ('apiBase' in patch) set('apiBase', patch.apiBase)
-  if ('goApiBase' in patch) set('goApiBase', patch.goApiBase)
-  if ('goZenBase' in patch) set('goZenBase', patch.goZenBase)
-  if ('usageUrl' in patch) set('usageUrl', patch.usageUrl)
+  if ('apiBase' in patch) set('apiBase', validateEndpoint(patch.apiBase, allowCustomEndpoints))
+  if ('goApiBase' in patch) set('goApiBase', validateEndpoint(patch.goApiBase, allowCustomEndpoints))
+  if ('goZenBase' in patch) set('goZenBase', validateEndpoint(patch.goZenBase, allowCustomEndpoints))
+  if ('usageUrl' in patch) set('usageUrl', validateEndpoint(patch.usageUrl, allowCustomEndpoints))
+  if ('allowCustomEndpoints' in patch) set('allowCustomEndpoints', patch.allowCustomEndpoints === true)
   if ('openCodeAuthEntry' in patch) set('openCodeAuthEntry', patch.openCodeAuthEntry)
   if ('requestTimeoutMs' in patch) set('requestTimeoutMs', patch.requestTimeoutMs)
   if ('streamIdleTimeoutMs' in patch) set('streamIdleTimeoutMs', patch.streamIdleTimeoutMs)
@@ -357,21 +407,6 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
   }
 }
 
-function adminAllowed(req: IncomingMessage, deps: RouteDeps): boolean {
-  const expected = deps.adminToken?.() ?? ''
-  if (expected === '') return true
-  const header = req.headers['x-opencode-token']
-  const authorization = req.headers.authorization
-  const provided = typeof header === 'string' && header !== ''
-    ? header
-    : typeof authorization === 'string' && authorization.startsWith('Bearer ')
-      ? authorization.slice(7).trim()
-      : ''
-  const left = Buffer.from(expected)
-  const right = Buffer.from(provided)
-  return left.length === right.length && timingSafeEqual(left, right)
-}
-
 /** Register the Host HTTP surface consumed by the browser settings page. */
 export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void {
   const disposers: Array<() => void> = []
@@ -381,7 +416,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       kind: 'exact',
       path,
       handler: async (req, res) => {
-        if (!adminAllowed(req, deps)) {
+        if (!adminAllowed(req, deps.adminToken?.() ?? '')) {
           json(res, 401, { error: 'admin token required', authRequired: true })
           return
         }
@@ -471,7 +506,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     const days = Number.isFinite(requested) ? Math.max(1, Math.min(365, Math.trunc(requested))) : 30
     try {
       const report = deps.analytics === undefined
-        ? await readModelAnalytics(days)
+        ? await readModelAnalytics(days, (provider, model) => livePricingFor(provider, model, deps.config()))
         : await deps.analytics(days)
       const heatmap = deps.heatmap === undefined ? undefined : await deps.heatmap(days)
       json(res, 200, heatmap === undefined ? report : { ...report, heatmap })
@@ -496,7 +531,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const patch = typeof body.patch === 'object' && body.patch !== null && !Array.isArray(body.patch)
         ? body.patch as Record<string, unknown>
         : body
-      const ops = configOps(patch)
+      const ops = configOps(patch, deps.config().allowCustomEndpoints || patch.allowCustomEndpoints === true)
       if (ops.length === 0) {
         json(res, 400, { error: 'no known fields in patch' })
         return
@@ -510,9 +545,13 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       deps.syncRoutes?.()
       json(res, 200, { ok: true })
     } catch (error) {
+      if (error instanceof HttpError) {
+        fail(res, error, 'config write failed')
+        return
+      }
       const message = error instanceof Error ? error.message : 'config write failed'
       const conflict = /revision|conflict|stale/i.test(message)
-      json(res, conflict ? 409 : 500, { error: message })
+      json(res, conflict ? 409 : 500, { error: conflict ? 'settings revision conflict' : 'config write failed' })
     }
   })
 
@@ -528,6 +567,10 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const refName = typeof body.ref === 'string' && body.ref.trim() !== ''
         ? body.ref.trim()
         : deps.config().apiKeyEnv
+      if (!ownedCredentialRefs(deps.config()).has(refName)) {
+        json(res, 400, { error: 'credential ref is not owned by this plugin' })
+        return
+      }
       const key = typeof body.key === 'string' ? body.key.trim() : ''
       if (key === '') {
         json(res, 400, { error: 'key is required' })
@@ -537,7 +580,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       await addManagedCredentialRef(refName, deps.managedPath)
       json(res, 200, { ok: true, ref: refName })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'key write failed' })
+      fail(res, error, 'key write failed')
     }
   })
 
@@ -553,11 +596,15 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const refName = typeof body.ref === 'string' && body.ref.trim() !== ''
         ? body.ref.trim()
         : deps.config().apiKeyEnv
+      if (!ownedCredentialRefs(deps.config()).has(refName)) {
+        json(res, 400, { error: 'credential ref is not owned by this plugin' })
+        return
+      }
       await credentials.unset(credentialRef(refName))
       await removeManagedCredentialRef(refName, deps.managedPath)
       json(res, 200, { ok: true, ref: refName })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'key clear failed' })
+      fail(res, error, 'key clear failed')
     }
   })
 
@@ -580,7 +627,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       await addManagedCredentialRef(refName, deps.managedPath)
       json(res, 200, { ok: true, ref: refName })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'proxy password write failed' })
+      fail(res, error, 'proxy password write failed')
     }
   })
 
@@ -597,7 +644,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       await removeManagedCredentialRef(refName, deps.managedPath)
       json(res, 200, { ok: true, ref: refName })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'proxy password clear failed' })
+      fail(res, error, 'proxy password clear failed')
     }
   })
 
@@ -616,6 +663,10 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const ref = typeof body.ref === 'string' && body.ref.trim() !== ''
         ? body.ref.trim()
         : deps.config().apiKeyEnv
+      if (!ownedCredentialRefs(deps.config()).has(ref)) {
+        json(res, 400, { error: 'credential ref is not owned by this plugin' })
+        return
+      }
       const key = await readOpenCodeAuthKey(entry)
       if (key === undefined) {
         json(res, 404, { error: `no key in auth.json entry "${entry}"` })
@@ -625,7 +676,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       await addManagedCredentialRef(ref, deps.managedPath)
       json(res, 200, { ok: true, entry, ref })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'import failed' })
+      fail(res, error, 'import failed')
     }
   })
 

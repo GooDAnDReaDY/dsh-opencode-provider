@@ -7,6 +7,7 @@ import { RequestHeatmapView } from './heatmap.tsx'
 import { UsageAnalyticsView } from './usage-analytics.tsx'
 import { UsageBars } from './usage-bars.tsx'
 import { accountRunway, type RunwaySummary } from '../quota-runway.ts'
+import { quotaSeverity } from './quota-severity.ts'
 
 const PANEL_EVENT = 'dsh-opencode-panel-state'
 
@@ -27,7 +28,7 @@ function usePanelOpen(): boolean {
   return open
 }
 
-function useHostState(intervalMs: number): HostState | null {
+function useHostState(intervalMs: number, active = true): HostState | null {
   const [state, setState] = useState<HostState | null>(null)
   useEffect(() => {
     let cancelled = false
@@ -35,15 +36,15 @@ function useHostState(intervalMs: number): HostState | null {
       void fetchState().then((next) => { if (!cancelled) setState(next) }).catch(() => {})
     }
     load()
-    const timer = setInterval(load, intervalMs)
+    const timer = active ? setInterval(load, intervalMs) : undefined
     const onConfigChanged = (): void => { load() }
     window.addEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
     return () => {
       cancelled = true
-      clearInterval(timer)
+      if (timer !== undefined) clearInterval(timer)
       window.removeEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
     }
-  }, [intervalMs])
+  }, [intervalMs, active])
   return state
 }
 
@@ -159,8 +160,13 @@ export function QuotaCard(props: {
   wide?: boolean
 }): ReactNode {
   const { t } = props
-  const state = useHostState(60_000)
+  const [polling, setPolling] = useState(true)
+  const state = useHostState(60_000, polling)
   const expanded = usePanelOpen()
+  useEffect(() => {
+    if (state?.config.usageDisplay === 'off') setPolling(false)
+    else if (state !== null) setPolling(true)
+  }, [state])
   if (state === null) return null
   const mode = state.config.usageDisplay
     ?? (state.config.showSidebarQuota === true ? 'always' : 'auto')
@@ -176,8 +182,9 @@ export function QuotaCard(props: {
     { key: 'monthly', label: t('monthlyWindow'), window: windows?.monthly },
   ].filter((row): row is { key: string; label: string; window: UsageWindow } => row.window !== undefined)
   const worst = rows.reduce((value, row) => Math.max(value, percent(row.window)), 0)
-  const warn = worst >= 90
-  const caution = worst >= 75
+  const severity = quotaSeverity(worst)
+  const warn = severity === 'critical'
+  const caution = severity === 'warn'
   const name = accountLabel === undefined || accountLabel === 'default'
     ? t('quotaCardName')
     : `${t('quotaCardName')} · ${accountLabel}`
@@ -334,9 +341,9 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
             value={String(days)}
             onChange={(event) => setDays(Number(event.target.value))}
           >
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-            <option value="90">90 days</option>
+            <option value="7">{t('days7')}</option>
+            <option value="30">{t('days30')}</option>
+            <option value="90">{t('days90')}</option>
           </select>
           <button type="button" className="oc-button" disabled={busy} onClick={refresh}>
             {busy ? t('loading') : t('refresh')}

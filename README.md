@@ -114,10 +114,10 @@ graph LR
 - **Usage by model** from the local session projection cache: sessions and tokens per OpenCode model. Only numeric metadata is read; titles and message content stay local.
 - **Browser UI**:
   - **Settings → OpenCode**: key status, paste/import/clear, quota bars, accounts, model allowlist, per-model transport overrides, connection settings.
-  - **Sidebar quota card** (off by default): a ring with the active account and the highest window, then 5-hour / weekly / monthly rows with remaining quota, reset countdown and bars; clicking opens the full quota panel in the center column. The panel scrolls internally, so the heatmap and usage table below the fold stay reachable.
+  - **Sidebar quota card** (`Auto` by default, shown when Go usage exists): a ring with the active account and the highest window, then 5-hour / weekly / monthly rows with remaining quota, reset countdown and bars; clicking opens the full quota panel in the center column. The panel scrolls internally, so the heatmap and usage table below the fold stay reachable.
   - **Cost** is shown only by DSH's native cost display; the plugin does not add a second composer pill.
   - Model price badges in the settings page; the OpenCode auth-entry field autocompletes from `auth.json`.
-  - Host routes under `/dsh-opencode/*` serve state and accept writes only from a loopback Host with same-origin and JSON checks; `GET /dsh-opencode/health` reports provider registration, accounts and model count.
+  - Host routes under `/dsh-opencode/*` serve state and accept writes with same-origin and JSON checks; loopback peers are trusted, and non-loopback profiles require an admin token. `GET /dsh-opencode/health` reports provider registration, accounts and model count.
   - The provider keeps core harness tools (`read`, `write`, `edit`, `bash`, `glob`, `grep`, …) when a large MCP set is trimmed to OpenCode's 128-tool limit.
 
 ## Install
@@ -133,12 +133,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.35.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.35.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.34
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.35
 ```
 
 Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.
@@ -171,7 +171,7 @@ The historical Desktop verification below was captured on 0.2.1-rc.4 (and retain
 - a real chat produced two OpenCode sessions: one standard flash model (4105 in / 243 out, ≈$0.00079) and one free model (10670 in / 171 out, Free); the heatmap counted 6 main requests (the two title calls and exact duplicates are filtered);
 - the renderer loaded the client bundle (`settings.opencode` is present in its code cache).
 
-Open **Settings → OpenCode** and enable *Show the quota card in the sidebar* if you want the sidebar meter.
+Open **Settings → OpenCode → Sidebar** and choose **Quota display: Auto / Always / Off**. `Auto` shows the meter when OpenCode Go usage exists; `Off` stops its background polling.
 
 ## Configure
 
@@ -244,13 +244,13 @@ Open **Settings → OpenCode**:
 - **Accounts** — add extra accounts by credential reference, set each account's key from the page, see whether it is configured, pin one, or return to automatic rotation. **Import all from auth.json** copies every OpenCode key into its own credential ref and adds an account for it; **Check all accounts** refreshes the per-account quota/health rows.
 - **Models** — search, refresh the live catalog, uncheck models to build an allowlist, override the wire transport per model, and see each model's input/output price plus its Go request estimate (`Go 34.7K/5h`). Hover the estimate for the full Go / Go Plus monthly allowance and 5h/week/month request counts; expand **Subscription limits** for a table of every model with both plans.
 - **Connection** — API bases, usage endpoint, timeouts, output cap, context override. The OpenCode auth-entry field autocompletes from the keys present in `auth.json`.
-- **Sidebar** — show or hide the quota card. The card refreshes immediately after saving and otherwise every 60 seconds.
+- **Sidebar** — quota display mode `Auto` / `Always` / `Off`. The card refreshes after saving and every 60 seconds while enabled.
 - **Plugin update** — current/latest version, update badge, and **Update now**. It installs the exact registry version through the normal `dsh plugin add` path, blocks a second click while installing, and reports when DSH must be restarted.
 - **Routing** — sticky account per conversation and the free fallback model used after a Go quota error. The quota panel shows the last routing decisions with their reason.
 
-The sidebar quota card is **off by default**. Enable *Show the quota card in the sidebar* under **Sidebar**; the card appears immediately after saving, and clicking it opens the full quota panel with the **Usage by model** table (7/30/90-day window).
+The sidebar quota card defaults to **Auto**: it appears when Go usage exists and can be set to **Always** or **Off** under **Sidebar**. Clicking it opens the full quota panel with the **Usage by model** table (7/30/90-day window).
 
-The Host serves `/dsh-opencode/state`, `/health`, `/analytics`, `/config`, `/key`, `/key/clear`, `/auth-import`, `/refresh`, `/models/refresh`, `/test` and `/update`. Writes require JSON, are refused for cross-origin requests, and are restricted to loopback (`127.0.0.1` / `::1`); reads stay same-origin. This keeps key and configuration writes off a LAN-exposed web server until the host's own auth token can be integrated.
+The Host serves `/dsh-opencode/state`, `/health`, `/analytics`, `/config`, `/key`, `/key/clear`, `/auth-import`, `/refresh`, `/models/refresh`, `/test` and `/update`. Writes require JSON and same-origin Host/Origin. Loopback peers are trusted; a LAN/web profile must set `adminToken` or `OPENCODE_ADMIN_TOKEN`, after which every `/dsh-opencode/*` route requires `x-opencode-token` or `Authorization: Bearer`. The UI prompts for the token once and keeps it in this browser.
 
 ## Updates
 
@@ -319,7 +319,7 @@ GitHub Actions runs `npm run check` and `npm pack` on push/PR (`.github/workflow
 - `opencode-direct` (Console) billing shows no per-model allowance; the Go route is the primary target.
 - The anonymous free lane (`Bearer public` + CLI impersonation) is not implemented. A keyless `big-pickle` probe on 2026-11-05 returned HTTP 429 `FreeUsageLimitError`; use the keyed Console/Zen route for free models.
 - The UI requires a web profile (the Host needs `ctx.webServer`); the TUI keeps the `/opencode` command and the model routes.
-- Same-origin checks are CSRF protection, not authentication. Set an owner admin token in the profile config (`adminToken`) or `OPENCODE_ADMIN_TOKEN`; every `/dsh-opencode/*` route then requires `x-opencode-token` or `Authorization: Bearer`. The settings UI asks for the token once and keeps it in this browser. Without a token, routes retain the loopback/same-origin guard only.
+- Same-origin checks are CSRF protection, not authentication. Set an owner admin token in the profile config (`adminToken`) or `OPENCODE_ADMIN_TOKEN`; every `/dsh-opencode/*` route then requires `x-opencode-token` or `Authorization: Bearer`. The settings UI asks for the token once and keeps it in this browser. Without a token, loopback clients work and non-loopback clients receive 401.
 - `npm audit` still reports `zod < 4.6.6` (GHSA-mrhx-c7xc-m3w5) because every `@deepseek-ai/dsh-*` 0.2.2-rc.1 package pins `zod` 4.4.3. No DSH 0.2.2 release with 4.6.6 exists yet; this plugin does not bundle zod and no forced override is used. Re-audit after the upstream DSH update.
 
 ## Audit

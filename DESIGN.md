@@ -1,6 +1,13 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.34 — current release
+## 0.5.35 — current release
+
+- Audit remediation: non-loopback HTTP requires the owner token, updater shares that guard, endpoint rewrites are allowlisted, and credential refs are scoped.
+- Transport fixes: `error:null`, `response.incomplete`, abort propagation, SSE cancellation and `retry-after`.
+- Data/UI fixes: exact-URL pricing cache, strict context tiers, bounded analytics ranking, request-log directory recovery, saved-ref secret writes, quota severity/polling, theme CSS and test discovery.
+- Residual: `zod` 4.4.3 from DSH 0.2.2-rc.1 remains dev/peer-only and upstream-blocked.
+
+## 0.5.34 — previous release
 
 - Engine matrix is a read-only candidate validator. It never creates a temporary DSH install, starts a runtime, extracts a candidate, or touches another plugin; the compatibility run stays on the approved MiniPC contour with the immutable published tarball.
 - `AUDIT.md` records the read-only project/security review. Production dependencies are clean; the `zod` advisory is a dev/peer pin inherited from DSH, and the optional admin token and profile lockfiles are documented residuals.
@@ -293,10 +300,10 @@ export const name = 'llm-opencode'
 export const inject = ['llm']
 
 ctx.llm.registerConfigurableProviders([
-  { provider: 'opencode', displayName: 'OpenCode', settingsNs: 'llm-opencode', settingsPath: [] },
-  { provider: 'opencode-go', displayName: 'OpenCode Go', settingsNs: 'llm-opencode', settingsPath: [] },
+  { provider: 'opencode-direct', displayName: 'OpenCode (plugin)', settingsNs: 'llm-opencode', settingsPath: [] },
+  { provider: 'opencode-go-direct', displayName: 'OpenCode Go (plugin)', settingsNs: 'llm-opencode', settingsPath: [] },
 ])
-ctx.llm.registerAdapter(['opencode', 'opencode-go'], adapter)
+ctx.llm.registerAdapter(['opencode-direct', 'opencode-go-direct'], adapter)
 ```
 
 `providerInfo()` возвращает человекочитаемые имена. `resolveModel()` отдаёт `context`, `defaultMaxTokens`, `reasoning.efforts`, `inputModalities`. `listModels()` — каталог с сортировкой: бесплатные модели первыми, затем по имени.
@@ -340,11 +347,19 @@ const id = options.sessionId
     apiKeyEnv: OPENCODE_API_KEY
     apiBase: https://opencode.ai/inference
     goApiBase: https://opencode.ai/inference/go
-    usageBase: https://opencode.ai/zen/go/v1/usage
-    importOpenCodeAuth: false
+    goZenBase: https://opencode.ai/zen/go/v1
+    usageUrl: https://opencode.ai/zen/go/v1/usage
+    allowCustomEndpoints: false
+    proxyUrl: ""
+    proxyUsername: ""
+    proxyPasswordRef: OPENCODE_PROXY_PASSWORD
+    goEnabled: true
+    consoleEnabled: true
+    commandLocale: en
+    catalogRefreshMinutes: 10
     requestTimeoutMs: 300000
     streamIdleTimeoutMs: 300000
-    transportMaxRetries: 5
+    requestPreparationTimeoutMs: 60000
     visibleModels: []
     modelVisibility: {}
     modelTransports:
@@ -359,8 +374,8 @@ const id = options.sessionId
         apiKeyEnv: OPENCODE_API_KEY_2
     activeAccount:
     modelAccountRules: []
-    showSidebarQuota: false
-    userAgent: dsh-opencode-provider/0.1.0
+    usageDisplay: auto
+    userAgent: dsh-opencode-provider/0.5.35
 ```
 
 Все поля, кроме литерального `apiKey`, помечаются volatile — иначе DSH не покажет их в settings.

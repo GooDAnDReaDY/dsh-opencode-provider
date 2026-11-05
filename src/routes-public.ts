@@ -6,6 +6,7 @@ export interface PublicConfig {
   goApiBase: string
   goZenBase: string
   usageUrl: string
+  allowCustomEndpoints: boolean
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
@@ -47,6 +48,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     goApiBase: config.goApiBase,
     goZenBase: config.goZenBase,
     usageUrl: config.usageUrl,
+    allowCustomEndpoints: config.allowCustomEndpoints,
     openCodeAuthEntry: config.openCodeAuthEntry,
     requestTimeoutMs: config.requestTimeoutMs,
     streamIdleTimeoutMs: config.streamIdleTimeoutMs,

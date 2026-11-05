@@ -11,6 +11,7 @@ export interface PublicConfig {
   goApiBase: string
   goZenBase: string
   usageUrl: string
+  allowCustomEndpoints: boolean
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number

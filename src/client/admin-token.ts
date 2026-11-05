@@ -2,7 +2,7 @@ const KEY = 'dsh-opencode-admin-token'
 
 function storage(): Storage | undefined {
   try {
-    return typeof localStorage === 'undefined' ? undefined : localStorage
+    return typeof sessionStorage === 'undefined' ? undefined : sessionStorage
   } catch {
     return undefined
   }
@@ -20,4 +20,8 @@ export function setAdminToken(token: string): void {
 
 export function hasAdminToken(): boolean {
   return getAdminToken() !== ''
+}
+
+export function clearAdminToken(): void {
+  storage()?.removeItem(KEY)
 }

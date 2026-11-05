@@ -52,10 +52,14 @@ export async function* sseData(
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let completed = false
   try {
     for (;;) {
       const result = await readWithIdleTimeout(reader, idleTimeoutMs, signal)
-      if (result.done) break
+      if (result.done) {
+        completed = true
+        break
+      }
       buffer = appendDecoded(buffer, decoder.decode(result.value, { stream: true }))
       for (;;) {
         const boundary = buffer.indexOf('\n\n')
@@ -80,6 +84,7 @@ export async function* sseData(
       if (data !== '') yield data
     }
   } finally {
+    if (!completed) await reader.cancel().catch(() => {})
     reader.releaseLock()
   }
 }
@@ -93,10 +98,14 @@ export async function* sseEvents(
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let completed = false
   try {
     for (;;) {
       const result = await readWithIdleTimeout(reader, idleTimeoutMs, signal)
-      if (result.done) break
+      if (result.done) {
+        completed = true
+        break
+      }
       buffer = appendDecoded(buffer, decoder.decode(result.value, { stream: true }))
       for (;;) {
         const boundary = buffer.indexOf('\n\n')
@@ -122,6 +131,7 @@ export async function* sseEvents(
       if (data.length > 0) yield { event, data: data.join('\n') }
     }
   } finally {
+    if (!completed) await reader.cancel().catch(() => {})
     reader.releaseLock()
   }
 }

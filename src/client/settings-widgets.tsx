@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 
+import { quotaSeverity } from './quota-severity.ts'
+
 import type { UsageWindow } from './api.ts'
 import { formatRequests, type PlanLimits } from '../subscription-limits.ts'
 
@@ -48,7 +50,8 @@ export function untilText(epoch: number): string {
 export function usageChip(label: string, window: UsageWindow | undefined): ReactNode {
   if (window === undefined) return null
   const value = Math.round(window.percentUsed)
-  const className = value >= 90 ? 'oc-badge-bad' : value >= 75 ? 'oc-badge-warn' : 'oc-badge-ok'
+  const severity = quotaSeverity(value)
+  const className = severity === 'critical' ? 'oc-badge-bad' : severity === 'warn' ? 'oc-badge-warn' : 'oc-badge-ok'
   return <span className={`oc-badge ${className}`}>{label} {value}%</span>
 }
 

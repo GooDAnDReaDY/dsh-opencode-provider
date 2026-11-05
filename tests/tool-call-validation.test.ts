@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
+import { classifyStreamError } from '../src/errors.ts'
+
 import { parseAnthropicStream } from '../src/transports/anthropic.ts'
 import { parseGoogleStream } from '../src/transports/google.ts'
 import { parseChatStream } from '../src/transports/openai-chat.ts'
@@ -136,6 +138,27 @@ test('responses normalizes numeric/null tool id and name', async () => {
   assert.ok(block?.type === 'block-end' && block.block.type === 'tool-call')
   assert.equal(block.block.id, 'call_0')
   assert.equal(block.block.name, '')
+})
+
+test('stream error:null is not treated as a provider failure', () => {
+  assert.equal(classifyStreamError({ choices: [], error: null }), undefined)
+  assert.equal(classifyStreamError({ error: { message: 'bad' } })?.code, 'PROVIDER_HTTP_ERROR')
+})
+
+test('responses response.incomplete finishes with max-tokens', async () => {
+  const chunks = await collect(parseResponsesStream(sse(
+    { type: 'response.output_text.delta', delta: 'partial' },
+    {
+      type: 'response.incomplete',
+      response: {
+        incomplete_details: { reason: 'max_output_tokens' },
+        usage: { input_tokens: 1, output_tokens: 2 },
+      },
+    },
+  ), 5000, undefined))
+  const finish = chunks.find((chunk) => chunk.type === 'finish')
+  assert.ok(finish?.type === 'finish')
+  assert.deepEqual(finish.reason, { kind: 'max-tokens' })
 })
 
 test('google normalizes numeric tool name', async () => {

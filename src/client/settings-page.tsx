@@ -98,6 +98,14 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     setNotice(null)
   }
 
+  const adoptState = (next: HostState): void => {
+    setState(next)
+    setDraft((current) => {
+      if (current === null || state === null || safeSame(current, draftOf(state))) return draftOf(next)
+      return { ...current, revision: next.revision ?? current.revision }
+    })
+  }
+
   const save = async (): Promise<void> => {
     if (draft === null) return
     setSaving(true)
@@ -179,7 +187,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const refresh = async (): Promise<void> => {
     try {
       const next = await refreshState()
-      setState(next)
+      adoptState(next)
       setNotice(t('refreshed'))
       setError(null)
     } catch (caught) {
@@ -284,7 +292,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     return (
       <div className="oc-model-entry" key={model.id}>
       <div className="oc-model">
-        <input type="checkbox" checked={checked} onChange={() => toggleModel(model.id)} />
+        <input type="checkbox" aria-label={model.name} checked={checked} onChange={() => toggleModel(model.id)} />
         <span className="oc-model-name" title={model.name + ' · ' + model.description}>
           {model.name}
           {model.free ? <span className="oc-badge" title={t('legendFree')}> {t('free')}</span> : null}
@@ -385,8 +393,8 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
         <p className="oc-hint">{t('providerMigrationNotice')}</p>
       </div>
 
-      {error === null ? null : <div className="oc-error">{error}</div>}
-      {notice === null ? null : <div className="oc-notice">{notice}</div>}
+      {error === null ? null : <div className="oc-error" role="alert">{error}</div>}
+      {notice === null ? null : <div className="oc-notice" role="status">{notice}</div>}
 
       <PluginUpdateCard t={t} />
 
@@ -434,6 +442,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             style={{ flex: '1 1 260px' }}
             type="password"
             autoComplete="off"
+            aria-label={t('pasteKey')}
             placeholder={t('pasteKey')}
             value={keyDraft}
             onChange={(event) => setKeyDraft(event.target.value)}
@@ -443,7 +452,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             className="oc-button oc-button-primary"
             disabled={keyDraft.trim() === ''}
             onClick={() => {
-              const ref = draft.apiKeyEnv.trim() === '' ? state.config.apiKeyEnv : draft.apiKeyEnv.trim()
+              const ref = state.config.apiKeyEnv
               void saveKey(ref, keyDraft.trim())
                 .then(() => { setKeyDraft(''); setNotice(t('saved')); return load() })
                 .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : t('failed')))
@@ -455,7 +464,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             type="button"
             className="oc-button oc-button-danger"
             onClick={() => {
-              const ref = draft.apiKeyEnv.trim() === '' ? state.config.apiKeyEnv : draft.apiKeyEnv.trim()
+              const ref = state.config.apiKeyEnv
               if (!window.confirm(t('clearKeyConfirm').replace('{ref}', ref))) return
               void clearKey(ref)
                 .then(() => { setNotice(t('saved')); return load() })
@@ -468,7 +477,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             type="button"
             className="oc-button"
             onClick={() => {
-              const entry = draft.openCodeAuthEntry.trim() === '' ? state.config.openCodeAuthEntry : draft.openCodeAuthEntry.trim()
+              const entry = state.config.openCodeAuthEntry
               void importAuth(entry)
                 .then(() => { setNotice(t('imported')); return load() })
                 .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : t('failed')))
@@ -608,6 +617,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                 const [moved] = accounts.splice(dragFrom, 1)
                 if (moved !== undefined) accounts.splice(index, 0, moved)
                 update({ accounts })
+                setKeyDrafts({})
                 setDragFrom(null)
               }}
             >
@@ -672,6 +682,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                   style={{ flex: '1 1 200px' }}
                   type="password"
                   autoComplete="off"
+                  aria-label={t('pasteKey')}
                   placeholder={t('pasteKey')}
                   value={draftKey}
                   onChange={(event) => setKeyDrafts((current) => ({ ...current, [index]: event.target.value }))}
@@ -681,7 +692,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                   className="oc-button oc-button-primary"
                   disabled={draftKey.trim() === '' || account.apiKeyEnv.trim() === ''}
                   onClick={() => {
-                    const ref = account.apiKeyEnv.trim()
+                    const ref = known?.ref ?? account.apiKeyEnv.trim()
                     void saveKey(ref, draftKey.trim())
                       .then(() => {
                         setKeyDrafts((current) => ({ ...current, [index]: '' }))
@@ -712,7 +723,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                   type="button"
                   className="oc-button oc-button-danger"
                   onClick={() => {
-                    const ref = account.apiKeyEnv.trim()
+                    const ref = known?.ref ?? account.apiKeyEnv.trim()
                     const managed = known?.managed === true && ref !== ''
                     if (managed && !window.confirm(t('removeAccountConfirm').replace('{ref}', ref))) return
                     if (managed) setPendingCleanup((current) => current.includes(ref) ? current : [...current, ref])
@@ -861,7 +872,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             className="oc-button"
             onClick={() => {
               void refreshModels()
-                .then((next) => { setState(next); setNotice(t('refreshed')) })
+                .then((next) => { adoptState(next); setNotice(t('refreshed')) })
                 .catch((caught: unknown) => setError(caught instanceof Error ? caught.message : t('failed')))
             }}
           >
@@ -886,7 +897,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <span><span className="oc-badge">{t('zenBadge')}</span> {t('legendZen')}</span>
           <span><span className="oc-badge">{t('vision')}</span> {t('legendImage')}</span>
         </div>
-        <input className="oc-input" placeholder={t('modelSearch')} value={search} onChange={(event) => setSearch(event.target.value)} />
+        <input className="oc-input" aria-label={t('modelSearch')} placeholder={t('modelSearch')} value={search} onChange={(event) => setSearch(event.target.value)} />
         <div className="oc-models">
           {models.length === 0
             ? <p className="oc-hint">{t('modelsEmpty')}</p>
@@ -957,6 +968,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             <input
               className="oc-input"
               type="password"
+              aria-label={t('proxyPassword')}
               value={proxyPassword}
               placeholder={state.proxy.configured ? t('proxyPasswordSet') : t('proxyPasswordUnset')}
               onChange={(event) => setProxyPassword(event.target.value)}
@@ -967,14 +979,14 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
               <button type="button" className="oc-button" disabled={proxyBusy || !state.proxy.configured} onClick={() => { void removeProxyPassword() }}>{t('clearProxyPassword')}</button>
             </span>
           </label>
-          <label className="oc-field">
+          <div className="oc-field">
             <span className="oc-label">{t('enabledRoutes')}</span>
             <span className="oc-actions">
               <label><input type="checkbox" checked={draft.consoleEnabled} onChange={(event) => update({ consoleEnabled: event.target.checked })} /> {t('routeConsole')}</label>
               <label><input type="checkbox" checked={draft.goEnabled} onChange={(event) => update({ goEnabled: event.target.checked })} /> {t('routeGo')}</label>
             </span>
             <span className="oc-hint">{t('enabledRoutesHint')}</span>
-          </label>
+          </div>
           <Field label={t('maxOutputTokens')} type="number" value={draft.maxOutputTokens} onChange={(value) => update({ maxOutputTokens: value })} />
           <Field label={t('contextWindow')} type="number" value={draft.contextWindow} onChange={(value) => update({ contextWindow: value })} />
         </div>
@@ -1003,6 +1015,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
         </button>
         {dirty ? <span className="oc-badge oc-badge-warn">{t('unsaved')}</span> : null}
         <button type="button" className="oc-button" onClick={() => {
+          if (dirty && !window.confirm(t('discardConfirm'))) return
           if (props.close !== undefined) props.close()
           else { setDraft(draftOf(state)); setNotice(null); setError(null) }
         }}>

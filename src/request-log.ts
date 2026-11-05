@@ -67,7 +67,6 @@ export function requestLogPath(): string {
 }
 
 let queue: Promise<void> = Promise.resolve()
-let readyDirectory = ''
 let appends = 0
 
 export function recordRequest(
@@ -99,10 +98,7 @@ export function recordRequest(
     try {
       const path = requestLogPath()
       const directory = dirname(path)
-      if (readyDirectory !== directory) {
-        await mkdir(directory, { recursive: true })
-        readyDirectory = directory
-      }
+      await mkdir(directory, { recursive: true })
       await appendFile(path, line, 'utf8')
       appends += 1
       if (appends % COMPACT_EVERY === 0) await compactRequestLog()
