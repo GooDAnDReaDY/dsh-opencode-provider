@@ -1,5 +1,5 @@
 import z from '@deepseek-ai/schemastery'
-import { normalizeProxyUrl } from './proxy.ts'
+import { normalizeProxyUrl, normalizeProxyUsername } from './proxy.ts'
 
 export const NS = 'llm-opencode'
 export const DEFAULT_API_KEY_ENV = 'OPENCODE_API_KEY'
@@ -8,7 +8,7 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.31'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.32'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 65_536
@@ -18,6 +18,7 @@ export const DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET = 1_568 * 1_568
 export const DEFAULT_REQUEST_IMAGE_MAX_BYTES = 1_048_576
 export const DEFAULT_REQUEST_PREPARATION_TIMEOUT_MS = 60_000
 export const DEFAULT_CATALOG_REFRESH_MINUTES = 10
+export const DEFAULT_PROXY_PASSWORD_REF = 'OPENCODE_PROXY_PASSWORD'
 export const MAX_ACCOUNTS = 20
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'
@@ -70,6 +71,14 @@ export interface Config {
   requestImageMaxBytes?: number
   /** HTTP/HTTPS/SOCKS5 proxy for inference, catalog and usage requests. */
   proxyUrl?: string
+  /** Proxy username; the password is resolved from `proxyPasswordRef`. */
+  proxyUsername?: string
+  /** Credential reference for the proxy password. */
+  proxyPasswordRef?: string
+  /** Enable the Go / Go Plus subscription route. */
+  goEnabled?: boolean
+  /** Enable the Console / Zen pay-as-you-go route. */
+  consoleEnabled?: boolean
   /** Live catalog cache lifetime in minutes; defaults to 10. */
   catalogRefreshMinutes?: number
   /** Language for `/opencode` output; defaults to English. */
@@ -131,6 +140,10 @@ export const Config: z<Config> = z.object({
   requestImagePixelBudget: markVolatile(z.number().min(1).max(100_000_000).step(1).default(DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET)),
   requestImageMaxBytes: markVolatile(z.number().min(1).max(100_000_000).step(1).default(DEFAULT_REQUEST_IMAGE_MAX_BYTES)),
   proxyUrl: markVolatile(z.string().default('')),
+  proxyUsername: markVolatile(z.string().default('')),
+  proxyPasswordRef: markVolatile(z.string().role('credential-ref').default(DEFAULT_PROXY_PASSWORD_REF)),
+  goEnabled: markVolatile(z.boolean().default(true)),
+  consoleEnabled: markVolatile(z.boolean().default(true)),
   catalogRefreshMinutes: markVolatile(z.number().min(1).max(10_080).step(1).default(DEFAULT_CATALOG_REFRESH_MINUTES)),
   commandLocale: markVolatile(z.union(['en', 'zh']).default('en')),
   visibleModels: markVolatile(z.array(z.string()).default([])),
@@ -177,6 +190,10 @@ export interface ResolvedConfig {
   requestImagePixelBudget: number
   requestImageMaxBytes: number
   proxyUrl: string
+  proxyUsername: string
+  proxyPasswordRef: string
+  goEnabled: boolean
+  consoleEnabled: boolean
   catalogRefreshMinutes: number
   commandLocale: CommandLocale
   visibleModels: readonly string[]
@@ -301,6 +318,17 @@ export function resolveConfig(config: Config): ResolvedConfig {
     requestImagePixelBudget: positiveInt(config.requestImagePixelBudget, DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET),
     requestImageMaxBytes: positiveInt(config.requestImageMaxBytes, DEFAULT_REQUEST_IMAGE_MAX_BYTES),
     proxyUrl: normalizeProxyUrl(config.proxyUrl),
+    proxyUsername: normalizeProxyUsername(config.proxyUsername),
+    proxyPasswordRef: typeof config.proxyPasswordRef === 'string' && config.proxyPasswordRef.trim() !== ''
+      ? config.proxyPasswordRef.trim()
+      : DEFAULT_PROXY_PASSWORD_REF,
+    ...(() => {
+      const goEnabled = config.goEnabled !== false
+      const consoleEnabled = config.consoleEnabled !== false
+      return goEnabled || consoleEnabled
+        ? { goEnabled, consoleEnabled }
+        : { goEnabled: true, consoleEnabled: false }
+    })(),
     catalogRefreshMinutes: positiveInt(config.catalogRefreshMinutes, DEFAULT_CATALOG_REFRESH_MINUTES),
     commandLocale: config.commandLocale === 'zh' ? 'zh' : 'en',
     visibleModels: Array.isArray(config.visibleModels)

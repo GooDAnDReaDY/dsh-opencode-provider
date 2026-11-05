@@ -146,6 +146,7 @@ export class OpenCodeAdapter extends LlmAdapter {
     opts?: { unfiltered?: boolean },
   ): Promise<readonly LlmModelInfo[]> {
     const config = this.deps.config()
+    if (isGoProvider(provider) ? !config.goEnabled : !config.consoleEnabled) return []
     let apiKey: string | undefined
     try {
       apiKey = (await this.deps.resolveKey(provider)).key
@@ -172,6 +173,9 @@ export class OpenCodeAdapter extends LlmAdapter {
 
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     const config = this.deps.config()
+    if (isGoProvider(provider) ? !config.goEnabled : !config.consoleEnabled) {
+      throw new Error(`OpenCode route "${provider}" is disabled`)
+    }
     const meta = effectiveModel(model, config)
     const maxTokens = effectiveMaxTokens(meta, config)
     return {
@@ -204,6 +208,9 @@ export class OpenCodeAdapter extends LlmAdapter {
       ?? ((provider: string, model: string, purpose?: string, account?: string, reason?: string, outcome?: RequestOutcome) =>
         defaultRecordRequest(provider, model, outcome?.at ?? Date.now(), purpose, account, reason, outcome))
     const config = this.deps.config()
+    if (isGoProvider(options.provider) ? !config.goEnabled : !config.consoleEnabled) {
+      throw new Error(`OpenCode route "${options.provider}" is disabled`)
+    }
     const runStartedAt = Date.now()
     const model = effectiveModel(options.model, config)
     const sessionId = openCodeSessionId(options)

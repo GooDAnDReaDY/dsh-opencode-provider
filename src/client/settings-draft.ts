@@ -16,6 +16,9 @@ export interface Draft {
   requestImagePixelBudget: string
   requestImageMaxBytes: string
   proxyUrl: string
+  proxyUsername: string
+  goEnabled: boolean
+  consoleEnabled: boolean
   catalogRefreshMinutes: string
   commandLocale: 'en' | 'zh'
   maxOutputTokens: string
@@ -54,6 +57,9 @@ export function draftOf(state: HostState): Draft {
     requestImagePixelBudget: String(state.config.requestImagePixelBudget),
     requestImageMaxBytes: String(state.config.requestImageMaxBytes),
     proxyUrl: state.config.proxyUrl,
+    proxyUsername: state.config.proxyUsername,
+    goEnabled: state.config.goEnabled,
+    consoleEnabled: state.config.consoleEnabled,
     catalogRefreshMinutes: String(state.config.catalogRefreshMinutes),
     commandLocale: state.config.commandLocale,
     maxOutputTokens: state.config.maxOutputTokens === null ? '' : String(state.config.maxOutputTokens),
@@ -115,6 +121,9 @@ export function patchOf(draft: Draft): Record<string, unknown> {
     requestImagePixelBudget: numberOrNull(draft.requestImagePixelBudget) ?? 2458624,
     requestImageMaxBytes: numberOrNull(draft.requestImageMaxBytes) ?? 1048576,
     proxyUrl: draft.proxyUrl.trim(),
+    proxyUsername: draft.proxyUsername.trim(),
+    goEnabled: draft.goEnabled,
+    consoleEnabled: draft.consoleEnabled,
     catalogRefreshMinutes: numberOrNull(draft.catalogRefreshMinutes) ?? 10,
     commandLocale: draft.commandLocale,
     maxOutputTokens: numberOrNull(draft.maxOutputTokens),

@@ -81,6 +81,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
   const mutations: Array<{ ns: string; ops: unknown; revision: unknown }> = []
   const stored = new Map<string, string>()
   const tuiRefreshes = { count: 0 }
+  const routeSyncs = { count: 0 }
 
   const settings = {
     writable: true,
@@ -149,6 +150,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
     usage,
     managedPath: join(tmpdir(), `dsh-opencode-managed-${process.pid}-${managedSeq++}.json`),
     refreshTui: () => { tuiRefreshes.count += 1 },
+    syncRoutes: () => { routeSyncs.count += 1 },
     analytics: async (days) => ({
       since: Date.now() - days * 86_400_000,
       scannedSessions: 3,
@@ -235,7 +237,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
     },
   }
   applyRoutes(ctx, web, deps)
-  return { routes, mutations, stored, tuiRefreshes }
+  return { routes, mutations, stored, tuiRefreshes, routeSyncs }
 }
 
 test('notices route returns routing events for the same-origin UI', async () => {
@@ -280,7 +282,7 @@ test('account check re-reads one account key status', async () => {
 })
 
 test('config route writes path ops with the current revision', async () => {
-  const { routes, mutations, tuiRefreshes } = harness()
+  const { routes, mutations, tuiRefreshes, routeSyncs } = harness()
   const result = await call(routes.get('/dsh-opencode/config')!, {
     method: 'POST',
     path: '/dsh-opencode/config',
@@ -294,6 +296,52 @@ test('config route writes path ops with the current revision', async () => {
   const ops = mutations[0]?.ops as Array<{ op: string; path: string[]; value: unknown }>
   assert.deepEqual(ops.map((op) => op.path[0]).sort(), ['showSidebarQuota', 'visibleModels'].sort())
   assert.equal(tuiRefreshes.count, 1)
+  assert.equal(routeSyncs.count, 1)
+})
+
+test('config route accepts route switches and a proxy username', async () => {
+  const { routes, mutations, routeSyncs } = harness()
+  const result = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: { patch: { goEnabled: false, consoleEnabled: true, proxyUrl: 'http://proxy.local:8080', proxyUsername: 'alice' } },
+  })
+  assert.equal(result.status, 200)
+  const ops = mutations[0]?.ops as Array<{ op: string; path: string[]; value: unknown }>
+  assert.deepEqual(Object.fromEntries(ops.map((op) => [op.path[0], op.value])), {
+    goEnabled: false,
+    consoleEnabled: true,
+    proxyUrl: 'http://proxy.local:8080/',
+    proxyUsername: 'alice',
+  })
+  assert.equal(routeSyncs.count, 1)
+})
+
+test('proxy password is stored in credentials and never returned by state', async () => {
+  const { routes, stored } = harness({ config: { proxyUsername: 'alice' } })
+  const saved = await call(routes.get('/dsh-opencode/proxy-password')!, {
+    method: 'POST',
+    path: '/dsh-opencode/proxy-password',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: { password: 'super-secret' },
+  })
+  assert.equal(saved.status, 200)
+  assert.equal([...stored.values()].includes('super-secret'), true)
+
+  const state = await call(routes.get('/dsh-opencode/state')!)
+  assert.equal(state.status, 200)
+  const body = state.body as { proxy: { configured: boolean }; config: Record<string, unknown> }
+  assert.equal(body.proxy.configured, true)
+  assert.equal(JSON.stringify(body).includes('super-secret'), false)
+
+  const cleared = await call(routes.get('/dsh-opencode/proxy-password/clear')!, {
+    method: 'POST',
+    path: '/dsh-opencode/proxy-password/clear',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: {},
+  })
+  assert.equal(cleared.status, 200)
 })
 
 test('config route uses the draft revision for compare-and-swap', async () => {

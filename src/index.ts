@@ -3,6 +3,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-settings'
+import { credentialRef } from '@deepseek-ai/dsh-credentials'
 
 import { OpenCodeAdapter } from './adapter.ts'
 import { applyCommands } from './commands.ts'
@@ -11,7 +12,7 @@ import { createKeyPool, openCodeAuthPath } from './credentials.ts'
 import { registerPluginUpdater } from './plugin-updater.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { applyRoutes } from './routes.ts'
-import { createProxyFetch } from './proxy.ts'
+import { buildProxyUrl, createProxyFetch } from './proxy.ts'
 import { readRequestHeatmap } from './request-log.ts'
 import { applyOpenCodeTuiSettings } from './tui-settings.ts'
 import { createUsageReader } from './usage.ts'
@@ -48,7 +49,23 @@ export { clearCatalogCache, describeModel, effectiveModel } from './catalog.ts'
 export function apply(ctx: Context, config: Config): void {
   const current = () => resolveConfig(unwrapVolatileConfig(config))
   const keys = createKeyPool(ctx, current)
-  const proxy = createProxyFetch(() => current().proxyUrl)
+  const proxy = createProxyFetch(async () => {
+    const config = current()
+    let password = ''
+    if (config.proxyUsername !== '') {
+      const credentials = ctx.get('credentials') as {
+        resolve?: (ref: ReturnType<typeof credentialRef>) => Promise<{ value: string } | undefined>
+      } | undefined
+      if (credentials?.resolve !== undefined) {
+        try {
+          password = (await credentials.resolve(credentialRef(config.proxyPasswordRef)))?.value ?? ''
+        } catch {
+          password = ''
+        }
+      }
+    }
+    return buildProxyUrl(config.proxyUrl, config.proxyUsername, password)
+  })
   const usage = createUsageReader(current, (provider) => keys.resolve(provider), proxy.fetch)
   const adapter = new OpenCodeAdapter({
     config: current,
@@ -60,12 +77,30 @@ export function apply(ctx: Context, config: Config): void {
   })
   ctx.effect(() => () => { void proxy.dispose() })
 
-  ctx.llm.registerConfigurableProviders([
-    { provider: CONSOLE_PROVIDER, displayName: 'OpenCode (plugin)', settingsNs: NS, settingsPath: [] },
-    { provider: GO_PROVIDER, displayName: 'OpenCode Go (plugin)', settingsNs: NS, settingsPath: [] },
-  ])
-  ctx.llm.registerAdapter([CONSOLE_PROVIDER, GO_PROVIDER], adapter)
-  ctx.logger('llm-opencode').info(`registered providers: ${CONSOLE_PROVIDER}, ${GO_PROVIDER}`)
+  const providersFor = (): string[] => {
+    const config = current()
+    return [
+      ...(config.consoleEnabled ? [CONSOLE_PROVIDER] : []),
+      ...(config.goEnabled ? [GO_PROVIDER] : []),
+    ]
+  }
+  const entriesFor = (providers: readonly string[]) => [
+    ...(providers.includes(CONSOLE_PROVIDER)
+      ? [{ provider: CONSOLE_PROVIDER, displayName: 'OpenCode (plugin)', settingsNs: NS, settingsPath: [] }]
+      : []),
+    ...(providers.includes(GO_PROVIDER)
+      ? [{ provider: GO_PROVIDER, displayName: 'OpenCode Go (plugin)', settingsNs: NS, settingsPath: [] }]
+      : []),
+  ]
+  const directory = ctx.llm.registerConfigurableProviders(entriesFor(providersFor()))
+  const registration = ctx.llm.registerAdapter(providersFor(), adapter)
+  const syncRoutes = (): void => {
+    const providers = providersFor()
+    registration.replace(providers)
+    directory.replace(entriesFor(providers))
+    ctx.logger('llm-opencode').info(`enabled providers: ${providers.join(', ')}`)
+  }
+  ctx.logger('llm-opencode').info(`registered providers: ${providersFor().join(', ')}`)
 
   // The plugin ships no custom UI yet; declaring that keeps SettingsForms from
   // publishing an auto-generated page for this entry. A profile without the
@@ -121,6 +156,7 @@ export function apply(ctx: Context, config: Config): void {
       usage,
       heatmap: readRequestHeatmap,
       refreshTui: () => refreshTuiSettings?.(),
+      syncRoutes,
     })
     webCtx.effect(() => registerPluginUpdater(webCtx, {
       endpoint: '/dsh-opencode/update',

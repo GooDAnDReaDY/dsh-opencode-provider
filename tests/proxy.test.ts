@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { cleanAccounts } from '../src/routes-values.ts'
-import { createProxyFetch, normalizeProxyUrl } from '../src/proxy.ts'
+import { buildProxyUrl, createProxyFetch, normalizeProxyUrl, normalizeProxyUsername } from '../src/proxy.ts'
 
 test('normalizes supported proxy addresses and rejects unsafe shapes', () => {
   assert.equal(normalizeProxyUrl('http://127.0.0.1:7890'), 'http://127.0.0.1:7890/')
@@ -11,6 +11,17 @@ test('normalizes supported proxy addresses and rejects unsafe shapes', () => {
   assert.throws(() => normalizeProxyUrl('ftp://proxy.local:21'), /http:\/\//)
   assert.throws(() => normalizeProxyUrl('http://proxy.local:8080/path'), /without a path/)
   assert.throws(() => normalizeProxyUrl('http://user:pass@proxy.local:8080'), /credentials/)
+})
+
+test('builds an authenticated proxy URL only in memory', () => {
+  assert.equal(
+    buildProxyUrl('http://proxy.local:8080', 'alice', 'p@ss:word'),
+    'http://alice:p%40ss%3Aword@proxy.local:8080/',
+  )
+  assert.equal(buildProxyUrl('socks5://proxy.local:1080', '', 'secret'), 'socks5://proxy.local:1080')
+  assert.equal(normalizeProxyUsername(' alice '), 'alice')
+  assert.throws(() => normalizeProxyUsername('a:b'), /colon/)
+  assert.throws(() => normalizeProxyUsername('bad\nname'), /control/)
 })
 
 test('proxy fetch adds a dispatcher and disposes cleanly', async () => {
@@ -24,6 +35,11 @@ test('proxy fetch adds a dispatcher and disposes cleanly', async () => {
   await proxy.fetch('https://example.test/v1/models')
   assert.equal(seen.length, 1)
   assert.notEqual(seen[0]?.dispatcher, undefined)
+
+  const asyncProxy = createProxyFetch(async () => 'http://127.0.0.1:7891', base)
+  await asyncProxy.fetch('https://example.test/v1/models')
+  assert.equal(seen.length, 2)
+  await asyncProxy.dispose()
 
   await proxy.dispose()
   await assert.rejects(() => proxy.fetch('https://example.test'), /disposed/)

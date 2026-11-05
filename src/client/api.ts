@@ -19,6 +19,10 @@ export interface PublicConfig {
   requestImagePixelBudget: number
   requestImageMaxBytes: number
   proxyUrl: string
+  proxyUsername: string
+  proxyPasswordRef: string
+  goEnabled: boolean
+  consoleEnabled: boolean
   catalogRefreshMinutes: number
   commandLocale: 'en' | 'zh'
   visibleModels: readonly string[]
@@ -109,6 +113,11 @@ export interface AccountRow {
 
 export interface HostState {
   config: PublicConfig
+  proxy: {
+    configured: boolean
+    username: string
+    passwordRef: string
+  }
   key: { configured: boolean; writable: boolean; source?: string }
   accounts: AccountRow[]
   models: ModelRow[]
@@ -202,6 +211,14 @@ export function saveKey(ref: string, key: string): Promise<{ ok: true }> {
 
 export function clearKey(ref: string): Promise<{ ok: true }> {
   return call('/dsh-opencode/key/clear', { method: 'POST', body: JSON.stringify({ ref }) })
+}
+
+export function saveProxyPassword(password: string): Promise<{ ok: true }> {
+  return call('/dsh-opencode/proxy-password', { method: 'POST', body: JSON.stringify({ password }) })
+}
+
+export function clearProxyPassword(): Promise<{ ok: true }> {
+  return call('/dsh-opencode/proxy-password/clear', { method: 'POST', body: '{}' })
 }
 
 export function importAuth(entry: string, ref?: string): Promise<{ ok: true }> {

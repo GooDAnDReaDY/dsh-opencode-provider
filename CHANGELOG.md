@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.32 — release 9: proxy auth and route switches
+
+- **#71 — authenticated proxy**: `proxyUsername` plus a password stored in the credential service enable Basic auth for HTTP/HTTPS and SOCKS5 proxies. The authenticated URL exists only in memory; `/state` returns the credential-free address and a `configured` flag, never the password.
+- **#80 — route switches**: `goEnabled` and `consoleEnabled` are exposed in Settings. Disabling a route removes it from the provider directory, the picker and request handling at runtime; at least one route stays enabled.
+- 144 tests.
+
 ## 0.5.31 — release 8: command localization
 
 - **#48 — `/opencode` localization**: new `commandLocale` setting (`en` default, `zh`) localizes status, usage, accounts, models, rules and errors. Exposed in Settings → OpenCode.
