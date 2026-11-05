@@ -20,6 +20,7 @@ export interface PublicConfig {
   requestImageMaxBytes: number
   proxyUrl: string
   catalogRefreshMinutes: number
+  commandLocale: 'en' | 'zh'
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
   filterModelsByPlan: boolean

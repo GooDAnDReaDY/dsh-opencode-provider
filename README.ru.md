@@ -131,12 +131,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.30.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.31.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.30.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.31.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.30
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.31
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode (plugin)** или **OpenCode Go (plugin)** в списке моделей.
@@ -207,6 +207,8 @@ modelAccountRules:
 /opencode rules             # правила модель ➔ аккаунт
 /opencode test [model]      # проверочный запрос к модели
 ```
+
+Язык вывода задаётся в **Настройки → OpenCode → `/opencode` command language** (`中文` включает китайский). По умолчанию английский.
 
 ## Безопасность и надежность
 

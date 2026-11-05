@@ -2,6 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-commands'
 
 import type { OpenCodeAdapter } from './adapter.ts'
+import { commandCopy, type CommandCopy } from './command-copy.ts'
 import { effectiveModel } from './catalog.ts'
 import type { ResolvedConfig } from './config.ts'
 import type { KeyPool, ResolvedKey } from './credentials.ts'
@@ -14,6 +15,7 @@ export interface CommandDeps {
   readonly pool: KeyPool
   readonly usage: (provider: string, key?: string) => Promise<UsageResult | undefined>
   readonly adapter: OpenCodeAdapter
+  readonly locale: () => 'en' | 'zh'
 }
 
 function bar(percent: number, width = 10): string {
@@ -22,17 +24,17 @@ function bar(percent: number, width = 10): string {
   return `[${'█'.repeat(filled)}${'░'.repeat(width - filled)}] ${clamped.toFixed(0)}%`
 }
 
-function reset(iso: string | undefined): string {
+function reset(iso: string | undefined, copy: CommandCopy): string {
   if (iso === undefined) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return ` · resets ${date.toISOString().replace('T', ' ').slice(0, 16)}Z`
+  return ` · ${copy.resets} ${date.toISOString().replace('T', ' ').slice(0, 16)}Z`
 }
 
-function windowLine(label: string, window: UsageWindow | undefined): string | undefined {
+function windowLine(label: string, window: UsageWindow | undefined, copy: CommandCopy): string | undefined {
   if (window === undefined) return undefined
   const status = window.status === undefined || window.status === 'ok' ? '' : ` (${window.status})`
-  return `${label}: ${bar(window.percentUsed)}${status}${reset(window.resetsAt)}`
+  return `${label}: ${bar(window.percentUsed)}${status}${reset(window.resetsAt, copy)}`
 }
 
 function percent(window: UsageWindow | undefined): string {
@@ -58,18 +60,18 @@ function relative(until: number): string {
   return `${Math.max(1, Math.round(delta / 60_000))}m`
 }
 
-async function accountsText(deps: CommandDeps): Promise<string> {
+async function accountsText(deps: CommandDeps, copy: CommandCopy): Promise<string> {
   const lines: string[] = []
   for (const provider of [GO_PROVIDER, CONSOLE_PROVIDER] as const) {
     let keys: readonly ResolvedKey[]
     try {
       keys = await deps.pool.resolveAll(provider)
     } catch {
-      lines.push(`${provider}: no credential`)
+      lines.push(`${provider}: ${copy.noCredential}`)
       continue
     }
     if (keys.length === 0) {
-      lines.push(`${provider}: no credential`)
+      lines.push(`${provider}: ${copy.noCredential}`)
       continue
     }
     const active = keys.find((entry) => deps.adapter.accountHealth(entry.key) === undefined)
@@ -79,8 +81,8 @@ async function accountsText(deps: CommandDeps): Promise<string> {
       const usage = provider === GO_PROVIDER ? await deps.usage(provider, entry.key) : undefined
       const tags = [
         entry.source,
-        entry === active ? 'active' : '',
-        health === undefined ? '' : `cooling ${health.reason} ${relative(health.coolingUntil)}`,
+        entry === active ? copy.active : '',
+        health === undefined ? '' : `${copy.cooling} ${health.reason} ${relative(health.coolingUntil)}`,
         usage?.report === undefined ? (usage?.error ?? '') : summary(usage.report),
       ].filter((tag) => tag !== '')
       lines.push(`  ${index + 1}. ${entry.label ?? 'default'}: ${tags.join(' · ')}`)
@@ -89,17 +91,17 @@ async function accountsText(deps: CommandDeps): Promise<string> {
   return lines.join('\n')
 }
 
-function rulesText(deps: CommandDeps): string {
+function rulesText(deps: CommandDeps, copy: CommandCopy): string {
   const rules = deps.config().modelAccountRules
-  if (rules.length === 0) return 'No model → account rules.'
+  if (rules.length === 0) return copy.noRules
   return rules.map((rule) => `${rule.pattern} → ${rule.account}`).join('\n')
 }
 
-async function modelsText(deps: CommandDeps): Promise<string> {
+async function modelsText(deps: CommandDeps, copy: CommandCopy): Promise<string> {
   const config = deps.config()
   try {
     const models = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true })
-    if (models.length === 0) return 'No models.'
+    if (models.length === 0) return copy.noModels
     return models.map((model) => {
       const meta = effectiveModel(model.id, config)
       const limits = limitsFor(model.id)
@@ -108,16 +110,16 @@ async function modelsText(deps: CommandDeps): Promise<string> {
         plan,
         limits === undefined
           ? ''
-          : `5h ${formatRequests(limits.go.fiveHour)} / wk ${formatRequests(limits.go.weekly)} / mo ${formatRequests(limits.go.monthly)}`,
+          : `${copy.fiveHour} ${formatRequests(limits.go.fiveHour)} / ${copy.weekly} ${formatRequests(limits.go.weekly)} / ${copy.monthly} ${formatRequests(limits.go.monthly)}`,
       ].filter((tag) => tag !== '')
       return `- ${model.id}${tags.length === 0 ? '' : ` · ${tags.join(' · ')}`}`
     }).join('\n')
   } catch (error) {
-    return `Models unavailable: ${error instanceof Error ? error.message : String(error)}`
+    return `${copy.modelsUnavailable}: ${error instanceof Error ? error.message : String(error)}`
   }
 }
 
-async function testText(deps: CommandDeps, model: string): Promise<{ ok: boolean; text: string }> {
+async function testText(deps: CommandDeps, model: string, copy: CommandCopy): Promise<{ ok: boolean; text: string }> {
   const started = Date.now()
   let text = ''
   try {
@@ -136,21 +138,21 @@ async function testText(deps: CommandDeps, model: string): Promise<{ ok: boolean
   } catch (error) {
     return {
       ok: false,
-      text: `${model}: failed — ${error instanceof Error ? error.message : String(error)}`,
+      text: `${model}: ${copy.testFailed} — ${error instanceof Error ? error.message : String(error)}`,
     }
   }
 }
 
-async function statusText(deps: CommandDeps): Promise<string> {
+async function statusText(deps: CommandDeps, copy: CommandCopy): Promise<string> {
   const config = deps.config()
   const rules = config.modelAccountRules.length === 0
-    ? 'none'
+    ? copy.none
     : config.modelAccountRules.map((rule) => `${rule.pattern} → ${rule.account}`).join(', ')
   return [
-    'OpenCode provider',
-    await accountsText(deps),
-    `Rules: ${rules}`,
-    `Auth: ${config.openCodeAuthEntry} · ${config.apiKeyEnv}`,
+    copy.provider,
+    await accountsText(deps, copy),
+    `${copy.rules}: ${rules}`,
+    `${copy.auth}: ${config.openCodeAuthEntry} · ${config.apiKeyEnv}`,
   ].filter((line) => line !== '').join('\n')
 }
 
@@ -160,6 +162,7 @@ export function applyCommands(ctx: Context, deps: CommandDeps): void {
     description: 'OpenCode / OpenCode Go status, accounts, quotas, models and rules',
     input: { hint: 'status | usage | accounts | models | rules | test [model]' },
     handler: async (invocation) => {
+      const copy = commandCopy(deps.locale())
       const raw = invocation.rawInput.trim()
       const parts = raw === '' ? ['status'] : raw.split(/\s+/)
       const verb = parts[0] ?? 'status'
@@ -167,28 +170,28 @@ export function applyCommands(ctx: Context, deps: CommandDeps): void {
 
       switch (verb.toLowerCase()) {
         case 'status':
-          return { kind: 'success', text: await statusText(deps) }
+          return { kind: 'success', text: await statusText(deps, copy) }
         case 'usage': {
           const usage = await deps.usage(GO_PROVIDER)
           if (usage?.report === undefined) {
-            return { kind: 'error', text: `Quota unavailable: ${usage?.error ?? 'no report'}` }
+            return { kind: 'error', text: `${copy.quotaUnavailable}: ${usage?.error ?? 'no report'}` }
           }
           const windows = usage.report.windows
           const text = [
-            windowLine('5h     ', windows.fiveHour),
-            windowLine('weekly ', windows.weekly),
-            windowLine('monthly', windows.monthly),
+            windowLine(copy.fiveHour, windows.fiveHour, copy),
+            windowLine(copy.weekly, windows.weekly, copy),
+            windowLine(copy.monthly, windows.monthly, copy),
           ].filter((line): line is string => line !== undefined).join('\n')
-          return { kind: 'success', text: text === '' ? 'No quota windows returned.' : text }
+          return { kind: 'success', text: text === '' ? copy.noWindows : text }
         }
         case 'accounts':
-          return { kind: 'success', text: await accountsText(deps) }
+          return { kind: 'success', text: await accountsText(deps, copy) }
         case 'models':
-          return { kind: 'success', text: await modelsText(deps) }
+          return { kind: 'success', text: await modelsText(deps, copy) }
         case 'rules':
-          return { kind: 'success', text: rulesText(deps) }
+          return { kind: 'success', text: rulesText(deps, copy) }
         case 'test': {
-          const result = await testText(deps, arg === '' ? 'deepseek-v4.1-flash' : arg)
+          const result = await testText(deps, arg === '' ? 'deepseek-v4.1-flash' : arg, copy)
           return result.ok
             ? { kind: 'success', text: result.text }
             : { kind: 'error', text: result.text }
@@ -196,7 +199,7 @@ export function applyCommands(ctx: Context, deps: CommandDeps): void {
         default:
           return {
             kind: 'error',
-            text: `Unknown /opencode argument "${verb}". Use status, usage, accounts, models, rules, or test [model].`,
+            text: `${copy.unknown} "${verb}". ${copy.rules}: status | usage | accounts | models | rules | test [model]`,
           }
       }
     },

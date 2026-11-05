@@ -17,6 +17,7 @@ export interface Draft {
   requestImageMaxBytes: string
   proxyUrl: string
   catalogRefreshMinutes: string
+  commandLocale: 'en' | 'zh'
   maxOutputTokens: string
   contextWindow: string
   contextWindowOverrides: Record<string, string>
@@ -54,6 +55,7 @@ export function draftOf(state: HostState): Draft {
     requestImageMaxBytes: String(state.config.requestImageMaxBytes),
     proxyUrl: state.config.proxyUrl,
     catalogRefreshMinutes: String(state.config.catalogRefreshMinutes),
+    commandLocale: state.config.commandLocale,
     maxOutputTokens: state.config.maxOutputTokens === null ? '' : String(state.config.maxOutputTokens),
     contextWindow: state.config.contextWindow === null ? '' : String(state.config.contextWindow),
     contextWindowOverrides: Object.fromEntries(
@@ -114,6 +116,7 @@ export function patchOf(draft: Draft): Record<string, unknown> {
     requestImageMaxBytes: numberOrNull(draft.requestImageMaxBytes) ?? 1048576,
     proxyUrl: draft.proxyUrl.trim(),
     catalogRefreshMinutes: numberOrNull(draft.catalogRefreshMinutes) ?? 10,
+    commandLocale: draft.commandLocale,
     maxOutputTokens: numberOrNull(draft.maxOutputTokens),
     contextWindow: numberOrNull(draft.contextWindow),
     contextWindowOverrides: numberRecordOrNull(draft.contextWindowOverrides),

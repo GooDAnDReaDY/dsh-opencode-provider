@@ -151,6 +151,7 @@ function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset';
   if ('requestImageMaxBytes' in patch) set('requestImageMaxBytes', patch.requestImageMaxBytes)
   if ('proxyUrl' in patch) set('proxyUrl', normalizeProxyUrl(typeof patch.proxyUrl === 'string' ? patch.proxyUrl : ''))
   if ('catalogRefreshMinutes' in patch) set('catalogRefreshMinutes', patch.catalogRefreshMinutes)
+  if ('commandLocale' in patch) set('commandLocale', patch.commandLocale === 'zh' ? 'zh' : 'en')
   if ('visibleModels' in patch) set('visibleModels', cleanStringArray(patch.visibleModels))
   if ('modelVisibility' in patch) set('modelVisibility', cleanBooleanRecord(patch.modelVisibility))
   if ('filterModelsByPlan' in patch) set('filterModelsByPlan', patch.filterModelsByPlan === true)

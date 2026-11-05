@@ -879,6 +879,14 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <Field label={t('requestImagePixelBudget')} type="number" value={draft.requestImagePixelBudget} onChange={(value) => update({ requestImagePixelBudget: value })} />
           <Field label={t('requestImageMaxBytes')} type="number" value={draft.requestImageMaxBytes} onChange={(value) => update({ requestImageMaxBytes: value })} />
           <Field label={t('catalogRefreshMinutes')} type="number" value={draft.catalogRefreshMinutes} onChange={(value) => update({ catalogRefreshMinutes: value })} />
+          <label className="oc-field">
+            <span className="oc-label">{t('commandLocale')}</span>
+            <select className="oc-select" value={draft.commandLocale} onChange={(event) => update({ commandLocale: event.target.value as 'en' | 'zh' })}>
+              <option value="en">English</option>
+              <option value="zh">中文</option>
+            </select>
+            <span className="oc-hint">{t('commandLocaleHint')}</span>
+          </label>
           <Field label={t('proxyUrl')} hint={t('proxyUrlHint')} value={draft.proxyUrl} onChange={(value) => update({ proxyUrl: value })} />
           <Field label={t('maxOutputTokens')} type="number" value={draft.maxOutputTokens} onChange={(value) => update({ maxOutputTokens: value })} />
           <Field label={t('contextWindow')} type="number" value={draft.contextWindow} onChange={(value) => update({ contextWindow: value })} />

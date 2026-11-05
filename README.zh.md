@@ -126,12 +126,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.30.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.31.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.30.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.31.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.30
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.31
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。
@@ -182,6 +182,8 @@ modelAccountRules:
 /opencode rules             # 模型到账户规则
 /opencode test [model]      # 发送最小化测试请求
 ```
+
+在 **设置 → OpenCode → `/opencode` 命令语言** 中选择 `中文` 即可切换输出语言，默认英语。
 
 ## 安全规范
 
