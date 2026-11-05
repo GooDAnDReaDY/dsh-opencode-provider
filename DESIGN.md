@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.24 — current release
+## 0.5.25 — current release
+
+- Failed usage refreshes preserve the last successful report and mark it stale with `lastSuccessAt`.
+- Failed analytics rescans preserve the previous report/heatmap with a stale notice; successful scans clear it.
+
+## 0.5.24 — previous release
 
 - Managed credential refs are tracked without secrets; account removal cleans up only plugin-managed keys after a successful config save.
 - `autoSwitch` can disable pre-output account failover and quota fallback while preserving the pinned/first usable account.

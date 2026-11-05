@@ -75,6 +75,8 @@ export interface UsageState {
   keyStatus?: 'ok' | 'invalid' | 'expired' | 'missing' | 'unavailable'
   latencyMs?: number
   checkedAt: number
+  stale?: boolean
+  lastSuccessAt?: number
 }
 
 export type KeyStatus = 'ok' | 'invalid' | 'expired' | 'missing' | 'unavailable' | 'unchecked'
@@ -100,7 +102,7 @@ export interface HostState {
   models: ModelRow[]
   catalog: { source: 'live' | 'snapshot'; count: number; fetchedAt?: number }
   usage: UsageState | null
-  service: { usageCheckedAt?: number; usageLatencyMs?: number; usageError?: string }
+  service: { usageCheckedAt?: number; usageLatencyMs?: number; usageError?: string; usageStale?: boolean }
   routing: RoutingTraceRow[]
   auth: { entry: string; hasStoredKey: boolean; entries: readonly string[] }
   revision?: number

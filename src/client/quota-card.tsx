@@ -260,6 +260,7 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
   const [stateError, setStateError] = useState<string | null>(null)
   const [analytics, setAnalytics] = useState<AnalyticsReport | null>(null)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
+  const [analyticsStale, setAnalyticsStale] = useState(false)
   const [days, setDays] = useState(7)
   const [busy, setBusy] = useState(false)
   const analyticsSeq = useRef(0)
@@ -276,16 +277,18 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
     const seq = analyticsSeq.current + 1
     analyticsSeq.current = seq
     setAnalyticsError(null)
+    setAnalyticsStale(analytics !== null)
     void fetchAnalytics(windowDays)
       .then((next) => {
         if (seq !== analyticsSeq.current) return
         setAnalytics(next)
         setAnalyticsError(null)
+        setAnalyticsStale(false)
       })
       .catch((caught: unknown) => {
         if (seq !== analyticsSeq.current) return
-        setAnalytics(null)
         setAnalyticsError(caught instanceof Error ? caught.message : 'analytics failed')
+        setAnalyticsStale(analytics !== null)
       })
   }
 
@@ -449,33 +452,32 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
       </section>
 
       <section className="oc-card">
+        <h3 className="oc-card-title">{t('usageAnalytics')}</h3>
         {analyticsError !== null
-          ? (
-            <>
-              <h3 className="oc-card-title">{t('usageAnalytics')}</h3>
-              <p className="oc-hint">{t('failed')}: {analyticsError}</p>
-              <button type="button" className="oc-button" onClick={() => loadAnalytics(days)}>
-                {t('refresh')}
-              </button>
-            </>
-          )
-          : analytics === null
-            ? (
-              <>
-                <h3 className="oc-card-title">{t('usageAnalytics')}</h3>
-                <p className="oc-hint">{t('loading')}</p>
-              </>
-            )
-            : <UsageAnalyticsView analytics={analytics} t={t} days={days} onDays={setDays} />}
+          ? <p className="oc-hint">{t('failed')}: {analyticsError}</p>
+          : null}
+        {analyticsStale && analytics !== null
+          ? <p className="oc-hint">{t('analyticsStale')}</p>
+          : null}
+        {analyticsError !== null
+          ? <button type="button" className="oc-button" onClick={() => loadAnalytics(days)}>{t('refresh')}</button>
+          : null}
+        {analytics === null
+          ? <p className="oc-hint">{t('loading')}</p>
+          : <UsageAnalyticsView analytics={analytics} t={t} days={days} onDays={setDays} />}
       </section>
 
       <section className="oc-card">
         <h3 className="oc-card-title">{t('requestHeatmap')}</h3>
         {analyticsError !== null
           ? <p className="oc-hint">{t('failed')}: {analyticsError}</p>
-          : analytics === null
-            ? <p className="oc-hint">{t('loading')}</p>
-            : <RequestHeatmapView heatmap={analytics.heatmap} t={t} />}
+          : null}
+        {analyticsStale && analytics !== null
+          ? <p className="oc-hint">{t('analyticsStale')}</p>
+          : null}
+        {analytics === null
+          ? <p className="oc-hint">{t('loading')}</p>
+          : <RequestHeatmapView heatmap={analytics.heatmap} t={t} />}
       </section>
     </div>
   )

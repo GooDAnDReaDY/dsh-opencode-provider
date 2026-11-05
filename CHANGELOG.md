@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.25 — release 2: stale data
+
+- **#87 — stale usage**: a failed usage refresh now returns the last successful report with `stale: true` and `lastSuccessAt` instead of discarding it. The quota sidebar/panel and Settings label the stale snapshot; an explicit refresh no longer loses the previous reading.
+- **#88 — stale analytics**: a failed analytics rescan keeps the previous report and heatmap visible with a stale notice and a retry button instead of blanking the panel; successful rescans clear the stale flag.
+- 127 tests.
+
 ## 0.5.24 — release 1: account safety
 
 - **#89 — managed credential cleanup**: keys saved through Settings or imported from `auth.json` are recorded in `~/.dsh/storages/dsh-opencode/managed-credentials.json` (refs only, never secrets). Removing an account asks for confirmation and deletes only plugin-managed credentials after the settings save succeeds; external environment/`auth.json` references are left intact. Cleanup failures are reported separately from the account removal.
