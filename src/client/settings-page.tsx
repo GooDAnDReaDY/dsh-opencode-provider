@@ -4,12 +4,14 @@ import type { ReactNode } from 'react'
 import {
   checkAccount,
   clearKey,
+  clearProxyPassword,
   fetchState,
   importAuth,
   refreshModels,
   refreshState,
   saveConfig,
   saveKey,
+  saveProxyPassword,
   testConnection,
   type HostState,
   type KeyStatus,
@@ -58,6 +60,8 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [keyDraft, setKeyDraft] = useState('')
+  const [proxyPassword, setProxyPassword] = useState('')
+  const [proxyBusy, setProxyBusy] = useState(false)
   const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({})
   const [search, setSearch] = useState('')
   const [testModel, setTestModel] = useState('deepseek-v4.1-flash')
@@ -124,6 +128,36 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       setError(caught instanceof Error ? caught.message : t('saveFailed'))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const storeProxyPassword = async (): Promise<void> => {
+    if (proxyPassword === '') return
+    setProxyBusy(true)
+    setError(null)
+    try {
+      await saveProxyPassword(proxyPassword)
+      setProxyPassword('')
+      setNotice(t('saved'))
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t('failed'))
+    } finally {
+      setProxyBusy(false)
+    }
+  }
+
+  const removeProxyPassword = async (): Promise<void> => {
+    setProxyBusy(true)
+    setError(null)
+    try {
+      await clearProxyPassword()
+      setNotice(t('saved'))
+      await load()
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : t('failed'))
+    } finally {
+      setProxyBusy(false)
     }
   }
 
@@ -888,6 +922,30 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             <span className="oc-hint">{t('commandLocaleHint')}</span>
           </label>
           <Field label={t('proxyUrl')} hint={t('proxyUrlHint')} value={draft.proxyUrl} onChange={(value) => update({ proxyUrl: value })} />
+          <Field label={t('proxyUsername')} value={draft.proxyUsername} onChange={(value) => update({ proxyUsername: value })} />
+          <label className="oc-field">
+            <span className="oc-label">{t('proxyPassword')}</span>
+            <input
+              className="oc-input"
+              type="password"
+              value={proxyPassword}
+              placeholder={state.proxy.configured ? t('proxyPasswordSet') : t('proxyPasswordUnset')}
+              onChange={(event) => setProxyPassword(event.target.value)}
+            />
+            <span className="oc-hint">{t('proxyPasswordHint')}</span>
+            <span className="oc-actions">
+              <button type="button" className="oc-button" disabled={proxyBusy || proxyPassword === ''} onClick={() => { void storeProxyPassword() }}>{t('saveProxyPassword')}</button>
+              <button type="button" className="oc-button" disabled={proxyBusy || !state.proxy.configured} onClick={() => { void removeProxyPassword() }}>{t('clearProxyPassword')}</button>
+            </span>
+          </label>
+          <label className="oc-field">
+            <span className="oc-label">{t('enabledRoutes')}</span>
+            <span className="oc-actions">
+              <label><input type="checkbox" checked={draft.consoleEnabled} onChange={(event) => update({ consoleEnabled: event.target.checked })} /> {t('routeConsole')}</label>
+              <label><input type="checkbox" checked={draft.goEnabled} onChange={(event) => update({ goEnabled: event.target.checked })} /> {t('routeGo')}</label>
+            </span>
+            <span className="oc-hint">{t('enabledRoutesHint')}</span>
+          </label>
           <Field label={t('maxOutputTokens')} type="number" value={draft.maxOutputTokens} onChange={(value) => update({ maxOutputTokens: value })} />
           <Field label={t('contextWindow')} type="number" value={draft.contextWindow} onChange={(value) => update({ contextWindow: value })} />
         </div>

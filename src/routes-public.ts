@@ -15,6 +15,10 @@ export interface PublicConfig {
   requestImagePixelBudget: number
   requestImageMaxBytes: number
   proxyUrl: string
+  proxyUsername: string
+  proxyPasswordRef: string
+  goEnabled: boolean
+  consoleEnabled: boolean
   catalogRefreshMinutes: number
   commandLocale: CommandLocale
   visibleModels: readonly string[]
@@ -52,6 +56,10 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     requestImagePixelBudget: config.requestImagePixelBudget,
     requestImageMaxBytes: config.requestImageMaxBytes,
     proxyUrl: config.proxyUrl,
+    proxyUsername: config.proxyUsername,
+    proxyPasswordRef: config.proxyPasswordRef,
+    goEnabled: config.goEnabled,
+    consoleEnabled: config.consoleEnabled,
     catalogRefreshMinutes: config.catalogRefreshMinutes,
     commandLocale: config.commandLocale,
     visibleModels: config.visibleModels,

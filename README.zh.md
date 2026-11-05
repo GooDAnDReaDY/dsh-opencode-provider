@@ -106,7 +106,8 @@ graph LR
 - **本地时间请求热力图**：星期×小时交互式热力图，排除系统心跳与重复记录，可按模型或账户过滤，仅保存 `{at, provider, model, purpose, account, reason, ok, latencyMs, ttftMs, error}` 元数据，不保存任何提示词与回复。
 - **稳定的 `x-opencode-session` 标头**：根据 DSH 会话 ID 派生，确保重试与连续对话复用相同的网关路由键。
 - **实时模型目录**：自动从 `/v1/models` 同步，并以 `models.dev` 生成文件作为回退。
-- **代理**：一个实时 `proxyUrl` 设置即可让推理、模型目录和额度检查走 HTTP、HTTPS 或 SOCKS5；地址变化前复用 dispatcher。
+- **代理**：一个实时 `proxyUrl` 设置即可让推理、模型目录和额度检查走 HTTP、HTTPS 或 SOCKS5；地址变化前复用 dispatcher。`proxyUsername` 与凭据服务中的密码可为 HTTP 和 SOCKS5 启用 Basic 认证，密码不会返回浏览器。
+- **路由开关**：可独立启用或禁用 Console/Zen 与 Go/Go Plus 路由；禁用的路由会从选择器移除并拒绝请求，至少保留一个路由。
 - **Go 订阅额度估算**：每月美元额度以及 5 小时、每周和每月的估算请求次数。
 - **`/opencode` 斜杠指令**：快速查询状态、配额、账户、模型及执行联通性测试。
 - **TUI 设置**：`/settings → OpenCode` 支持密钥、端点、allowlist、活动账户、回退模型、粘性路由和超时。
@@ -126,12 +127,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.31.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.32.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.31.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.32.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.31
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.32
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。

@@ -557,3 +557,21 @@ test('rotates on a usage-limit 429 as well', async () => {
   assert.deepEqual(seen, ['Bearer bad', 'Bearer good'])
   assert.equal(result.text, 'OK')
 })
+
+test('a disabled route hides models and refuses requests', async () => {
+  const adapter = adapterWith(
+    (async () => new Response(streamOf(), { status: 200 })) as typeof fetch,
+    undefined,
+    testCooldownPath(),
+    undefined,
+    { goEnabled: false, consoleEnabled: true },
+  )
+  assert.deepEqual(await adapter.listModels(GO_PROVIDER), [])
+  await assert.rejects(async () => {
+    for await (const _chunk of adapter.stream({
+      provider: GO_PROVIDER,
+      model: 'deepseek-v4.1-flash',
+      messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+    })) { /* drain */ }
+  }, /disabled/)
+})

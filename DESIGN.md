@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.31 — current release
+## 0.5.32 — current release
+
+- Proxy auth: `proxyUsername` is public config; the password lives in the credential service under `proxyPasswordRef` and is resolved per request. `buildProxyUrl` assembles the authenticated URL in memory only; dispatcher cache keys never leave the process.
+- Route switches: `goEnabled`/`consoleEnabled` drive both the LLM adapter registration (`replace`) and the configurable-provider directory. Config writes call `syncRoutes`; adapter guards refuse disabled routes even before the swap.
+
+## 0.5.31 — previous release
 
 - Command copy is selected from `commandLocale` (`en`/`zh`) at handler invocation, because DSH command handlers receive no host locale.
 - Thinking budgets: DSH only exposes adapter-owned `reasoningEffort` ids; there is no numeric token-budget option, and the Anthropic transport sends `output_config.effort`, not `thinking.budget_tokens`. A synthetic number-to-effort mapping would misrepresent the wire contract, so #72 is closed as unsupported with this evidence.

@@ -14,7 +14,7 @@ import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
 import { addManagedCredentialRef, readManagedCredentialRefs, removeManagedCredentialRef } from './managed-credentials.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
-import { normalizeProxyUrl } from './proxy.ts'
+import { normalizeProxyUrl, normalizeProxyUsername } from './proxy.ts'
 import { publicConfig } from './routes-public.ts'
 import { cleanAccounts, cleanBooleanRecord, cleanModelAccountRules, cleanNonNegativeNumberRecord, cleanNumberRecord, cleanStringArray, cleanTransports } from './routes-values.ts'
 import { readOpenCodeAuthKey, listOpenCodeAuthEntries, type KeyPool } from './credentials.ts'
@@ -32,6 +32,7 @@ export interface RouteDeps {
   readonly analytics?: (days: number) => Promise<AnalyticsReport>
   readonly heatmap?: (days: number) => Promise<RequestHeatmap>
   readonly refreshTui?: () => void
+  readonly syncRoutes?: () => void
   /** Test seam; defaults to the local managed-credentials registry. */
   readonly managedPath?: string
 }
@@ -150,6 +151,10 @@ function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset';
   if ('requestImagePixelBudget' in patch) set('requestImagePixelBudget', patch.requestImagePixelBudget)
   if ('requestImageMaxBytes' in patch) set('requestImageMaxBytes', patch.requestImageMaxBytes)
   if ('proxyUrl' in patch) set('proxyUrl', normalizeProxyUrl(typeof patch.proxyUrl === 'string' ? patch.proxyUrl : ''))
+  if ('proxyUsername' in patch) set('proxyUsername', normalizeProxyUsername(typeof patch.proxyUsername === 'string' ? patch.proxyUsername : ''))
+  if ('proxyPasswordRef' in patch) set('proxyPasswordRef', patch.proxyPasswordRef)
+  if ('goEnabled' in patch) set('goEnabled', patch.goEnabled === true)
+  if ('consoleEnabled' in patch) set('consoleEnabled', patch.consoleEnabled === true)
   if ('catalogRefreshMinutes' in patch) set('catalogRefreshMinutes', patch.catalogRefreshMinutes)
   if ('commandLocale' in patch) set('commandLocale', patch.commandLocale === 'zh' ? 'zh' : 'en')
   if ('visibleModels' in patch) set('visibleModels', cleanStringArray(patch.visibleModels))
@@ -192,6 +197,15 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
       }
     } catch {
       // An invalid reference is reported as unconfigured.
+    }
+  }
+
+  let proxyConfigured = false
+  if (config.proxyUsername !== '' && credentials !== undefined) {
+    try {
+      proxyConfigured = (await credentials.describe(credentialRef(config.proxyPasswordRef))).configured
+    } catch {
+      proxyConfigured = false
     }
   }
 
@@ -280,9 +294,10 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     })
   }
 
+  const listingProvider = config.goEnabled ? GO_PROVIDER : CONSOLE_PROVIDER
   let models: Array<Record<string, unknown>> = []
   try {
-    const listed = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true })
+    const listed = await deps.adapter.listModels(listingProvider, { unfiltered: true })
     models = listed.map((model) => {
       const meta = effectiveModel(model.id, config)
       return {
@@ -298,10 +313,10 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
         input: meta.input,
         reasoning: meta.reasoning,
         visible: modelVisible(model.id, config),
-        ...(catalogReleaseDate(GO_PROVIDER, model.id, config) === undefined
+        ...(catalogReleaseDate(listingProvider, model.id, config) === undefined
           ? {}
-          : { releaseDate: catalogReleaseDate(GO_PROVIDER, model.id, config) }),
-        isNew: isNewRelease(catalogReleaseDate(GO_PROVIDER, model.id, config)),
+          : { releaseDate: catalogReleaseDate(listingProvider, model.id, config) }),
+        isNew: isNewRelease(catalogReleaseDate(listingProvider, model.id, config)),
       }
     })
   } catch {
@@ -315,9 +330,14 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
   return {
     config: publicConfig(config),
     key: keyInfo,
+    proxy: {
+      configured: proxyConfigured,
+      username: config.proxyUsername,
+      passwordRef: config.proxyPasswordRef,
+    },
     accounts,
     models,
-    catalog: catalogStatus(GO_PROVIDER, config, models.length),
+    catalog: catalogStatus(listingProvider, config, models.length),
     usage: usage ?? null,
     service: {
       ...(usage?.checkedAt === undefined ? {} : { usageCheckedAt: usage.checkedAt }),
@@ -460,6 +480,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       await settings.mutate(NS, ops, revision)
       deps.usage.clear()
       deps.refreshTui?.()
+      deps.syncRoutes?.()
       json(res, 200, { ok: true })
     } catch (error) {
       const message = error instanceof Error ? error.message : 'config write failed'
@@ -510,6 +531,46 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       json(res, 200, { ok: true, ref: refName })
     } catch (error) {
       json(res, 500, { error: error instanceof Error ? error.message : 'key clear failed' })
+    }
+  })
+
+  route('/dsh-opencode/proxy-password', async (req, res) => {
+    if (!requirePost(req, res)) return
+    const credentials = getCredentials(ctx)
+    if (credentials === undefined) {
+      json(res, 503, { error: 'credentials service unavailable' })
+      return
+    }
+    try {
+      const body = await readJson(req)
+      const password = typeof body.password === 'string' ? body.password : ''
+      if (password === '') {
+        json(res, 400, { error: 'proxy password is required' })
+        return
+      }
+      const refName = deps.config().proxyPasswordRef
+      await credentials.set(credentialRef(refName), password)
+      await addManagedCredentialRef(refName, deps.managedPath)
+      json(res, 200, { ok: true, ref: refName })
+    } catch (error) {
+      json(res, 500, { error: error instanceof Error ? error.message : 'proxy password write failed' })
+    }
+  })
+
+  route('/dsh-opencode/proxy-password/clear', async (req, res) => {
+    if (!requirePost(req, res)) return
+    const credentials = getCredentials(ctx)
+    if (credentials === undefined) {
+      json(res, 503, { error: 'credentials service unavailable' })
+      return
+    }
+    try {
+      const refName = deps.config().proxyPasswordRef
+      await credentials.unset(credentialRef(refName))
+      await removeManagedCredentialRef(refName, deps.managedPath)
+      json(res, 200, { ok: true, ref: refName })
+    } catch (error) {
+      json(res, 500, { error: error instanceof Error ? error.message : 'proxy password clear failed' })
     }
   })
 
