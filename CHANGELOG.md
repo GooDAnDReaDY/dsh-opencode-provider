@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.27 — release 4: catalog freshness
+
+- **#86 — new-model badge**: the live catalog now keeps `release_date` (or `created`) metadata; Settings marks models released within the last seven UTC days with a NEW badge and date tooltip. Dates are dropped safely when the gateway omits or malforms them.
+- **#85 — output ceiling**: the default generated-output cap is 65,536 tokens (was 32,768), matching the reference plugin while still respecting each model's own `maxTokens` and explicit caller limits.
+- 133 tests.
+
 ## 0.5.26 — release 3: quota display and switch notices
 
 - **#75 — quota display modes**: new `usageDisplay` setting with `auto`/`always`/`off` (legacy `showSidebarQuota` maps to `always`); `auto` shows the sidebar card when a Go usage report exists. Exposed in Settings and TUI.

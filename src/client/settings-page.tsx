@@ -225,6 +225,9 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
         <span className="oc-model-name" title={model.name + ' · ' + model.description}>
           {model.name}
           {model.free ? <span className="oc-badge" title={t('legendFree')}> {t('free')}</span> : null}
+          {model.isNew === true
+            ? <span className="oc-badge oc-badge-ok" title={`${t('newModelHint')} ${model.releaseDate ?? ''}`}>{t('newModel')}</span>
+            : null}
           {!model.free && hasPrice
             ? <span className="oc-badge" title={t('legendPrice')}> {'$'}{model.cost.input}/{'$'}{model.cost.output}</span>
             : null}

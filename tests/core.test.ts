@@ -422,6 +422,12 @@ test('routing uses the Go unified gateway for chat and native paths for the rest
   )
 })
 
+test('default output ceiling is 65,536 tokens', () => {
+  const config = resolved()
+  const model = effectiveModel('deepseek-v4.1-flash', config)
+  assert.equal(effectiveMaxTokens(model, config), 65_536)
+})
+
 test('maps legacy sidebar quota to usage display modes', () => {
   assert.equal(resolved({ showSidebarQuota: true }).usageDisplay, 'always')
   assert.equal(resolved({}).usageDisplay, 'auto')

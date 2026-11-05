@@ -11,7 +11,11 @@ import { describeLimitsShort, limitsFor } from './subscription-limits.ts'
 const CATALOG_TTL_MS = 10 * 60 * 1000
 const CATALOG_TIMEOUT_MS = 15_000
 
-const catalogCache = new Map<string, { at: number; ids: readonly string[] }>()
+const catalogCache = new Map<string, {
+  at: number
+  ids: readonly string[]
+  releaseDates: Readonly<Record<string, string>>
+}>()
 
 const FALLBACK_META: OpenCodeModelMeta = {
   id: '',
@@ -69,8 +73,36 @@ export function modelInGoPlan(id: string, config: ResolvedConfig): boolean {
 }
 
 interface ModelsPayload {
-  data?: Array<{ id?: unknown }>
+  data?: Array<{ id?: unknown; release_date?: unknown; created?: unknown }>
   models?: Record<string, unknown>
+}
+
+function releaseDateOf(entry: { release_date?: unknown; created?: unknown }): string | undefined {
+  const raw = entry.release_date
+  if (typeof raw === 'string' && raw !== '') {
+    const parsed = Date.parse(raw.length === 10 ? `${raw}T00:00:00Z` : raw)
+    if (Number.isFinite(parsed)) return new Date(parsed).toISOString().slice(0, 10)
+  }
+  if (typeof entry.created === 'number' && Number.isFinite(entry.created)) {
+    return new Date(entry.created * 1000).toISOString().slice(0, 10)
+  }
+  return undefined
+}
+
+/** Seven UTC calendar days, used by the picker's NEW badge. */
+export function isNewRelease(date: string | undefined, now = Date.now()): boolean {
+  if (date === undefined) return false
+  const parsed = Date.parse(date.length === 10 ? `${date}T00:00:00Z` : date)
+  return Number.isFinite(parsed) && parsed <= now && now - parsed < 7 * 86_400_000
+}
+
+/** Release date learned from the live catalog, if the gateway published it. */
+export function catalogReleaseDate(
+  provider: string,
+  id: string,
+  config: ResolvedConfig,
+): string | undefined {
+  return catalogCache.get(`${provider}|${modelsUrlFor(provider, config)}`)?.releaseDates[id]
 }
 
 async function fetchLiveIds(
@@ -97,7 +129,15 @@ async function fetchLiveIds(
       ? payload.data.map((entry) => entry.id).filter((id): id is string => typeof id === 'string' && id !== '')
       : Object.keys(payload.models ?? {})
     if (ids.length === 0) return undefined
-    catalogCache.set(cacheKey, { at: Date.now(), ids })
+    const releaseDates: Record<string, string> = {}
+    if (Array.isArray(payload.data)) {
+      for (const entry of payload.data) {
+        if (typeof entry.id !== 'string' || entry.id === '') continue
+        const date = releaseDateOf(entry)
+        if (date !== undefined) releaseDates[entry.id] = date
+      }
+    }
+    catalogCache.set(cacheKey, { at: Date.now(), ids, releaseDates })
     return ids
   } catch {
     return undefined

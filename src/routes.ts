@@ -8,7 +8,7 @@ import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import type {} from '@deepseek-ai/dsh-settings'
 
 import type { OpenCodeAdapter } from './adapter.ts'
-import { effectiveModel, modelVisible, clearCatalogCache, catalogStatus } from './catalog.ts'
+import { effectiveModel, modelVisible, clearCatalogCache, catalogStatus, catalogReleaseDate, isNewRelease } from './catalog.ts'
 import { readModelAnalytics, type AnalyticsReport } from './analytics.ts'
 import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
 import { NS, type Config, type ResolvedConfig } from './config.ts'
@@ -291,6 +291,10 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
         input: meta.input,
         reasoning: meta.reasoning,
         visible: modelVisible(model.id, config),
+        ...(catalogReleaseDate(GO_PROVIDER, model.id, config) === undefined
+          ? {}
+          : { releaseDate: catalogReleaseDate(GO_PROVIDER, model.id, config) }),
+        isNew: isNewRelease(catalogReleaseDate(GO_PROVIDER, model.id, config)),
       }
     })
   } catch {
