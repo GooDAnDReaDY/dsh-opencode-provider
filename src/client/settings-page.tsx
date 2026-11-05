@@ -359,6 +359,9 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
             ? null
             : <p className="oc-hint">{t('usageError')}: {usageError}</p>
         })()}
+        {defaultAccount?.usage?.stale === true
+          ? <p className="oc-hint">{t('usageStale')}</p>
+          : null}
         <div className="oc-row">
           <input
             className="oc-input"
@@ -458,11 +461,11 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <span className={`oc-badge ${
             state.service.usageCheckedAt === undefined
               ? 'oc-badge-warn'
-              : state.service.usageError === undefined ? 'oc-badge-ok' : 'oc-badge-bad'
+              : state.service.usageError === undefined && state.service.usageStale !== true ? 'oc-badge-ok' : 'oc-badge-bad'
           }`}>
             {state.service.usageCheckedAt === undefined
               ? t('notChecked')
-              : state.service.usageError === undefined ? t('serviceOk') : t('serviceDegraded')}
+              : state.service.usageError === undefined && state.service.usageStale !== true ? t('serviceOk') : t('serviceDegraded')}
           </span>
         </h3>
         <div className="oc-row">
@@ -470,7 +473,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <span className={`oc-badge ${
             state.service.usageCheckedAt === undefined
               ? 'oc-badge-warn'
-              : state.service.usageError === undefined ? 'oc-badge-ok' : 'oc-badge-bad'
+              : state.service.usageError === undefined && state.service.usageStale !== true ? 'oc-badge-ok' : 'oc-badge-bad'
           }`}>
             {state.service.usageCheckedAt === undefined
               ? t('notChecked')
@@ -483,6 +486,9 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
         {state.service.usageError === undefined
           ? null
           : <p className="oc-hint">{state.service.usageError}</p>}
+        {state.service.usageStale === true
+          ? <p className="oc-hint">{t('usageStale')}</p>
+          : null}
         <div className="oc-row">
           <span className="oc-hint">{t('catalogStatus')}</span>
           <span className={`oc-badge ${state.catalog.source === 'live' ? 'oc-badge-ok' : 'oc-badge-warn'}`}>
@@ -591,6 +597,9 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
               {known?.usage?.error === undefined
                 ? null
                 : <p className="oc-hint">{t('usageError')}: {known.usage.error}</p>}
+              {known?.usage?.stale === true
+                ? <p className="oc-hint">{t('usageStale')}</p>
+                : null}
               <div className="oc-row">
                 <input
                   className="oc-input"

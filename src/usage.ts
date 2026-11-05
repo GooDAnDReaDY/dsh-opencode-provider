@@ -26,6 +26,9 @@ export interface UsageResult {
   readonly keyStatus?: UsageKeyStatus
   readonly latencyMs?: number
   readonly checkedAt: number
+  /** True when `report` is the last successful reading after a failed refresh. */
+  readonly stale?: boolean
+  readonly lastSuccessAt?: number
 }
 
 interface UsageWindowPayload {
@@ -88,6 +91,8 @@ export function createUsageReader(
   fetchImpl: typeof fetch = fetch,
 ): UsageReader {
   const cache = new Map<string, UsageResult>()
+  /** Last successful reading per key, kept across explicit cache clears. */
+  const lastSuccess = new Map<string, UsageResult>()
 
   const read = async (provider: string, explicitKey?: string): Promise<UsageResult | undefined> => {
     if (provider !== GO_PROVIDER && provider !== LEGACY_GO_PROVIDER) return undefined
@@ -105,7 +110,7 @@ export function createUsageReader(
     const cacheKey = `${provider}:${fingerprint(key)}`
     const cached = cache.get(cacheKey)
     if (cached !== undefined) {
-      const ttl = cached.report === undefined ? FAILURE_TTL_MS : SUCCESS_TTL_MS
+      const ttl = cached.report === undefined || cached.stale === true ? FAILURE_TTL_MS : SUCCESS_TTL_MS
       if (Date.now() - cached.checkedAt < ttl) return cached
     }
 
@@ -171,8 +176,23 @@ export function createUsageReader(
     }
 
     const fresh = await result()
-    cache.set(cacheKey, fresh)
-    return fresh
+    const previous = cached?.report !== undefined ? cached : lastSuccess.get(cacheKey)
+    if (fresh.report === undefined && previous?.report !== undefined) {
+      const stale: UsageResult = {
+        ...fresh,
+        report: previous.report,
+        stale: true,
+        lastSuccessAt: previous.lastSuccessAt ?? previous.checkedAt,
+      }
+      cache.set(cacheKey, stale)
+      return stale
+    }
+    const next = fresh.report === undefined
+      ? fresh
+      : { ...fresh, stale: false, lastSuccessAt: fresh.checkedAt }
+    if (next.report !== undefined) lastSuccess.set(cacheKey, next)
+    cache.set(cacheKey, next)
+    return next
   }
 
   read.clear = (): void => { cache.clear() }

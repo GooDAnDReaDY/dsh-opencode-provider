@@ -308,6 +308,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
       ...(usage?.checkedAt === undefined ? {} : { usageCheckedAt: usage.checkedAt }),
       ...(usage?.latencyMs === undefined ? {} : { usageLatencyMs: usage.latencyMs }),
       ...(usage?.error === undefined ? {} : { usageError: usage.error }),
+      ...(usage?.stale === true ? { usageStale: true } : {}),
     },
     routing: deps.adapter.routingTrace(),
     auth: {

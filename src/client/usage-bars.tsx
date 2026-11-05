@@ -48,6 +48,14 @@ export function UsageBars(props: { usage: UsageState | null; t: (key: string) =>
   const windows = usage.report.windows
   return (
     <div className="oc-bars">
+      {usage.stale === true
+        ? (
+          <p className="oc-hint">
+            {t('usageStale')}
+            {usage.lastSuccessAt === undefined ? '' : ` (${new Date(usage.lastSuccessAt).toLocaleTimeString()})`}
+          </p>
+        )
+        : null}
       <Row label={t('fiveHour')} window={windows.fiveHour} />
       <Row label={t('weekly')} window={windows.weekly} />
       <Row label={t('monthly')} window={windows.monthly} />

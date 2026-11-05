@@ -60,6 +60,33 @@ test('classifies expired and rejected keys from usage responses', async () => {
   assert.equal((await reader('opencode-go', 'ok'))?.keyStatus, 'ok')
 })
 
+test('keeps the last successful report when a later refresh fails', async () => {
+  let online = true
+  const fetchImpl = (async () => {
+    if (!online) throw new Error('offline')
+    return new Response(JSON.stringify({
+      usage: { rolling: { percent: 11 }, weekly: { percent: 12 }, monthly: { percent: 13 } },
+    }), { status: 200, headers: { 'content-type': 'application/json' } })
+  }) as typeof fetch
+  const reader = createUsageReader(
+    () => config,
+    async () => ({ key: 'active', source: 'test' }),
+    fetchImpl,
+  )
+
+  const first = await reader('opencode-go')
+  assert.equal(first?.report?.windows.monthly?.percentUsed, 13)
+  assert.equal(first?.stale, false)
+
+  online = false
+  reader.clear()
+  const stale = await reader('opencode-go')
+  assert.equal(stale?.report?.windows.monthly?.percentUsed, 13)
+  assert.equal(stale?.stale, true)
+  assert.equal(stale?.error, 'offline')
+  assert.ok((stale?.lastSuccessAt ?? 0) > 0)
+})
+
 test('fail-open per key and clear the cache on demand', async () => {
   let calls = 0
   const fetchImpl = (async () => {
