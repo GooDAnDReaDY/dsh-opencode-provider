@@ -109,6 +109,6 @@ export function classifyResponseError(status: number, text: string, headers: Hea
 export function classifyStreamError(value: unknown, status = 200): LlmError | undefined {
   if (typeof value !== 'object' || value === null) return undefined
   const record = value as Record<string, unknown>
-  if (record.error === undefined) return undefined
+  if (record.error === undefined || record.error === null) return undefined
   return classifyResponseError(status, JSON.stringify(value), new Headers())
 }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.35 — audit remediation
+
+- **Proxy/auth (#106, #107, #112)**: authenticated proxy URLs are built after bare-address validation; non-loopback peers require the admin token; the updater is behind the same guard; credential refs are restricted to plugin-owned refs; custom endpoints require `allowCustomEndpoints`.
+- **Transports (#108, #109, #113, #114)**: `error:null` is ignored, `response.incomplete` finishes as max-tokens, abort listeners are replaced with `AbortSignal.any`, SSE early exit cancels upstream, and `retry-after` is honored for 429/402.
+- **Secrets/UI (#110, #111, #119, #122, #123, #124)**: key writes use saved refs and clear drafts on reorder; refresh adopts state without stale drafts; quota polling stops when Off; one 80/95 severity policy; theme-correct heatmap/CSS; alert/status roles and discard confirmation; mapped HTTP errors.
+- **Caches/data (#115, #116, #117, #118)**: bounded analytics ranking, directory recreation for request logs, exact-URL pricing with negative catalog cache, and strict `gt` tier boundaries.
+- **Tests/docs (#120, #121)**: test glob instead of a hand-maintained list, client smoke in `check`, README/DESIGN sync and RU/ZH feature sections.
+- 153 tests.
+
 ## 0.5.34 — release 11: engine matrix and audit closure
 
 - **#55 — engine matrix**: `npm run test:engine -- <candidate.tgz>` validates one immutable candidate against `engines.dsh` and `dsh.compatibility.dshReleases`, and rejects test/source content. It never installs DSH, starts a runtime, extracts the tarball, uses a worktree path, or performs forced cleanup; compatibility execution remains on the approved MiniPC contour.

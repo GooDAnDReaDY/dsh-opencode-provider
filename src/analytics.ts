@@ -204,6 +204,7 @@ export function aggregateSessions(
   sessions: readonly SessionMetadata[],
   days: number,
   now = Date.now(),
+  pricingFor: (provider: string, model: string) => ReturnType<typeof livePricingFor> = livePricingFor,
 ): AnalyticsReport {
   const since = now - days * DAY_MS
   const models = new Map<string, ModelUsageRow>()
@@ -255,7 +256,7 @@ export function aggregateSessions(
     matched += 1
 
     const meta = GENERATED_MODELS[model]
-    const livePricing = livePricingFor(provider, model)
+    const livePricing = pricingFor(provider, model)
     const priced = meta !== undefined || livePricing !== undefined
     const free = meta?.free === true
     const partial = cacheWrite > 0 || !priced
@@ -420,7 +421,10 @@ function projectionDirectory(): string {
 }
 
 /** Read and aggregate the local projection cache; never waits on the network. */
-export async function readModelAnalytics(days = 30): Promise<AnalyticsReport> {
+export async function readModelAnalytics(
+  days = 30,
+  pricingFor?: (provider: string, model: string) => ReturnType<typeof livePricingFor>,
+): Promise<AnalyticsReport> {
   const clamped = Math.max(1, Math.min(365, Math.trunc(days)))
   const cached = cache.get(clamped)
   if (cached !== undefined && Date.now() - cached.at < CACHE_TTL_MS) return cached.report
@@ -434,13 +438,22 @@ export async function readModelAnalytics(days = 30): Promise<AnalyticsReport> {
     if (files.length > MAX_FILES) {
       // readdir has no ordering guarantee. Pick the newest files by metadata
       // instead of silently taking an arbitrary first page.
-      const ranked = await Promise.all(files.map(async (entry) => {
-        try {
-          return { entry, at: (await stat(join(dir, entry.name))).mtimeMs }
-        } catch {
-          return { entry, at: 0 }
+      const ranked: Array<{ entry: (typeof files)[number]; at: number }> = []
+      let rankCursor = 0
+      const rankers = Array.from({ length: Math.min(16, files.length) }, async () => {
+        while (true) {
+          const index = rankCursor
+          rankCursor += 1
+          const entry = files[index]
+          if (entry === undefined) return
+          try {
+            ranked.push({ entry, at: (await stat(join(dir, entry.name))).mtimeMs })
+          } catch {
+            ranked.push({ entry, at: 0 })
+          }
         }
-      }))
+      })
+      await Promise.all(rankers)
       files = ranked
         .sort((left, right) => right.at - left.at)
         .slice(0, MAX_FILES)
@@ -473,7 +486,9 @@ export async function readModelAnalytics(days = 30): Promise<AnalyticsReport> {
     partial = true
   }
 
-  const report = aggregateSessions(sessions, clamped)
+  const report = pricingFor === undefined
+    ? aggregateSessions(sessions, clamped)
+    : aggregateSessions(sessions, clamped, Date.now(), pricingFor)
   report.partial = partial
   cache.set(clamped, { at: Date.now(), report })
   return report

@@ -94,7 +94,7 @@ graph LR
   - 在生成流开始前，遇到 401/403/429 或配额用尽响应（400/402/403/429）自动重试下一个账户。
   - 最多 20 个账户，支持拖拽调整优先级。无效密钥冷却 5 分钟，超额冷却 10 分钟（或遵循 `Retry-After`），速率限制冷却 60 秒。上次成功服务的账户会提升到首位并在重启后保留。
   - 正在流式传输中的请求不会被打断，下一个请求会自动使用下一个可用密钥。
-- **侧边栏配额卡片**：独立 **Sidebar** 开关（TUI 也可设置）；保存后立即显示/隐藏，无需等待 60 秒轮询。
+- **侧边栏配额卡片**：**Auto / Always / Off** 模式；`Auto` 在存在 Go 用量时显示，`Off` 停止后台轮询。
 - **多账户额度与健康监控**：每行独立展示 5 小时、每周与每月使用情况，活跃账户驱动侧边栏与配额面板。
 - **每账户预计可用时长**：按各窗口的平均消耗速度估算耗尽时间，并标记在重置前最先耗尽的窗口；API 仅提供当前百分比与重置时间，因此为近似值。
 - **模型 ➔ 账户路由规则**：支持 Glob 通配符（如 `*free*`、`deepseek-*`）将模型优先绑定至特定账户，其他账户保留为备用。
@@ -127,12 +127,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.35.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.35.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.34
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.35
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。
@@ -190,9 +190,18 @@ modelAccountRules:
 
 `npm run test:engine -- <candidate.tgz>` 使用 `engines.dsh` 与 `dsh.compatibility.dshReleases` 校验不可变的已构建包，并检查只打包生产文件。该命令只读：不安装 DSH、不启动运行时、不解压归档、不修改其他插件，也不需要清理。兼容性执行在批准的 MiniPC 测试环境上使用已发布候选包完成，绝不使用 worktree 路径，也不强制结束进程或递归删除。
 
+## 0.5.22–0.5.35 新增
+
+- **代理认证**：`proxyUsername` 与凭据服务中的密码支持 HTTP/HTTPS/SOCKS5，密码不会返回浏览器。
+- **路由开关**：Console/Zen 与 Go/Go Plus 可独立启停；禁用路由会从选择器移除并拒绝请求。
+- **按模型覆盖**：上下文、输出上限、传输；`0` 表示不发送输出上限。
+- **分析与热力图**：请求、令牌、TTFT、延迟、模型/日期/会话及星期×小时网格；只读取本地数值元数据。
+- **配额模式** Auto/Always/Off、粘性路由、`autoSwitch`、账户切换提示与更新卡片。
+- **Admin token** 用于 LAN/Web profile；**AUDIT.md** 记录依赖与部署残余风险。
+
 ## 安全规范
 
-- 同源检查用于防御 CSRF，并非身份认证。在配置文件（`adminToken`）或 `OPENCODE_ADMIN_TOKEN` 中设置管理员令牌后，所有 `/dsh-opencode/*` 路由都要求 `x-opencode-token` 或 `Authorization: Bearer`；设置界面会要求输入一次并保存在当前浏览器。未设置令牌时仍只有 Loopback 与同源检查。
+- 同源检查用于防御 CSRF，并非身份认证。在配置文件（`adminToken`）或 `OPENCODE_ADMIN_TOKEN` 中设置管理员令牌后，所有 `/dsh-opencode/*` 路由都要求 `x-opencode-token` 或 `Authorization: Bearer`；设置界面会要求输入一次并保存在当前浏览器。未设置令牌时 Loopback 客户端可用，LAN 客户端返回 401。
 - `npm audit` 仍报告 `zod < 4.6.6`（GHSA-mrhx-c7xc-m3w5）：`@deepseek-ai/dsh-*` 0.2.2-rc.1 固定使用 zod 4.4.3。目前没有使用 4.6.6 的 DSH 0.2.2 版本；本插件不打包 zod，也不使用强制 override。待上游 DSH 更新后重新审计。
 - 密钥冷却状态通过 SHA-256 哈希指纹持久化，本地日志不保存提示词与明文密钥。
 

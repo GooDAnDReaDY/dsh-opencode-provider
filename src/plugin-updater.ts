@@ -1,4 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
+
+import { adminAllowed } from './admin-auth.ts'
 import { spawn } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
@@ -51,6 +53,7 @@ export type PluginUpdaterOptions = {
   readonly packageName: string
   readonly manifestUrl: URL
   readonly registry?: string
+  readonly adminToken?: () => string
 }
 
 type Runtime = {
@@ -283,7 +286,7 @@ async function installExact(target: Runtime, packageSpec: string, options: Plugi
   await new Promise<void>((resolvePromise, reject) => {
     const child = spawn(process.execPath, [
       target.cliEntry!, 'plugin', '--profile', target.profileName, 'add',
-      '--config.minimumReleaseAge=0', packageSpec,
+      packageSpec,
       `--registry=${options.registry ?? 'https://registry.npmjs.org/'}`,
     ], {
       cwd: target.profileDir,
@@ -323,6 +326,10 @@ export function registerPluginUpdater(ctx: Context, options: PluginUpdaterOption
     path: options.endpoint,
     handler: async (request, response) => {
       try {
+        if (!adminAllowed(request, options.adminToken?.() ?? '')) {
+          json(response, 401, { error: 'Admin token required.' })
+          return
+        }
         const target = runtime()
         if (request.method === 'GET' || request.method === 'HEAD') {
           if (!isTrustedReadRequest(request)) {

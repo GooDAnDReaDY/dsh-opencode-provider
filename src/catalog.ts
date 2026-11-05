@@ -16,6 +16,7 @@ const catalogCache = new Map<string, {
   ids: readonly string[]
   releaseDates: Readonly<Record<string, string>>
   pricing: Readonly<Record<string, Pricing>>
+  failedAt?: number
 }>()
 
 const FALLBACK_META: OpenCodeModelMeta = {
@@ -107,13 +108,12 @@ export function catalogReleaseDate(
 }
 
 /** Gateway pricing metadata for a live model, if the catalog published it. */
-export function livePricingFor(provider: string, id: string): Pricing | undefined {
-  for (const [key, entry] of catalogCache) {
-    if (!key.startsWith(`${provider}|`)) continue
-    const pricing = entry.pricing[id]
-    if (pricing !== undefined) return pricing
+export function livePricingFor(provider: string, id: string, config?: ResolvedConfig): Pricing | undefined {
+  if (config !== undefined) {
+    return catalogCache.get(`${provider}|${modelsUrlFor(provider, config)}`)?.pricing[id]
   }
-  return undefined
+  const entries = [...catalogCache].filter(([key]) => key.startsWith(`${provider}|`))
+  return entries.at(-1)?.[1].pricing[id]
 }
 
 async function fetchLiveIds(
@@ -125,8 +125,16 @@ async function fetchLiveIds(
   const url = modelsUrlFor(provider, config)
   const cacheKey = `${provider}|${url}`
   const cached = catalogCache.get(cacheKey)
-  if (cached !== undefined && Date.now() - cached.at < config.catalogRefreshMinutes * 60_000) return cached.ids
+  if (cached?.failedAt !== undefined) {
+    if (Date.now() - cached.failedAt < 30_000) return undefined
+  } else if (cached !== undefined && Date.now() - cached.at < config.catalogRefreshMinutes * 60_000) {
+    return cached.ids
+  }
 
+  const failed = (): undefined => {
+    catalogCache.set(cacheKey, { at: Date.now(), ids: [], releaseDates: {}, pricing: {}, failedAt: Date.now() })
+    return undefined
+  }
   const headers: Record<string, string> = {
     accept: 'application/json',
     'user-agent': config.userAgent,
@@ -134,12 +142,12 @@ async function fetchLiveIds(
   }
   try {
     const response = await fetchImpl(url, { headers, signal: AbortSignal.timeout(CATALOG_TIMEOUT_MS) })
-    if (!response.ok) return undefined
+    if (!response.ok) return failed()
     const payload = await response.json() as ModelsPayload
     const ids = Array.isArray(payload.data)
       ? payload.data.map((entry) => entry.id).filter((id): id is string => typeof id === 'string' && id !== '')
       : Object.keys(payload.models ?? {})
-    if (ids.length === 0) return undefined
+    if (ids.length === 0) return failed()
     const releaseDates: Record<string, string> = {}
     const pricing: Record<string, Pricing> = {}
     if (Array.isArray(payload.data)) {
@@ -151,10 +159,13 @@ async function fetchLiveIds(
         if (parsed !== undefined) pricing[entry.id] = parsed
       }
     }
+    for (const key of catalogCache.keys()) {
+      if (key.startsWith(`${provider}|`) && key !== cacheKey) catalogCache.delete(key)
+    }
     catalogCache.set(cacheKey, { at: Date.now(), ids, releaseDates, pricing })
     return ids
   } catch {
-    return undefined
+    return failed()
   }
 }
 

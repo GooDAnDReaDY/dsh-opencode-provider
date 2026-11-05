@@ -325,7 +325,7 @@ export async function* parseResponsesStream(
       continue
     }
 
-    if (type === 'response.completed') {
+    if (type === 'response.completed' || type === 'response.incomplete') {
       completed = true
       usage = mapUsage(event.response?.usage)
       incomplete = event.response?.incomplete_details?.reason

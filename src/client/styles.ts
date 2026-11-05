@@ -3,11 +3,12 @@ export const CSS_ID = 'dsh-opencode-provider'
 export const CSS = `
 :where(.oc-page, .oc-panel, .oc-card, .oc-foot, .oc-railButton) {
   --oc-border: var(--dsw-alias-border-l3, rgba(127,127,127,0.25));
-  --oc-border-strong: var(--dsw-alias-border-l3, rgba(127,127,127,0.35));
-  --oc-border-soft: var(--dsw-alias-border-l3, rgba(127,127,127,0.18));
+  --oc-border-strong: color-mix(in srgb, var(--oc-border) 55%, var(--oc-text));
+  --oc-border-soft: color-mix(in srgb, var(--oc-border) 70%, transparent);
   --oc-fill: var(--dsw-alias-settings-card-fill, rgba(127,127,127,0.06));
   --oc-fill-soft: var(--dsw-alias-bg-layer-2, rgba(127,127,127,0.08));
   --oc-fill-hover: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,0.12));
+  --oc-fill-active: color-mix(in srgb, var(--oc-fill-hover) 60%, var(--oc-accent-soft));
   --oc-text: var(--dsw-alias-label-primary, #e6e6e6);
   --oc-text-secondary: var(--dsw-alias-label-secondary, #a0a0a0);
   --oc-text-tertiary: var(--dsw-alias-label-tertiary, #7a7a7a);
@@ -30,13 +31,14 @@ export const CSS = `
 .oc-card { border: 1px solid var(--oc-border); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; background: var(--oc-fill); }
 .oc-card-title { font-size: 13px; font-weight: 650; margin: 0; display: flex; align-items: center; gap: 8px; }
 .oc-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.oc-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .oc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
 .oc-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .oc-label { font-size: 12px; font-weight: 550; opacity: 0.86; }
 .oc-input, .oc-select { font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--oc-border-strong); background: var(--oc-fill-soft); color: inherit; min-width: 0; }
 .oc-input:focus, .oc-select:focus { outline: 2px solid var(--oc-focus); outline-offset: 1px; }
 .oc-button { font: inherit; font-size: 13px; padding: 6px 11px; border-radius: 7px; border: 1px solid var(--oc-border-strong); background: var(--oc-fill-hover); color: inherit; cursor: pointer; }
-.oc-button:hover:not(:disabled) { background: var(--oc-fill-hover); }
+.oc-button:hover:not(:disabled) { background: var(--oc-fill-active); }
 .oc-button:disabled { opacity: 0.5; cursor: default; }
 .oc-button-primary { border-color: var(--oc-accent-border); background: var(--oc-accent-soft); }
 .oc-button-danger { border-color: var(--oc-danger-border); color: var(--oc-danger); }

@@ -34,6 +34,9 @@ test('prices context tiers and UTC peak multipliers', () => {
 
   const tiered = priceUsage(pricing, { input: 300_000, output: 1_000, cacheRead: 0 }, mondayOffPeak)
   assert.equal(tiered, 1.208)
+
+  const boundary = priceUsage(pricing, { input: 200_000, output: 1_000, cacheRead: 0 }, mondayOffPeak)
+  assert.equal(boundary, 0.202)
 })
 
 test('rejects malformed gateway pricing metadata', () => {

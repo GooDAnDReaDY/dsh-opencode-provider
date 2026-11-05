@@ -2,13 +2,11 @@ import { Fragment, type ReactNode, useState } from 'react'
 
 import type { RequestHeatmap } from './api.ts'
 
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-
 function cellColor(value: number, max: number): string {
-  if (value === 0 || max <= 0) return 'rgba(127,127,127,0.10)'
+  if (value === 0 || max <= 0) return 'var(--oc-fill-soft)'
   const ratio = Math.min(1, value / max)
-  const alpha = 0.16 + 0.74 * Math.sqrt(ratio)
-  return `rgba(79,191,134,${alpha.toFixed(3)})`
+  const alpha = (16 + 74 * Math.sqrt(ratio)).toFixed(1)
+  return `color-mix(in srgb, var(--oc-success) ${alpha}%, transparent)`
 }
 
 function hourLabel(hour: number): string {
@@ -30,6 +28,7 @@ export function RequestHeatmapView(props: {
   t: (key: string) => string
 }): ReactNode {
   const { heatmap, t } = props
+  const days = ['weekdayMon', 'weekdayTue', 'weekdayWed', 'weekdayThu', 'weekdayFri', 'weekdaySat', 'weekdaySun'].map(t)
   const [selected, setSelected] = useState('all')
   const [selectedAccount, setSelectedAccount] = useState('all')
   if (heatmap === undefined) return null
@@ -125,13 +124,13 @@ export function RequestHeatmapView(props: {
           ))}
           {view.grid.map((row, day) => (
             <Fragment key={`d${day}`}>
-              <span className="oc-heat-day">{DAYS[day] ?? ''}</span>
+              <span className="oc-heat-day">{days[day] ?? ''}</span>
               {row.map((value, hour) => (
                 <span
                   key={`c${day}-${hour}`}
                   className="oc-heat-cell"
                   style={{ background: cellColor(value, max) }}
-                  title={`${DAYS[day] ?? ''} ${pad(hour)}:00 — ${value}`}
+                  title={`${days[day] ?? ''} ${pad(hour)}:00 — ${value}`}
                 />
               ))}
             </Fragment>
@@ -165,7 +164,7 @@ export function RequestHeatmapView(props: {
           <span
             key={ratio}
             className="oc-heat-swatch"
-            style={{ background: `rgba(79,191,134,${(0.16 + 0.74 * ratio).toFixed(3)})` }}
+            style={{ background: `color-mix(in srgb, var(--oc-success) ${(16 + 74 * ratio).toFixed(1)}%, transparent)` }}
           />
         ))}
         <span>{t('heatmapMore')}</span>

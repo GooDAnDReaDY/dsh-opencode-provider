@@ -606,22 +606,23 @@ export class OpenCodeAdapter extends LlmAdapter {
         ? signal.reason
         : new LlmError('OpenCode request was aborted before dispatch', 'TRANSPORT')
     }
-    const controller = new AbortController()
+    const timeoutController = new AbortController()
     let timedOut = false
-    const onAbort = (): void => controller.abort(signal?.reason)
-    signal?.addEventListener('abort', onAbort, { once: true })
     const timer = setTimeout(() => {
       timedOut = true
-      controller.abort()
+      timeoutController.abort()
     }, config.requestTimeoutMs)
     timer.unref?.()
+    const requestSignal = signal === undefined
+      ? timeoutController.signal
+      : AbortSignal.any([signal, timeoutController.signal])
 
     try {
       return await this.fetchImpl(url, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
-        signal: controller.signal,
+        signal: requestSignal,
       })
     } catch (error) {
       if (callerAborted()) throw signal?.reason ?? error
@@ -744,14 +745,19 @@ export class OpenCodeAdapter extends LlmAdapter {
     code?: string,
   ): void {
     if (code === 'QUOTA' || code === 'RATE_LIMIT') {
-      this.markModelCooldown(key, model, code)
+      this.markModelCooldown(key, model, code, headers)
       return
     }
     this.markCooldown(key, status, headers, code)
   }
 
-  private markModelCooldown(key: string, model: string, code: string): void {
-    const delayMs = code === 'QUOTA' ? 5 * 60 * 1000 : 60 * 1000
+  private markModelCooldown(key: string, model: string, code: string, headers?: Headers): void {
+    const fallbackMs = code === 'QUOTA' ? 5 * 60 * 1000 : 60 * 1000
+    const raw = headers?.get('retry-after')
+    const seconds = raw === null || raw === undefined ? Number.NaN : Number(raw)
+    const delayMs = Number.isFinite(seconds) && seconds > 0
+      ? Math.min(Math.max(seconds * 1000, 1000), 24 * 60 * 60 * 1000)
+      : fallbackMs
     this.modelCooldowns.set(`${this.keyId(key)}:${model}`, {
       until: Date.now() + delayMs,
       reason: code === 'QUOTA' ? 'quota' : 'rate-limit',

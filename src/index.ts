@@ -13,7 +13,7 @@ import { createKeyPool, openCodeAuthPath } from './credentials.ts'
 import { registerPluginUpdater } from './plugin-updater.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { applyRoutes } from './routes.ts'
-import { buildProxyUrl, createProxyFetch } from './proxy.ts'
+import { createProxyFetch } from './proxy.ts'
 import { readRequestHeatmap } from './request-log.ts'
 import { applyOpenCodeTuiSettings } from './tui-settings.ts'
 import { createUsageReader } from './usage.ts'
@@ -49,24 +49,30 @@ export { clearCatalogCache, describeModel, effectiveModel } from './catalog.ts'
  */
 export function apply(ctx: Context, config: Config): void {
   const current = () => resolveConfig(unwrapVolatileConfig(config))
+  const adminToken = () => current().adminToken
+    || launchEnvironmentOf(ctx).get('OPENCODE_ADMIN_TOKEN')?.value
+    || ''
   const keys = createKeyPool(ctx, current)
-  const proxy = createProxyFetch(async () => {
-    const config = current()
-    let password = ''
-    if (config.proxyUsername !== '') {
-      const credentials = ctx.get('credentials') as {
-        resolve?: (ref: ReturnType<typeof credentialRef>) => Promise<{ value: string } | undefined>
-      } | undefined
-      if (credentials?.resolve !== undefined) {
-        try {
-          password = (await credentials.resolve(credentialRef(config.proxyPasswordRef)))?.value ?? ''
-        } catch {
-          password = ''
+  const proxy = createProxyFetch(
+    () => current().proxyUrl,
+    async () => {
+      const config = current()
+      let password = ''
+      if (config.proxyUsername !== '') {
+        const credentials = ctx.get('credentials') as {
+          resolve?: (ref: ReturnType<typeof credentialRef>) => Promise<{ value: string } | undefined>
+        } | undefined
+        if (credentials?.resolve !== undefined) {
+          try {
+            password = (await credentials.resolve(credentialRef(config.proxyPasswordRef)))?.value ?? ''
+          } catch {
+            password = ''
+          }
         }
       }
-    }
-    return buildProxyUrl(config.proxyUrl, config.proxyUsername, password)
-  })
+      return { username: config.proxyUsername, password }
+    },
+  )
   const usage = createUsageReader(current, (provider) => keys.resolve(provider), proxy.fetch)
   const adapter = new OpenCodeAdapter({
     config: current,
@@ -158,14 +164,13 @@ export function apply(ctx: Context, config: Config): void {
       heatmap: readRequestHeatmap,
       refreshTui: () => refreshTuiSettings?.(),
       syncRoutes,
-      adminToken: () => current().adminToken
-        || launchEnvironmentOf(ctx).get('OPENCODE_ADMIN_TOKEN')?.value
-        || '',
+      adminToken,
     })
     webCtx.effect(() => registerPluginUpdater(webCtx, {
       endpoint: '/dsh-opencode/update',
       packageName: '@goodandready/dsh-opencode-provider',
       manifestUrl: new URL('../package.json', import.meta.url),
+      adminToken,
     }), 'dsh-opencode-provider: plugin updater')
   })
 }

@@ -227,7 +227,7 @@ export async function* parseGoogleStream(
     } catch {
       continue
     }
-    if (chunk.error !== undefined) {
+    if (chunk.error !== undefined && chunk.error !== null) {
       throw new LlmError(
         `OpenCode Gemini error: ${chunk.error.message ?? 'request failed'}`,
         'PROVIDER_HTTP_ERROR',

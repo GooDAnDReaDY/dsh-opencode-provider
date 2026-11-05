@@ -411,7 +411,9 @@ test('auth-import can store an entry under an explicit credential ref', async ()
       JSON.stringify({ 'opencode-go': { key: 'auth-secret' } }),
       'utf8',
     )
-    const { routes, stored } = harness()
+    const { routes, stored } = harness({
+      config: { accounts: [{ label: 'imported', apiKeyEnv: 'OPENCODE_AUTH_OPENCODE_GO' }] },
+    })
     const result = await call(routes.get('/dsh-opencode/auth-import')!, {
       method: 'POST',
       headers: {
@@ -530,11 +532,11 @@ test('test route streams a minimal request', async () => {
 })
 
 test('write routes fail closed without Origin or Referer', async () => {
-  const { routes } = harness()
+  const { routes } = harness({ config: { adminToken: 'owner-secret' } })
   const result = await call(routes.get('/dsh-opencode/config')!, {
     method: 'POST',
     path: '/dsh-opencode/config',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-opencode-token': 'owner-secret' },
     body: { patch: { showSidebarQuota: true } },
     remoteAddress: '127.0.0.1',
   })
@@ -545,6 +547,7 @@ test('write routes fail closed without Origin or Referer', async () => {
     headers: {
       'content-type': 'application/json',
       referer: 'http://127.0.0.1:3080/settings',
+      'x-opencode-token': 'owner-secret',
     },
     body: { patch: { showSidebarQuota: true } },
     remoteAddress: '10.0.0.5',
@@ -552,8 +555,37 @@ test('write routes fail closed without Origin or Referer', async () => {
   assert.equal(referer.status, 200)
 })
 
-test('non-local Host writes are refused even from a LAN socket', async () => {
+test('a LAN peer without a token is refused even with forged same-origin headers', async () => {
   const { routes } = harness()
+  const result = await call(routes.get('/dsh-opencode/state')!, {
+    headers: { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' },
+    remoteAddress: '10.0.0.5',
+  })
+  assert.equal(result.status, 401)
+})
+
+test('config route rejects non-opencode endpoints unless explicitly allowed', async () => {
+  const { routes, mutations } = harness()
+  const denied = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: { patch: { apiBase: 'https://attacker.example' } },
+  })
+  assert.equal(denied.status, 400)
+  assert.equal(mutations.length, 0)
+
+  const allowed = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: { patch: { allowCustomEndpoints: true, apiBase: 'https://attacker.example' } },
+  })
+  assert.equal(allowed.status, 200)
+})
+
+test('non-local Host writes are refused even from a LAN socket', async () => {
+  const { routes } = harness({ config: { adminToken: 'owner-secret' } })
   const result = await call(routes.get('/dsh-opencode/config')!, {
     method: 'POST',
     path: '/dsh-opencode/config',
@@ -561,6 +593,7 @@ test('non-local Host writes are refused even from a LAN socket', async () => {
       host: 'evil.example:3080',
       'content-type': 'application/json',
       origin: 'http://evil.example:3080',
+      'x-opencode-token': 'owner-secret',
     },
     body: { patch: {} },
     remoteAddress: '10.0.0.5',
@@ -571,11 +604,11 @@ test('non-local Host writes are refused even from a LAN socket', async () => {
 test('trusted local interface Host serves Web reads and writes', async () => {
   const ip = localIpv4()
   if (ip === undefined) return
-  const { routes } = harness()
+  const { routes } = harness({ config: { adminToken: 'owner-secret' } })
   const authority = `${ip}:3080`
   const state = await call(routes.get('/dsh-opencode/state')!, {
     path: '/dsh-opencode/state',
-    headers: { host: authority, origin: `http://${authority}` },
+    headers: { host: authority, origin: `http://${authority}`, 'x-opencode-token': 'owner-secret' },
     remoteAddress: '10.0.0.5',
   })
   assert.equal(state.status, 200)
@@ -587,6 +620,7 @@ test('trusted local interface Host serves Web reads and writes', async () => {
       'content-type': 'application/json',
       origin: `http://${authority}`,
       'sec-fetch-site': 'same-origin',
+      'x-opencode-token': 'owner-secret',
     },
     body: { patch: { showSidebarQuota: true } },
     remoteAddress: '10.0.0.5',
