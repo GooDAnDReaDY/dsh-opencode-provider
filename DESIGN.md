@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.25 — current release
+## 0.5.26 — current release
+
+- `usageDisplay` supports auto/always/off; legacy `showSidebarQuota` maps to always.
+- Session-scoped routing notices use `conversation.composer.dock`; the routing trace carries an opaque DSH session id, not prompt content.
+
+## 0.5.25 — previous release
 
 - Failed usage refreshes preserve the last successful report and mark it stale with `lastSuccessAt`.
 - Failed analytics rescans preserve the previous report/heatmap with a stale notice; successful scans clear it.

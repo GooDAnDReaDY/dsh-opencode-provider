@@ -878,15 +878,19 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
 
       <section className="oc-card">
         <h3 className="oc-card-title">{t('sidebar')}</h3>
-        <label className="oc-row">
-          <input
-            type="checkbox"
-            checked={draft.showSidebarQuota}
-            onChange={(event) => update({ showSidebarQuota: event.target.checked })}
-          />
-          <span>{t('showSidebarQuota')}</span>
+        <label className="oc-field">
+          <span className="oc-label">{t('usageDisplay')}</span>
+          <select
+            className="oc-select"
+            value={draft.usageDisplay}
+            onChange={(event) => update({ usageDisplay: event.target.value as 'auto' | 'always' | 'off' })}
+          >
+            <option value="auto">{t('usageDisplayAuto')}</option>
+            <option value="always">{t('usageDisplayAlways')}</option>
+            <option value="off">{t('usageDisplayOff')}</option>
+          </select>
         </label>
-        <p className="oc-hint">{t('showSidebarQuotaHint')}</p>
+        <p className="oc-hint">{t('usageDisplayHint')}</p>
       </section>
 
       <div className="oc-row">

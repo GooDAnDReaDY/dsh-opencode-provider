@@ -102,6 +102,7 @@ export function apply(ctx: Context, config: Config): void {
       quotaFallbackModel: () => current().quotaFallbackModel,
       autoSwitch: () => current().autoSwitch,
       stickySession: () => current().stickySession,
+      usageDisplay: () => current().usageDisplay,
       showSidebarQuota: () => current().showSidebarQuota,
     })
   })

@@ -1,4 +1,4 @@
-import type { ResolvedConfig, TransportId } from './config.ts'
+import type { ResolvedConfig, TransportId, UsageDisplay } from './config.ts'
 
 export interface PublicConfig {
   apiKeyEnv: string
@@ -24,6 +24,7 @@ export interface PublicConfig {
   autoSwitch: boolean
   stickySession: boolean
   activeAccount: string
+  usageDisplay: UsageDisplay
   showSidebarQuota: boolean
   userAgent: string
 }
@@ -59,6 +60,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     autoSwitch: config.autoSwitch,
     stickySession: config.stickySession,
     activeAccount: config.activeAccount,
+    usageDisplay: config.usageDisplay,
     showSidebarQuota: config.showSidebarQuota,
     userAgent: config.userAgent,
   }

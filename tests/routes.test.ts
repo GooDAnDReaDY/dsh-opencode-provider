@@ -238,6 +238,15 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
   return { routes, mutations, stored, tuiRefreshes }
 }
 
+test('notices route returns routing events for the same-origin UI', async () => {
+  const { routes } = harness()
+  const result = await call(routes.get('/dsh-opencode/notices')!, {
+    path: '/dsh-opencode/notices',
+  })
+  assert.equal(result.status, 200)
+  assert.deepEqual((result.body as Record<string, unknown>).events, [])
+})
+
 test('state route reports config, key, accounts, models and usage', async () => {
   const { routes } = harness()
   const state = await call(routes.get('/dsh-opencode/state')!, { path: '/dsh-opencode/state' })

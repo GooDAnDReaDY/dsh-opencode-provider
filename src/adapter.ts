@@ -50,6 +50,8 @@ export interface RoutingTraceEntry {
   readonly provider: string
   readonly model: string
   readonly account: string
+  /** DSH session id; never prompt content. */
+  readonly session?: string
   readonly reason: RoutingReason
   readonly fallback: boolean
   readonly ok: boolean
@@ -205,6 +207,7 @@ export class OpenCodeAdapter extends LlmAdapter {
     const runStartedAt = Date.now()
     const model = effectiveModel(options.model, config)
     const sessionId = openCodeSessionId(options)
+    const traceSession = options.sessionId === undefined ? '' : String(options.sessionId)
     const rawKeys = orderKeysForModel(
       this.deps.resolveKeys !== undefined
         ? await this.deps.resolveKeys(options.provider)
@@ -350,6 +353,7 @@ export class OpenCodeAdapter extends LlmAdapter {
           provider: options.provider,
           model: options.model,
           account: entry.label ?? 'default',
+          ...(traceSession === '' ? {} : { session: traceSession }),
           reason: attemptReason,
           fallback,
           ok: true,
@@ -368,6 +372,7 @@ export class OpenCodeAdapter extends LlmAdapter {
             provider: options.provider,
             model: options.model,
             account: entry.label ?? 'default',
+            ...(traceSession === '' ? {} : { session: traceSession }),
             reason: attemptReason,
             fallback,
             ok: false,
@@ -417,6 +422,7 @@ export class OpenCodeAdapter extends LlmAdapter {
       provider: options.provider,
       model: options.model,
       account: lastAccount,
+      ...(traceSession === '' ? {} : { session: traceSession }),
       reason,
       fallback,
       ok: false,
