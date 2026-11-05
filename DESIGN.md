@@ -1,6 +1,10 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.35 — current release
+## 0.5.36 — current release
+
+- Empty numeric settings unset the field rather than silently writing hardcoded defaults. Final release artifact for the audit remediation set.
+
+## 0.5.35 — previous release
 
 - Audit remediation: non-loopback HTTP requires the owner token, updater shares that guard, endpoint rewrites are allowlisted, and credential refs are scoped.
 - Transport fixes: `error:null`, `response.incomplete`, abort propagation, SSE cancellation and `retry-after`.

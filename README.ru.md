@@ -132,12 +132,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.35.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.36.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.35.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.36.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.35
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.36
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode (plugin)** или **OpenCode Go (plugin)** в списке моделей.
@@ -215,7 +215,7 @@ modelAccountRules:
 
 `npm run test:engine -- <candidate.tgz>` проверяет неизменяемый уже собранный пакет по `engines.dsh` и `dsh.compatibility.dshReleases`, а также состав production-файлов. Команда только читает: не ставит DSH, не запускает runtime, не распаковывает архив, не трогает другие плагины и не требует cleanup. Прогон совместимости выполняется на согласованном тестовом контуре MiniPC с опубликованным кандидатом — не из worktree и без принудительных процессов или рекурсивного удаления.
 
-## Дополнительно в 0.5.22–0.5.35
+## Дополнительно в 0.5.22–0.5.36
 
 - **Аутентифицированный прокси**: `proxyUsername` + пароль из credential-сервиса для HTTP/HTTPS/SOCKS5; пароль не возвращается в браузер.
 - **Переключатели маршрутов** Console/Zen и Go/Go Plus; отключённый маршрут исчезает из picker и отклоняет запросы.

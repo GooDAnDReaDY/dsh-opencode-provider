@@ -127,12 +127,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.35.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.36.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.35.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.36.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.35
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.36
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。
@@ -190,7 +190,7 @@ modelAccountRules:
 
 `npm run test:engine -- <candidate.tgz>` 使用 `engines.dsh` 与 `dsh.compatibility.dshReleases` 校验不可变的已构建包，并检查只打包生产文件。该命令只读：不安装 DSH、不启动运行时、不解压归档、不修改其他插件，也不需要清理。兼容性执行在批准的 MiniPC 测试环境上使用已发布候选包完成，绝不使用 worktree 路径，也不强制结束进程或递归删除。
 
-## 0.5.22–0.5.35 新增
+## 0.5.22–0.5.36 新增
 
 - **代理认证**：`proxyUsername` 与凭据服务中的密码支持 HTTP/HTTPS/SOCKS5，密码不会返回浏览器。
 - **路由开关**：Console/Zen 与 Go/Go Plus 可独立启停；禁用路由会从选择器移除并拒绝请求。
