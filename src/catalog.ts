@@ -7,6 +7,7 @@ import {
 import { GENERATED_MODELS, type OpenCodeModelMeta, type OpenCodeTransport } from './models.generated.ts'
 import { isGoProvider, modelsUrlFor } from './routing.ts'
 import { describeLimitsShort, limitsFor } from './subscription-limits.ts'
+import { parseGatewayPricing, type Pricing } from './pricing.ts'
 
 const CATALOG_TIMEOUT_MS = 15_000
 
@@ -14,6 +15,7 @@ const catalogCache = new Map<string, {
   at: number
   ids: readonly string[]
   releaseDates: Readonly<Record<string, string>>
+  pricing: Readonly<Record<string, Pricing>>
 }>()
 
 const FALLBACK_META: OpenCodeModelMeta = {
@@ -72,7 +74,7 @@ export function modelInGoPlan(id: string, config: ResolvedConfig): boolean {
 }
 
 interface ModelsPayload {
-  data?: Array<{ id?: unknown; release_date?: unknown; created?: unknown }>
+  data?: Array<{ id?: unknown; release_date?: unknown; created?: unknown; cost?: unknown }>
   models?: Record<string, unknown>
 }
 
@@ -104,6 +106,16 @@ export function catalogReleaseDate(
   return catalogCache.get(`${provider}|${modelsUrlFor(provider, config)}`)?.releaseDates[id]
 }
 
+/** Gateway pricing metadata for a live model, if the catalog published it. */
+export function livePricingFor(provider: string, id: string): Pricing | undefined {
+  for (const [key, entry] of catalogCache) {
+    if (!key.startsWith(`${provider}|`)) continue
+    const pricing = entry.pricing[id]
+    if (pricing !== undefined) return pricing
+  }
+  return undefined
+}
+
 async function fetchLiveIds(
   provider: string,
   config: ResolvedConfig,
@@ -129,14 +141,17 @@ async function fetchLiveIds(
       : Object.keys(payload.models ?? {})
     if (ids.length === 0) return undefined
     const releaseDates: Record<string, string> = {}
+    const pricing: Record<string, Pricing> = {}
     if (Array.isArray(payload.data)) {
       for (const entry of payload.data) {
         if (typeof entry.id !== 'string' || entry.id === '') continue
         const date = releaseDateOf(entry)
         if (date !== undefined) releaseDates[entry.id] = date
+        const parsed = parseGatewayPricing((entry as { cost?: unknown }).cost)
+        if (parsed !== undefined) pricing[entry.id] = parsed
       }
     }
-    catalogCache.set(cacheKey, { at: Date.now(), ids, releaseDates })
+    catalogCache.set(cacheKey, { at: Date.now(), ids, releaseDates, pricing })
     return ids
   } catch {
     return undefined
