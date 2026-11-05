@@ -9,6 +9,11 @@ export interface PublicConfig {
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
+  requestPreparationTimeoutMs: number
+  maxImages: number
+  maxRequestImageBytes: number
+  requestImagePixelBudget: number
+  requestImageMaxBytes: number
   proxyUrl: string
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
@@ -39,6 +44,11 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     openCodeAuthEntry: config.openCodeAuthEntry,
     requestTimeoutMs: config.requestTimeoutMs,
     streamIdleTimeoutMs: config.streamIdleTimeoutMs,
+    requestPreparationTimeoutMs: config.requestPreparationTimeoutMs,
+    maxImages: config.maxImages,
+    maxRequestImageBytes: config.maxRequestImageBytes,
+    requestImagePixelBudget: config.requestImagePixelBudget,
+    requestImageMaxBytes: config.requestImageMaxBytes,
     proxyUrl: config.proxyUrl,
     visibleModels: config.visibleModels,
     modelVisibility: config.modelVisibility,

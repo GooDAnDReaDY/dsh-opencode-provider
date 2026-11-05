@@ -433,6 +433,41 @@ test('treats a free-tier rejection as a short rate-limit and rotates', async () 
   assert.ok((health?.coolingUntil ?? 0) < Date.now() + 2 * 60 * 1000)
 })
 
+test('preparation timeout aborts a hanging image read', async () => {
+  const adapter = new OpenCodeAdapter({
+    config: () => resolveConfig({ requestPreparationTimeoutMs: 10 }),
+    resolveKey: async () => ({ key: 'good', source: 'test' }),
+    resolveKeys: async () => [{ key: 'good', source: 'test', label: 'default' }],
+    resolveAttachments: () => ({
+      readImageRequest: (_ref: unknown, _target: unknown, signal?: AbortSignal) => new Promise((_, reject) => {
+        signal?.addEventListener('abort', () => reject(signal.reason ?? new Error('aborted')), { once: true })
+      }),
+    }) as never,
+    fetchImpl: (async () => { throw new Error('must not dispatch') }) as typeof fetch,
+    recordRequest: () => {},
+    cooldownPath: testCooldownPath(),
+    stickyPath: testStickyPath(),
+  })
+  const image = {
+    attachmentId: 'hang',
+    mediaType: 'image/png',
+    bytes: 10,
+    width: 100,
+    height: 100,
+  } as never
+  const options = {
+    provider: GO_PROVIDER,
+    model: 'deepseek-v4.1-flash',
+    messages: [{ role: 'user', content: [{ type: 'image', attachment: image }] }],
+    maxTokens: 8,
+  }
+  await assert.rejects(async () => {
+    for await (const _chunk of adapter.stream(options as never)) {
+      // Drain.
+    }
+  }, /preparation exceeded/)
+})
+
 test('routing trace carries the DSH session for switch notices', async () => {
   const adapter = adapterWith((async () => new Response(streamOf(), {
     status: 200,

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.28 — release 5: image policy and preparation timeout
+
+- **#73 — image policy**: `maxImages`, `maxRequestImageBytes`, `requestImagePixelBudget` and `requestImageMaxBytes` are configurable in Settings; defaults preserve the previous 50 images / 24 MiB / 1568px / 1 MiB behavior. Count and pixel policies are covered by tests.
+- **#78 — preparation timeout**: `requestPreparationTimeoutMs` (default 60s) bounds image resolution before dispatch, independently of the response-header timeout; caller aborts still win, and timeouts surface as `TIMEOUT`.
+- 136 tests.
+
 ## 0.5.27 — release 4: catalog freshness
 
 - **#86 — new-model badge**: the live catalog now keeps `release_date` (or `created`) metadata; Settings marks models released within the last seven UTC days with a NEW badge and date tooltip. Dates are dropped safely when the gateway omits or malforms them.

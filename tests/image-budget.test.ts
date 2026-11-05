@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 
-import { hasImages, selectRequestImages } from '../src/images.ts'
+import { hasImages, resolveImages, selectRequestImages } from '../src/images.ts'
 
 function ref(id: string, bytes: number): ImageAttachmentRef {
   return {
@@ -45,6 +45,35 @@ test('counts repeated occurrences and base64 overhead in the budget', () => {
   )
   assert.deepEqual(selected.dropped.map((entry) => entry.attachmentId), ['a'])
   assert.deepEqual(selected.kept.map((entry) => entry.attachmentId), ['b'])
+})
+
+test('honors a custom request image count cap', () => {
+  const selected = selectRequestImages(
+    [ref('a', 1), ref('b', 1), ref('c', 1)],
+    undefined,
+    { maxImages: 2 },
+  )
+  assert.deepEqual(selected.kept.map((entry) => entry.attachmentId), ['b', 'c'])
+  assert.deepEqual(selected.dropped.map((entry) => entry.attachmentId), ['a'])
+})
+
+test('applies a custom pixel and byte policy when resolving an image', async () => {
+  const requests: Array<{ width: number; height: number; maxBytes: number }> = []
+  const image = { ...ref('large', 1_000_000), width: 1_000, height: 500 }
+  const store = {
+    readImageRequest: async (_ref: unknown, target: { width: number; height: number; maxBytes: number }) => {
+      requests.push(target)
+      return { mediaType: 'image/png', data: new Uint8Array([1]), width: target.width, height: target.height }
+    },
+  }
+  const options = {
+    messages: [{ role: 'user', content: [{ type: 'image', attachment: image }] }],
+  } as never
+  await resolveImages(options, store as never, undefined, {
+    requestImagePixelBudget: 10_000,
+    requestImageMaxBytes: 1_234,
+  })
+  assert.deepEqual(requests, [{ width: 100, height: 50, maxBytes: 1_234 }])
 })
 
 test('offloaded images do not require a live attachment read', () => {

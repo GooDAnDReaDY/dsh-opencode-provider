@@ -10,6 +10,11 @@ export interface Draft {
   openCodeAuthEntry: string
   requestTimeoutMs: string
   streamIdleTimeoutMs: string
+  requestPreparationTimeoutMs: string
+  maxImages: string
+  maxRequestImageBytes: string
+  requestImagePixelBudget: string
+  requestImageMaxBytes: string
   proxyUrl: string
   maxOutputTokens: string
   contextWindow: string
@@ -41,6 +46,11 @@ export function draftOf(state: HostState): Draft {
     openCodeAuthEntry: state.config.openCodeAuthEntry,
     requestTimeoutMs: String(state.config.requestTimeoutMs),
     streamIdleTimeoutMs: String(state.config.streamIdleTimeoutMs),
+    requestPreparationTimeoutMs: String(state.config.requestPreparationTimeoutMs),
+    maxImages: String(state.config.maxImages),
+    maxRequestImageBytes: String(state.config.maxRequestImageBytes),
+    requestImagePixelBudget: String(state.config.requestImagePixelBudget),
+    requestImageMaxBytes: String(state.config.requestImageMaxBytes),
     proxyUrl: state.config.proxyUrl,
     maxOutputTokens: state.config.maxOutputTokens === null ? '' : String(state.config.maxOutputTokens),
     contextWindow: state.config.contextWindow === null ? '' : String(state.config.contextWindow),
@@ -95,6 +105,11 @@ export function patchOf(draft: Draft): Record<string, unknown> {
     openCodeAuthEntry: draft.openCodeAuthEntry.trim(),
     requestTimeoutMs: numberOrNull(draft.requestTimeoutMs) ?? 300000,
     streamIdleTimeoutMs: numberOrNull(draft.streamIdleTimeoutMs) ?? 300000,
+    requestPreparationTimeoutMs: numberOrNull(draft.requestPreparationTimeoutMs) ?? 60000,
+    maxImages: numberOrNull(draft.maxImages) ?? 50,
+    maxRequestImageBytes: numberOrNull(draft.maxRequestImageBytes) ?? 25165824,
+    requestImagePixelBudget: numberOrNull(draft.requestImagePixelBudget) ?? 2458624,
+    requestImageMaxBytes: numberOrNull(draft.requestImageMaxBytes) ?? 1048576,
     proxyUrl: draft.proxyUrl.trim(),
     maxOutputTokens: numberOrNull(draft.maxOutputTokens),
     contextWindow: numberOrNull(draft.contextWindow),

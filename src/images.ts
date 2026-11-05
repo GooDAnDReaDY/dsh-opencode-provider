@@ -1,5 +1,11 @@
 import type { AttachmentStore, ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
+import {
+  DEFAULT_MAX_IMAGES,
+  DEFAULT_MAX_REQUEST_IMAGE_BYTES,
+  DEFAULT_REQUEST_IMAGE_MAX_BYTES,
+  DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET,
+} from './config.ts'
 
 export interface ResolvedImage {
   readonly mediaType: string
@@ -11,11 +17,23 @@ export interface ResolvedImage {
 
 export type ImageMap = ReadonlyMap<string, ResolvedImage>
 
-const MAX_LONG_EDGE = 1568
-const MAX_BYTES = 1_048_576
-/** Total base64 image budget for one request; leaves room under the gateway cap. */
-const MAX_REQUEST_IMAGE_BYTES = 24 * 1024 * 1024
-const MAX_REQUEST_IMAGES = 50
+const MAX_LONG_EDGE = 1_568
+
+export interface ImagePolicy {
+  readonly maxImages?: number
+  readonly maxRequestImageBytes?: number
+  readonly requestImagePixelBudget?: number
+  readonly requestImageMaxBytes?: number
+}
+
+function limitsOf(policy: ImagePolicy | undefined): Required<ImagePolicy> {
+  return {
+    maxImages: policy?.maxImages ?? DEFAULT_MAX_IMAGES,
+    maxRequestImageBytes: policy?.maxRequestImageBytes ?? DEFAULT_MAX_REQUEST_IMAGE_BYTES,
+    requestImagePixelBudget: policy?.requestImagePixelBudget ?? DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET,
+    requestImageMaxBytes: policy?.requestImageMaxBytes ?? DEFAULT_REQUEST_IMAGE_MAX_BYTES,
+  }
+}
 
 export interface SelectedRequestImages {
   readonly kept: readonly ImageAttachmentRef[]
@@ -30,7 +48,9 @@ export interface SelectedRequestImages {
 export function selectRequestImages(
   refs: readonly ImageAttachmentRef[],
   occurrences?: ReadonlyMap<string, number>,
+  policy?: ImagePolicy,
 ): SelectedRequestImages {
+  const limits = limitsOf(policy)
   const unique: ImageAttachmentRef[] = []
   const seen = new Set<string>()
   for (const ref of refs) {
@@ -46,7 +66,7 @@ export function selectRequestImages(
   let totalImages = unique.reduce((sum, ref) => sum + countOf(ref), 0)
   let bytes = unique.reduce((sum, ref) => sum + encoded(ref.bytes) * countOf(ref), 0)
   while (start < unique.length
-    && (totalImages > MAX_REQUEST_IMAGES || bytes > MAX_REQUEST_IMAGE_BYTES)) {
+    && (totalImages > limits.maxImages || bytes > limits.maxRequestImageBytes)) {
     const dropped = unique[start]
     if (dropped !== undefined) {
       const count = countOf(dropped)
@@ -66,13 +86,16 @@ export function selectRequestImages(
   return { kept, dropped: unique.slice(0, start) }
 }
 
-function targetOf(ref: ImageAttachmentRef): { width: number; height: number; maxBytes: number } {
+function targetOf(ref: ImageAttachmentRef, policy?: ImagePolicy): { width: number; height: number; maxBytes: number } {
+  const limits = limitsOf(policy)
   const longEdge = Math.max(ref.width, ref.height)
-  const scale = longEdge > MAX_LONG_EDGE ? MAX_LONG_EDGE / longEdge : 1
+  const pixelEdge = Math.max(1, Math.floor(Math.sqrt(limits.requestImagePixelBudget)))
+  const maxEdge = Math.min(MAX_LONG_EDGE, pixelEdge)
+  const scale = longEdge > maxEdge ? maxEdge / longEdge : 1
   return {
     width: Math.max(1, Math.round(ref.width * scale)),
     height: Math.max(1, Math.round(ref.height * scale)),
-    maxBytes: MAX_BYTES,
+    maxBytes: limits.requestImageMaxBytes,
   }
 }
 
@@ -86,6 +109,7 @@ export async function resolveImages(
   options: GenerateOptions,
   store: AttachmentStore,
   signal: AbortSignal | undefined,
+  policy?: ImagePolicy,
 ): Promise<ImageMap> {
   const refs: ImageAttachmentRef[] = []
   const counts = new Map<string, number>()
@@ -102,8 +126,8 @@ export async function resolveImages(
   }
 
   const images = new Map<string, ResolvedImage>()
-  for (const ref of selectRequestImages(refs, counts).kept) {
-    const request = await store.readImageRequest(ref, targetOf(ref), signal)
+  for (const ref of selectRequestImages(refs, counts, policy).kept) {
+    const request = await store.readImageRequest(ref, targetOf(ref, policy), signal)
     const base64 = Buffer.from(request.data).toString('base64')
     images.set(ref.attachmentId, {
       mediaType: request.mediaType,

@@ -13,6 +13,11 @@ export interface PublicConfig {
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
+  requestPreparationTimeoutMs: number
+  maxImages: number
+  maxRequestImageBytes: number
+  requestImagePixelBudget: number
+  requestImageMaxBytes: number
   proxyUrl: string
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>

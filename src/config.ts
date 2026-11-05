@@ -8,10 +8,15 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.27'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.28'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 65_536
+export const DEFAULT_MAX_IMAGES = 50
+export const DEFAULT_MAX_REQUEST_IMAGE_BYTES = 24 * 1024 * 1024
+export const DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET = 1_568 * 1_568
+export const DEFAULT_REQUEST_IMAGE_MAX_BYTES = 1_048_576
+export const DEFAULT_REQUEST_PREPARATION_TIMEOUT_MS = 60_000
 export const MAX_ACCOUNTS = 20
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'
@@ -51,6 +56,16 @@ export interface Config {
   requestTimeoutMs?: number
   /** Milliseconds a stream may stall; defaults to 300s. */
   streamIdleTimeoutMs?: number
+  /** Milliseconds allowed for image resolution and request preparation. */
+  requestPreparationTimeoutMs?: number
+  /** Request-wide image count cap; defaults to 50. */
+  maxImages?: number
+  /** Request-wide base64 image budget; defaults to 24 MiB. */
+  maxRequestImageBytes?: number
+  /** Total-pixel budget for one normalized image. */
+  requestImagePixelBudget?: number
+  /** Raw encoded-byte target for one image before base64 expansion. */
+  requestImageMaxBytes?: number
   /** HTTP/HTTPS/SOCKS5 proxy for inference, catalog and usage requests. */
   proxyUrl?: string
   /** Visible-model allowlist; an empty list means "show everything". */
@@ -104,6 +119,11 @@ export const Config: z<Config> = z.object({
   openCodeAuthEntry: markVolatile(z.string().default(DEFAULT_AUTH_ENTRY)),
   requestTimeoutMs: markVolatile(z.number().min(1).max(2_147_483_647).default(300_000)),
   streamIdleTimeoutMs: markVolatile(z.number().min(1).max(2_147_483_647).default(300_000)),
+  requestPreparationTimeoutMs: markVolatile(z.number().min(1).max(2_147_483_647).default(DEFAULT_REQUEST_PREPARATION_TIMEOUT_MS)),
+  maxImages: markVolatile(z.number().min(1).max(10_000).step(1).default(DEFAULT_MAX_IMAGES)),
+  maxRequestImageBytes: markVolatile(z.number().min(1).max(1_000_000_000).step(1).default(DEFAULT_MAX_REQUEST_IMAGE_BYTES)),
+  requestImagePixelBudget: markVolatile(z.number().min(1).max(100_000_000).step(1).default(DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET)),
+  requestImageMaxBytes: markVolatile(z.number().min(1).max(100_000_000).step(1).default(DEFAULT_REQUEST_IMAGE_MAX_BYTES)),
   proxyUrl: markVolatile(z.string().default('')),
   visibleModels: markVolatile(z.array(z.string()).default([])),
   modelVisibility: markVolatile(z.dict(z.boolean()).default({})),
@@ -143,6 +163,11 @@ export interface ResolvedConfig {
   openCodeAuthEntry: string
   requestTimeoutMs: number
   streamIdleTimeoutMs: number
+  requestPreparationTimeoutMs: number
+  maxImages: number
+  maxRequestImageBytes: number
+  requestImagePixelBudget: number
+  requestImageMaxBytes: number
   proxyUrl: string
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
@@ -260,6 +285,11 @@ export function resolveConfig(config: Config): ResolvedConfig {
       : DEFAULT_AUTH_ENTRY,
     requestTimeoutMs: positiveInt(config.requestTimeoutMs, 300_000),
     streamIdleTimeoutMs: positiveInt(config.streamIdleTimeoutMs, 300_000),
+    requestPreparationTimeoutMs: positiveInt(config.requestPreparationTimeoutMs, DEFAULT_REQUEST_PREPARATION_TIMEOUT_MS),
+    maxImages: positiveInt(config.maxImages, DEFAULT_MAX_IMAGES),
+    maxRequestImageBytes: positiveInt(config.maxRequestImageBytes, DEFAULT_MAX_REQUEST_IMAGE_BYTES),
+    requestImagePixelBudget: positiveInt(config.requestImagePixelBudget, DEFAULT_REQUEST_IMAGE_PIXEL_BUDGET),
+    requestImageMaxBytes: positiveInt(config.requestImageMaxBytes, DEFAULT_REQUEST_IMAGE_MAX_BYTES),
     proxyUrl: normalizeProxyUrl(config.proxyUrl),
     visibleModels: Array.isArray(config.visibleModels)
       ? config.visibleModels.filter((id): id is string => typeof id === 'string' && id !== '')
