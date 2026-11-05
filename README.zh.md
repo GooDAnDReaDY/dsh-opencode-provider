@@ -127,12 +127,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.33
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.34
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。
@@ -185,6 +185,10 @@ modelAccountRules:
 ```
 
 在 **设置 → OpenCode → `/opencode` 命令语言** 中选择 `中文` 即可切换输出语言，默认英语。
+
+### 引擎矩阵
+
+`npm run test:engine -- <candidate.tgz>` 使用 `engines.dsh` 与 `dsh.compatibility.dshReleases` 校验不可变的已构建包，并检查只打包生产文件。该命令只读：不安装 DSH、不启动运行时、不解压归档、不修改其他插件，也不需要清理。兼容性执行在批准的 MiniPC 测试环境上使用已发布候选包完成，绝不使用 worktree 路径，也不强制结束进程或递归删除。
 
 ## 安全规范
 

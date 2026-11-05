@@ -132,12 +132,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.34.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.33
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.34
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode (plugin)** или **OpenCode Go (plugin)** в списке моделей.
@@ -210,6 +210,10 @@ modelAccountRules:
 ```
 
 Язык вывода задаётся в **Настройки → OpenCode → `/opencode` command language** (`中文` включает китайский). По умолчанию английский.
+
+### Матрица движков
+
+`npm run test:engine -- <candidate.tgz>` проверяет неизменяемый уже собранный пакет по `engines.dsh` и `dsh.compatibility.dshReleases`, а также состав production-файлов. Команда только читает: не ставит DSH, не запускает runtime, не распаковывает архив, не трогает другие плагины и не требует cleanup. Прогон совместимости выполняется на согласованном тестовом контуре MiniPC с опубликованным кандидатом — не из worktree и без принудительных процессов или рекурсивного удаления.
 
 ## Безопасность и надежность
 

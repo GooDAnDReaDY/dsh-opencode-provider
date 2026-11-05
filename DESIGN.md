@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.33 — current release
+## 0.5.34 — current release
+
+- Engine matrix is a read-only candidate validator. It never creates a temporary DSH install, starts a runtime, extracts a candidate, or touches another plugin; the compatibility run stays on the approved MiniPC contour with the immutable published tarball.
+- `AUDIT.md` records the read-only project/security review. Production dependencies are clean; the `zod` advisory is a dev/peer pin inherited from DSH, and the optional admin token and profile lockfiles are documented residuals.
+
+## 0.5.33 — previous release
 
 - HTTP authorization: DSH exposes no host authentication for plugin routes (`PeerScope` is absent on plain HTTP; the web server has no auth token service). The plugin therefore supports an owner-provided `adminToken` in profile config or `OPENCODE_ADMIN_TOKEN`; all routes require a constant-time token match when it is set. Same-origin remains CSRF protection, not authentication. Without a token, the existing loopback/same-origin guard is unchanged.
 - Zod residual: all `@deepseek-ai/dsh-*` 0.2.2-rc.1 packages pin zod 4.4.3, and no 0.2.2 release uses 4.6.6. No override is applied per project policy; `npm audit` will continue to report GHSA-mrhx-c7xc-m3w5 until upstream ships the fix.
