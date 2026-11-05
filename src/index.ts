@@ -4,6 +4,7 @@ import type {} from '@deepseek-ai/dsh-attachment'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-settings'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
+import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 
 import { OpenCodeAdapter } from './adapter.ts'
 import { applyCommands } from './commands.ts'
@@ -157,6 +158,9 @@ export function apply(ctx: Context, config: Config): void {
       heatmap: readRequestHeatmap,
       refreshTui: () => refreshTuiSettings?.(),
       syncRoutes,
+      adminToken: () => current().adminToken
+        || launchEnvironmentOf(ctx).get('OPENCODE_ADMIN_TOKEN')?.value
+        || '',
     })
     webCtx.effect(() => registerPluginUpdater(webCtx, {
       endpoint: '/dsh-opencode/update',

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.33 — release 10: admin token and dependency audit
+
+- **#41 — authenticated HTTP routes**: optional owner `adminToken` (profile config or `OPENCODE_ADMIN_TOKEN`). When set, every `/dsh-opencode/*` route requires `x-opencode-token` or a Bearer token with constant-time comparison; forged Host/Origin alone no longer passes. The settings UI prompts for the token and keeps it in this browser.
+- **#42 — zod audit**: confirmed `zod` 4.4.3 is pinned by all DSH 0.2.2-rc.1 packages; GHSA-mrhx-c7xc-m3w5 affects `<4.6.6`. No DSH release with the fix exists, this plugin does not bundle zod, and no forced override was added. Residual exposure is documented and must be re-audited after the upstream update.
+- 145 tests.
+
 ## 0.5.32 — release 9: proxy auth and route switches
 
 - **#71 — authenticated proxy**: `proxyUsername` plus a password stored in the credential service enable Basic auth for HTTP/HTTPS and SOCKS5 proxies. The authenticated URL exists only in memory; `/state` returns the credential-free address and a `configured` flag, never the password.

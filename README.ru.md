@@ -132,12 +132,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.32.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.32.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.33.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.32
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.33
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode (plugin)** или **OpenCode Go (plugin)** в списке моделей.
@@ -213,7 +213,8 @@ modelAccountRules:
 
 ## Безопасность и надежность
 
-- Запросы на изменение настроек и ключей разрешены только с loopback (`127.0.0.1` / `::1`) с обязательной проверкой same-origin для защиты от DNS-rebinding атак.
+- Same-origin — это защита от CSRF, а не аутентификация. Задайте admin-токен владельца в конфиге профиля (`adminToken`) или `OPENCODE_ADMIN_TOKEN`; тогда все маршруты `/dsh-opencode/*` требуют `x-opencode-token` или `Authorization: Bearer`. UI спросит токен один раз и сохранит его в браузере. Без токена остаются только loopback и same-origin проверки.
+- `npm audit` по-прежнему показывает `zod < 4.6.6` (GHSA-mrhx-c7xc-m3w5): пакеты `@deepseek-ai/dsh-*` 0.2.2-rc.1 фиксируют zod 4.4.3. Релиза DSH 0.2.2 с 4.6.6 пока нет; плагин не бандлит zod и не применяет принудительный override. Повторить аудит после обновления DSH.
 - Тексты запросов и ответов пользователей никогда не записываются в файлы журнала.
 - При исчерпании квоты на одном ключе диалог пользователя не прерывается благодаря бесшовной ротации.
 

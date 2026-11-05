@@ -1,6 +1,11 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.32 — current release
+## 0.5.33 — current release
+
+- HTTP authorization: DSH exposes no host authentication for plugin routes (`PeerScope` is absent on plain HTTP; the web server has no auth token service). The plugin therefore supports an owner-provided `adminToken` in profile config or `OPENCODE_ADMIN_TOKEN`; all routes require a constant-time token match when it is set. Same-origin remains CSRF protection, not authentication. Without a token, the existing loopback/same-origin guard is unchanged.
+- Zod residual: all `@deepseek-ai/dsh-*` 0.2.2-rc.1 packages pin zod 4.4.3, and no 0.2.2 release uses 4.6.6. No override is applied per project policy; `npm audit` will continue to report GHSA-mrhx-c7xc-m3w5 until upstream ships the fix.
+
+## 0.5.32 — previous release
 
 - Proxy auth: `proxyUsername` is public config; the password lives in the credential service under `proxyPasswordRef` and is resolved per request. `buildProxyUrl` assembles the authenticated URL in memory only; dispatcher cache keys never leave the process.
 - Route switches: `goEnabled`/`consoleEnabled` drive both the LLM adapter registration (`replace`) and the configurable-provider directory. Config writes call `syncRoutes`; adapter guards refuse disabled routes even before the swap.

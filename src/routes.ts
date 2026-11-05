@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 import type { Context } from '@deepseek-ai/cordis'
@@ -33,6 +34,7 @@ export interface RouteDeps {
   readonly heatmap?: (days: number) => Promise<RequestHeatmap>
   readonly refreshTui?: () => void
   readonly syncRoutes?: () => void
+  readonly adminToken?: () => string
   /** Test seam; defaults to the local managed-credentials registry. */
   readonly managedPath?: string
 }
@@ -355,12 +357,37 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
   }
 }
 
+function adminAllowed(req: IncomingMessage, deps: RouteDeps): boolean {
+  const expected = deps.adminToken?.() ?? ''
+  if (expected === '') return true
+  const header = req.headers['x-opencode-token']
+  const authorization = req.headers.authorization
+  const provided = typeof header === 'string' && header !== ''
+    ? header
+    : typeof authorization === 'string' && authorization.startsWith('Bearer ')
+      ? authorization.slice(7).trim()
+      : ''
+  const left = Buffer.from(expected)
+  const right = Buffer.from(provided)
+  return left.length === right.length && timingSafeEqual(left, right)
+}
+
 /** Register the Host HTTP surface consumed by the browser settings page. */
 export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void {
   const disposers: Array<() => void> = []
 
   const route = (path: string, handler: WebRoute['handler']): void => {
-    disposers.push(web.register({ kind: 'exact', path, handler }))
+    disposers.push(web.register({
+      kind: 'exact',
+      path,
+      handler: async (req, res) => {
+        if (!adminAllowed(req, deps)) {
+          json(res, 401, { error: 'admin token required', authRequired: true })
+          return
+        }
+        await handler(req, res)
+      },
+    }))
   }
 
   route('/dsh-opencode/state', async (req, res) => {
