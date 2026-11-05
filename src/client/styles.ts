@@ -93,6 +93,7 @@ export const CSS = `
 .oc-drag { cursor: grab; color: var(--oc-text-tertiary); user-select: none; font-size: 13px; line-height: 1; }
 .oc-drag:active { cursor: grabbing; }
 .oc-notice { font-size: 12px; padding: 7px 10px; border-radius: 7px; background: var(--oc-accent-soft); border: 1px solid var(--oc-accent-border); }
+.oc-switch-notice { margin: 4px auto; padding: 4px 10px; border: 1px solid var(--oc-border); border-radius: 999px; background: var(--oc-fill-soft); color: var(--oc-text-secondary); font-size: 11px; line-height: 1.4; text-align: center; }
 .oc-error { font-size: 12px; padding: 7px 10px; border-radius: 7px; background: var(--oc-danger-soft); border: 1px solid var(--oc-danger-border); color: var(--oc-danger); }
 [class*="_footerActions"]:has(.oc-foot), [class*="_footerActions"]:has(.oc-railButton) { flex-direction: column; }
 .oc-foot { box-sizing: border-box; flex: 1 1 auto; width: 100%; min-width: 0; display: flex; flex-direction: column; gap: 6px; margin: 0 0 4px; padding: 8px; border: 0.5px solid transparent; border-radius: var(--dsw-radius-md, 8px); background: transparent; color: var(--oc-text-secondary); font: inherit; text-align: left; cursor: pointer; }

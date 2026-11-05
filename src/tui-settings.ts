@@ -56,6 +56,7 @@ export interface OpenCodeTuiSettingsDeps {
   readonly quotaFallbackModel: () => string
   readonly autoSwitch: () => boolean
   readonly stickySession: () => boolean
+  readonly usageDisplay: () => 'auto' | 'always' | 'off'
   readonly showSidebarQuota: () => boolean
   /** Poll interval for settings changed from inside the terminal UI. */
   readonly refreshMs?: number
@@ -190,6 +191,22 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         hint: 'Prefer the last successful account for the same conversation.',
         format: (value) => String(value === undefined ? deps.stickySession() : value !== false),
         parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
+      },
+      {
+        path: ['usageDisplay'],
+        group: 'sidebar',
+        kind: 'select',
+        label: 'Quota display',
+        hint: 'Auto, Always, or Off for the sidebar quota card.',
+        options: [
+          { value: 'auto', label: 'Auto' },
+          { value: 'always', label: 'Always' },
+          { value: 'off', label: 'Off' },
+        ],
+        format: (value) => typeof value === 'string' ? value : deps.usageDisplay(),
+        parse: (text) => text === 'auto' || text === 'always' || text === 'off'
+          ? { kind: 'set', value: text }
+          : undefined,
       },
       {
         path: ['showSidebarQuota'],

@@ -8,13 +8,14 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.25'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.26'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 32_768
 export const MAX_ACCOUNTS = 20
 
 export type TransportId = 'openai-chat' | 'openai-responses' | 'anthropic' | 'google'
+export type UsageDisplay = 'auto' | 'always' | 'off'
 
 export interface AccountConfig {
   label?: string
@@ -80,7 +81,9 @@ export interface Config {
   stickySession?: boolean
   /** Pinned account id; empty means automatic. */
   activeAccount?: string
-  /** Show the quota card in the sidebar. */
+  /** Sidebar quota visibility; legacy booleans map to always/auto. */
+  usageDisplay?: UsageDisplay
+  /** Legacy boolean; used only when `usageDisplay` is absent. */
   showSidebarQuota?: boolean
   /** Product user agent sent to OpenCode. */
   userAgent?: string
@@ -125,6 +128,7 @@ export const Config: z<Config> = z.object({
   autoSwitch: markVolatile(z.boolean().default(true)),
   stickySession: markVolatile(z.boolean().default(true)),
   activeAccount: markVolatile(z.string().default('')),
+  usageDisplay: markVolatile(z.union(['auto', 'always', 'off'])),
   showSidebarQuota: markVolatile(z.boolean().default(false)),
   userAgent: markVolatile(z.string().default(DEFAULT_USER_AGENT)),
 })
@@ -154,6 +158,7 @@ export interface ResolvedConfig {
   autoSwitch: boolean
   stickySession: boolean
   activeAccount: string
+  usageDisplay: UsageDisplay
   showSidebarQuota: boolean
   userAgent: string
 }
@@ -276,6 +281,9 @@ export function resolveConfig(config: Config): ResolvedConfig {
     autoSwitch: config.autoSwitch !== false,
     stickySession: config.stickySession !== false,
     activeAccount: typeof config.activeAccount === 'string' ? config.activeAccount : '',
+    usageDisplay: config.usageDisplay === 'always' || config.usageDisplay === 'off'
+      ? config.usageDisplay
+      : config.usageDisplay === 'auto' ? 'auto' : config.showSidebarQuota === true ? 'always' : 'auto',
     showSidebarQuota: config.showSidebarQuota === true,
     userAgent: typeof config.userAgent === 'string' && config.userAgent !== '' ? config.userAgent : DEFAULT_USER_AGENT,
   }

@@ -17,6 +17,7 @@ export interface Draft {
   maxOutputTokensOverrides: Record<string, string>
   showSidebarQuota: boolean
   activeAccount: string
+  usageDisplay: 'auto' | 'always' | 'off'
   accounts: Array<{ label: string; apiKeyEnv: string }>
   modelAccountRules: Array<{ pattern: string; account: string }>
   quotaFallbackModel: string
@@ -51,6 +52,7 @@ export function draftOf(state: HostState): Draft {
     ),
     showSidebarQuota: state.config.showSidebarQuota,
     activeAccount: state.config.activeAccount,
+    usageDisplay: state.config.usageDisplay,
     accounts: state.config.accounts.map((account) => ({ ...account })),
     modelAccountRules: state.config.modelAccountRules.map((rule) => ({ ...rule })),
     quotaFallbackModel: state.config.quotaFallbackModel,
@@ -100,6 +102,7 @@ export function patchOf(draft: Draft): Record<string, unknown> {
     maxOutputTokensOverrides: numberRecordOrNull(draft.maxOutputTokensOverrides),
     showSidebarQuota: draft.showSidebarQuota,
     activeAccount: draft.activeAccount.trim(),
+    usageDisplay: draft.usageDisplay,
     accounts: draft.accounts
       .map((account) => ({ label: account.label.trim(), apiKeyEnv: account.apiKeyEnv.trim() }))
       .filter((account) => account.label !== '' || account.apiKeyEnv !== ''),

@@ -95,6 +95,7 @@ test('settings draft and patch keep client edits normalized', () => {
       autoSwitch: true,
       stickySession: true,
       activeAccount: '',
+      usageDisplay: 'auto',
       showSidebarQuota: true,
       visibleModels: [],
       filterModelsByPlan: true,
@@ -419,6 +420,13 @@ test('routing uses the Go unified gateway for chat and native paths for the rest
     endpointFor('opencode-go', 'google', 'gemini-4-argon-contributor', config),
     'https://opencode.ai/inference/go/google/v1beta/models/gemini-4-argon-contributor:streamGenerateContent?alt=sse',
   )
+})
+
+test('maps legacy sidebar quota to usage display modes', () => {
+  assert.equal(resolved({ showSidebarQuota: true }).usageDisplay, 'always')
+  assert.equal(resolved({}).usageDisplay, 'auto')
+  assert.equal(resolved({ showSidebarQuota: true, usageDisplay: 'off' }).usageDisplay, 'off')
+  assert.equal(resolved({ showSidebarQuota: true, usageDisplay: 'auto' }).usageDisplay, 'auto')
 })
 
 test('model overrides win over generated metadata', () => {

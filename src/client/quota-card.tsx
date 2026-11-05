@@ -161,7 +161,11 @@ export function QuotaCard(props: {
   const { t } = props
   const state = useHostState(60_000)
   const expanded = usePanelOpen()
-  if (state === null || state.config.showSidebarQuota !== true) return null
+  if (state === null) return null
+  const mode = state.config.usageDisplay
+    ?? (state.config.showSidebarQuota === true ? 'always' : 'auto')
+  if (mode === 'off') return null
+  if (mode === 'auto' && state.usage === null) return null
 
   const windows = state.usage?.report?.windows
   const active = state.accounts.find((account) => account.active)

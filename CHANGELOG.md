@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.26 — release 3: quota display and switch notices
+
+- **#75 — quota display modes**: new `usageDisplay` setting with `auto`/`always`/`off` (legacy `showSidebarQuota` maps to `always`); `auto` shows the sidebar card when a Go usage report exists. Exposed in Settings and TUI.
+- **#79 — account-switch notice**: routing trace entries now carry the opaque DSH session id; a `conversation.composer.dock` notice shows a non-blocking switch message for the current conversation after rotation or quota fallback. No prompt content or keys are exposed.
+- 130 tests.
+
 ## 0.5.25 — release 2: stale data
 
 - **#87 — stale usage**: a failed usage refresh now returns the last successful report with `stale: true` and `lastSuccessAt` instead of discarding it. The quota sidebar/panel and Settings label the stale snapshot; an explicit refresh no longer loses the previous reading.

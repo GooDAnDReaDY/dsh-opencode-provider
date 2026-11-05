@@ -433,6 +433,24 @@ test('treats a free-tier rejection as a short rate-limit and rotates', async () 
   assert.ok((health?.coolingUntil ?? 0) < Date.now() + 2 * 60 * 1000)
 })
 
+test('routing trace carries the DSH session for switch notices', async () => {
+  const adapter = adapterWith((async () => new Response(streamOf(), {
+    status: 200,
+    headers: { 'content-type': 'text/event-stream' },
+  })) as typeof fetch)
+
+  for await (const _chunk of adapter.stream({
+    provider: GO_PROVIDER,
+    model: 'deepseek-v4.1-flash',
+    sessionId: 'session-123' as never,
+    messages: [{ role: 'user', content: [{ type: 'text', text: 'hi' }] }],
+    maxTokens: 8,
+  })) {
+    // Drain the stream.
+  }
+  assert.equal(adapter.routingTrace()[0]?.session, 'session-123')
+})
+
 test('autoSwitch off keeps the selected account and does not rotate', async () => {
   const seen: string[] = []
   const adapter = adapterWith((async (_url, init) => {

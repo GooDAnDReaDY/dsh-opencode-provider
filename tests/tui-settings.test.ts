@@ -16,6 +16,7 @@ function deps(): OpenCodeTuiSettingsDeps {
     quotaFallbackModel: () => '',
     autoSwitch: () => true,
     stickySession: () => true,
+    usageDisplay: () => 'auto',
     showSidebarQuota: () => true,
   }
 }
@@ -93,8 +94,11 @@ test('exposes quota fallback and sticky routing settings', () => {
     quotaFallbackModel: () => 'beam-free',
     autoSwitch: () => false,
     stickySession: () => false,
+    usageDisplay: () => 'off',
   })
   const fallback = section.fields.find((entry) => entry.path[0] === 'quotaFallbackModel')
+  const display = section.fields.find((entry) => entry.path[0] === 'usageDisplay')
+  assert.deepEqual(display?.parse?.('off'), { kind: 'set', value: 'off' })
   const sticky = section.fields.find((entry) => entry.path[0] === 'stickySession')
   assert.ok(fallback)
   assert.equal(fallback.format?.('ignored'), 'beam-free')

@@ -1,3 +1,4 @@
+import type { UsageDisplay } from '../config.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from '../provider-ids.ts'
 import type { SubscriptionLimits } from '../subscription-limits.ts'
 
@@ -27,6 +28,7 @@ export interface PublicConfig {
   autoSwitch: boolean
   stickySession: boolean
   activeAccount: string
+  usageDisplay: UsageDisplay
   showSidebarQuota: boolean
   userAgent: string
 }
@@ -36,6 +38,7 @@ export interface RoutingTraceRow {
   provider: string
   model: string
   account: string
+  session?: string
   reason: 'rule' | 'sticky' | 'pinned' | 'promoted' | 'default' | 'rotation' | 'quota-fallback'
   fallback: boolean
   ok: boolean
@@ -125,6 +128,14 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function fetchState(): Promise<HostState> {
   return call<HostState>('/dsh-opencode/state')
+}
+
+export interface RoutingNotices {
+  events: RoutingTraceRow[]
+}
+
+export function fetchNotices(): Promise<RoutingNotices> {
+  return call<RoutingNotices>('/dsh-opencode/notices')
 }
 
 export function refreshState(): Promise<HostState> {

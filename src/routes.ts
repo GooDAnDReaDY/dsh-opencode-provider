@@ -159,6 +159,10 @@ function configOps(patch: Record<string, unknown>): Array<{ op: 'set' | 'unset';
   if ('autoSwitch' in patch) set('autoSwitch', patch.autoSwitch === true)
   if ('stickySession' in patch) set('stickySession', patch.stickySession === true)
   if ('activeAccount' in patch) set('activeAccount', patch.activeAccount)
+  if ('usageDisplay' in patch) {
+    const value = patch.usageDisplay
+    if (value === 'auto' || value === 'always' || value === 'off') set('usageDisplay', value)
+  }
   if ('showSidebarQuota' in patch) set('showSidebarQuota', patch.showSidebarQuota === true)
   if ('userAgent' in patch) set('userAgent', patch.userAgent)
   return ops
@@ -346,6 +350,22 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     } catch (error) {
       json(res, 500, { error: error instanceof Error ? error.message : 'state failed' })
     }
+  })
+
+  route('/dsh-opencode/notices', async (req, res) => {
+    if (req.method !== 'GET') {
+      json(res, 405, { error: 'GET required' })
+      return
+    }
+    if (!trustedHost(req)) {
+      json(res, 403, { error: 'non-local Host refused' })
+      return
+    }
+    if (!allowedOrigin(req)) {
+      json(res, 403, { error: 'cross-origin request refused' })
+      return
+    }
+    json(res, 200, { events: deps.adapter.routingTrace() })
   })
 
   route('/dsh-opencode/health', async (req, res) => {

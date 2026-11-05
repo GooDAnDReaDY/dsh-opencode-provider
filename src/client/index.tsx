@@ -11,6 +11,7 @@ import { dictionaries, NS } from './locales.ts'
 import { QuotaCard, QuotaPanel } from './quota-card.tsx'
 import { OpenCodeSettingsPage } from './settings-page.tsx'
 import { CSS, CSS_ID } from './styles.ts'
+import { SwitchNotice } from './switch-notice.tsx'
 
 interface LayoutSeam {
   selectPanel(id: string | null): void
@@ -64,6 +65,13 @@ export function apply(ctx: Context): void {
       close: () => (ctx.get('layout') as LayoutSeam | undefined)?.selectPanel(null),
     }),
   }, QuotaPanel))
+
+  ctx.slots.inject('conversation.composer.dock', () => slots.register({
+    name: 'conversation.composer.dock',
+    id: 'opencode-switch-notice',
+    order: 80,
+    locale: NS,
+  }, SwitchNotice))
 
   // The card sits directly above the Settings seat. It is gated on the
   // `layout` service because opening the panel is its only action.
