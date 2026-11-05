@@ -878,6 +878,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <Field label={t('maxRequestImageBytes')} type="number" value={draft.maxRequestImageBytes} onChange={(value) => update({ maxRequestImageBytes: value })} />
           <Field label={t('requestImagePixelBudget')} type="number" value={draft.requestImagePixelBudget} onChange={(value) => update({ requestImagePixelBudget: value })} />
           <Field label={t('requestImageMaxBytes')} type="number" value={draft.requestImageMaxBytes} onChange={(value) => update({ requestImageMaxBytes: value })} />
+          <Field label={t('catalogRefreshMinutes')} type="number" value={draft.catalogRefreshMinutes} onChange={(value) => update({ catalogRefreshMinutes: value })} />
           <Field label={t('proxyUrl')} hint={t('proxyUrlHint')} value={draft.proxyUrl} onChange={(value) => update({ proxyUrl: value })} />
           <Field label={t('maxOutputTokens')} type="number" value={draft.maxOutputTokens} onChange={(value) => update({ maxOutputTokens: value })} />
           <Field label={t('contextWindow')} type="number" value={draft.contextWindow} onChange={(value) => update({ contextWindow: value })} />

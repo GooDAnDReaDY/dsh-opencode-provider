@@ -90,6 +90,7 @@ test('settings draft and patch keep client edits normalized', () => {
       requestImagePixelBudget: 2458624,
       requestImageMaxBytes: 1048576,
       proxyUrl: '',
+      catalogRefreshMinutes: 10,
       maxOutputTokens: null,
       maxOutputTokensOverrides: {},
       contextWindow: null,
@@ -425,6 +426,12 @@ test('routing uses the Go unified gateway for chat and native paths for the rest
     endpointFor('opencode-go', 'google', 'gemini-4-argon-contributor', config),
     'https://opencode.ai/inference/go/google/v1beta/models/gemini-4-argon-contributor:streamGenerateContent?alt=sse',
   )
+})
+
+test('catalog refresh defaults to ten minutes and accepts overrides', () => {
+  assert.equal(resolved({}).catalogRefreshMinutes, 10)
+  assert.equal(resolved({ catalogRefreshMinutes: 1 }).catalogRefreshMinutes, 1)
+  assert.equal(resolved({ catalogRefreshMinutes: 10_080 }).catalogRefreshMinutes, 10_080)
 })
 
 test('default output ceiling is 65,536 tokens', () => {

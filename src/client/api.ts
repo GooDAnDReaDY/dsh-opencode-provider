@@ -19,6 +19,7 @@ export interface PublicConfig {
   requestImagePixelBudget: number
   requestImageMaxBytes: number
   proxyUrl: string
+  catalogRefreshMinutes: number
   visibleModels: readonly string[]
   modelVisibility: Readonly<Record<string, boolean>>
   filterModelsByPlan: boolean
