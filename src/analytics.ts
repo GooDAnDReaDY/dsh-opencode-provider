@@ -494,6 +494,3 @@ export async function readModelAnalytics(
   return report
 }
 
-export function clearAnalyticsCache(): void {
-  cache.clear()
-}
