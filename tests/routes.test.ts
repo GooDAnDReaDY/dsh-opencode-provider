@@ -8,6 +8,7 @@ import type { Context } from '@deepseek-ai/cordis'
 
 import { resolveConfig } from '../src/config.ts'
 import { applyRoutes, type RouteDeps } from '../src/routes.ts'
+import { adminAllowed } from '../src/admin-auth.ts'
 import type { OpenCodeAdapter } from '../src/adapter.ts'
 import type { KeyPool } from '../src/credentials.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from '../src/provider-ids.ts'
@@ -657,4 +658,34 @@ test('analytics route returns aggregated model rows', async () => {
   assert.equal(body.matchedSessions, 1)
   assert.equal(body.models[0].model, 'deepseek-v4.1-flash')
   assert.equal(body.heatmap.total, 2)
+})
+
+test('admin token verification uses constant-time hash comparison on unequal lengths', () => {
+  const req = {
+    headers: { 'x-opencode-token': 'wrong-length' },
+    socket: { remoteAddress: '192.168.1.50' },
+  }
+  assert.equal(adminAllowed(req as any, 'secret-admin-token'), false)
+  const matchingReq = {
+    headers: { 'x-opencode-token': 'secret-admin-token' },
+    socket: { remoteAddress: '192.168.1.50' },
+  }
+  assert.equal(adminAllowed(matchingReq as any, 'secret-admin-token'), true)
+})
+
+test('notices route gates events when showSwitchNotice is disabled', async () => {
+  const { routes } = harness({ config: { showSwitchNotice: false } })
+  const result = await call(routes.get('/dsh-opencode/notices')!, {
+    path: '/dsh-opencode/notices',
+  })
+  assert.equal(result.status, 200)
+  assert.equal((result.body as any).enabled, false)
+  assert.deepEqual((result.body as any).events, [])
+
+  const { routes: enabledRoutes } = harness({ config: { showSwitchNotice: true } })
+  const enabledResult = await call(enabledRoutes.get('/dsh-opencode/notices')!, {
+    path: '/dsh-opencode/notices',
+  })
+  assert.equal(enabledResult.status, 200)
+  assert.equal((enabledResult.body as any).enabled, true)
 })

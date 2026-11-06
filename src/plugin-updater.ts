@@ -168,7 +168,8 @@ function findDshCliEntry(): string | undefined {
             const cli = resolve(dirname(manifestPath), bin)
             if (existsSync(cli)) return cli
           }
-        } catch {
+        } catch (error) {
+          void error
           // Continue searching parent package directories.
         }
       }

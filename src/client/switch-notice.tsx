@@ -24,8 +24,12 @@ export function SwitchNotice({ sessionId, t }: SwitchNoticeProps): ReactNode {
     let alive = true
     const poll = (): void => {
       void fetchNotices()
-        .then(({ events }) => {
+        .then(({ events, enabled }) => {
           if (!alive) return
+          if (enabled === false) {
+            setNotice(null)
+            return
+          }
           const event = events
             .filter((entry) => entry.session === String(sessionId)
               && entry.at > seenAt.current

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.37 — on-screen indicators off by default and token hardening
+
+- **Screen indicators (#128)**: all on-screen badges, indicators and notices are initially disabled by default. `usageDisplay` defaults to `'off'` (hidden from sidebar); `showSwitchNotice` (default: `false`) allows toggling composer switch notices in Settings → OpenCode.
+- **Security hardening (#127)**: `adminAllowed` uses constant-time SHA-256 hash comparison across all token lengths, preventing timing leakage of secret lengths.
+- **Tests and verification**: 155 tests (+2 new suites), typecheck, client smoke and Store size preflight clean.
+
 ## 0.5.36 — audit remediation follow-up
 
 - Empty timeout/image/catalog numeric fields now unset the setting instead of silently writing hardcoded defaults; invalid values still fail on save.

@@ -38,6 +38,7 @@ export interface PublicConfig {
   activeAccount: string
   usageDisplay: UsageDisplay
   showSidebarQuota: boolean
+  showSwitchNotice: boolean
   userAgent: string
 }
 
@@ -86,6 +87,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     activeAccount: config.activeAccount,
     usageDisplay: config.usageDisplay,
     showSidebarQuota: config.showSidebarQuota,
+    showSwitchNotice: config.showSwitchNotice,
     userAgent: config.userAgent,
   }
 }

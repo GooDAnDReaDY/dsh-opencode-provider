@@ -228,6 +228,7 @@ function configOps(
     if (value === 'auto' || value === 'always' || value === 'off') set('usageDisplay', value)
   }
   if ('showSidebarQuota' in patch) set('showSidebarQuota', patch.showSidebarQuota === true)
+  if ('showSwitchNotice' in patch) set('showSwitchNotice', patch.showSwitchNotice === true)
   if ('userAgent' in patch) set('userAgent', patch.userAgent)
   return ops
 }
@@ -247,7 +248,8 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
         writable: info.writable,
         ...(info.source === undefined ? {} : { source: info.source }),
       }
-    } catch {
+    } catch (error) {
+      void error
       // An invalid reference is reported as unconfigured.
     }
   }
@@ -317,7 +319,8 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
         const info = await credentials.describe(credentialRef(slot.ref))
         configured = info.configured
         source = info.source ?? ''
-      } catch {
+      } catch (error) {
+        void error
         // An invalid reference is reported as unconfigured.
       }
     }
@@ -458,7 +461,11 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       json(res, 403, { error: 'cross-origin request refused' })
       return
     }
-    json(res, 200, { events: deps.adapter.routingTrace() })
+    const enabled = deps.config().showSwitchNotice === true
+    json(res, 200, {
+      enabled,
+      events: enabled ? deps.adapter.routingTrace() : [],
+    })
   })
 
   route('/dsh-opencode/health', async (req, res) => {

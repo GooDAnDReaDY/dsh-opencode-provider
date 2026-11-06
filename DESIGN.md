@@ -1,6 +1,6 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.36 — current release
+## 0.5.37 — current release
 
 - Empty numeric settings unset the field rather than silently writing hardcoded defaults. Final release artifact for the audit remediation set.
 
@@ -466,3 +466,12 @@ const id = options.sessionId
 - Обязательность `x-opencode-session`: https://flabs.tech/blog/opencode-go-session-header-required
 - Каталог моделей: https://models.dev/api.json (провайдер `opencode-go`)
 - Референсы: https://github.com/Mars-Sea/dsh-commandcode-provider, https://github.com/GooDAnDReaDY/dsh-clinebot
+
+
+## 0.5.37 Design Contract: On-screen indicators off by default
+
+All visual screen intrusions outside the first-class `settings.section` are strictly opt-in:
+1. `usageDisplay` defaults to `'off'`. The `QuotaCard` button in `sidebar.footer.action` renders `null` unless the user explicitly switches the setting to `'auto'` or `'always'` in Settings → OpenCode.
+2. `showSwitchNotice` defaults to `false`. The `/dsh-opencode/notices` endpoint returns `{ enabled: false, events: [] }` and `SwitchNotice` under `conversation.composer.dock` renders `null` unless enabled.
+3. Both settings are persisted via `settings.mutate` with CAS revision safety.
+4. Security: `adminAllowed` enforces SHA-256 constant-time comparison across any token length.

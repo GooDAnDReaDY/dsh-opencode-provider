@@ -26,6 +26,7 @@ export interface Draft {
   contextWindowOverrides: Record<string, string>
   maxOutputTokensOverrides: Record<string, string>
   showSidebarQuota: boolean
+  showSwitchNotice: boolean
   activeAccount: string
   usageDisplay: 'auto' | 'always' | 'off'
   accounts: Array<{ label: string; apiKeyEnv: string }>
@@ -71,6 +72,7 @@ export function draftOf(state: HostState): Draft {
       Object.entries(state.config.maxOutputTokensOverrides).map(([id, value]) => [id, String(value)]),
     ),
     showSidebarQuota: state.config.showSidebarQuota,
+    showSwitchNotice: state.config.showSwitchNotice === true,
     activeAccount: state.config.activeAccount,
     usageDisplay: state.config.usageDisplay,
     accounts: state.config.accounts.map((account) => ({ ...account })),
@@ -131,6 +133,7 @@ export function patchOf(draft: Draft): Record<string, unknown> {
     contextWindowOverrides: numberRecordOrNull(draft.contextWindowOverrides),
     maxOutputTokensOverrides: numberRecordOrNull(draft.maxOutputTokensOverrides),
     showSidebarQuota: draft.showSidebarQuota,
+    showSwitchNotice: draft.showSwitchNotice,
     activeAccount: draft.activeAccount.trim(),
     usageDisplay: draft.usageDisplay,
     accounts: draft.accounts
