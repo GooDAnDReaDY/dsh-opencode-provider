@@ -178,9 +178,10 @@ export async function discoverModelIds(
   provider: string,
   config: ResolvedConfig,
   apiKey: string | undefined,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl?: typeof fetch,
 ): Promise<readonly string[]> {
-  const live = await fetchLiveIds(provider, config, apiKey, fetchImpl)
+  const resolvedFetch: typeof fetch = fetchImpl ?? ((input, init) => globalThis.fetch(input, init))
+  const live = await fetchLiveIds(provider, config, apiKey, resolvedFetch)
   if (live !== undefined) return live
   return Object.keys(GENERATED_MODELS)
 }

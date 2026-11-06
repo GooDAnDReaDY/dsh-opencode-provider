@@ -88,8 +88,9 @@ function fingerprint(key: string): string {
 export function createUsageReader(
   config: () => ResolvedConfig,
   resolveKey: KeyResolver,
-  fetchImpl: typeof fetch = fetch,
+  fetchImpl?: typeof fetch,
 ): UsageReader {
+  const resolvedFetch: typeof fetch = fetchImpl ?? ((input, init) => globalThis.fetch(input, init))
   const cache = new Map<string, UsageResult>()
   /** Last successful reading per key, kept across explicit cache clears. */
   const lastSuccess = new Map<string, UsageResult>()
@@ -123,7 +124,7 @@ export function createUsageReader(
         let lastNetworkError: unknown
         for (let attempt = 0; attempt < 2; attempt += 1) {
           try {
-            response = await fetchImpl(current.usageUrl, {
+            response = await resolvedFetch(current.usageUrl, {
               headers: {
                 authorization: `Bearer ${key}`,
                 accept: 'application/json',

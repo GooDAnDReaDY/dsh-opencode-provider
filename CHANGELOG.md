@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.39 — late-bound fetch for host proxies (billion-context) and tool cap prioritization (GH-3, GH-4)
+
+- **Late-bound fetch (#135, GH-3)**: resolved `fetch` at call time instead of statically capturing at module initialization. Plugins and hosts installing dynamic `globalThis.fetch` wrappers (such as `billion-context` compression layers and reverse proxies) now intercept all model and gateway traffic, restoring context folding and eliminating unbounded-token 400 errors.
+- **Tool cap prioritization and config (#136, GH-4)**: prioritized `ops_*` (from `dsh-ops`) and `dsh_*` tool families alongside core harness tools so they survive the cap when large MCP suites (>128 tools) are exposed. Made tool ceiling configurable via `config.maxTools` (16–512, default: 128). Added diagnostic logging that lists omitted tool count and samples.
+- **Tests and verification**: 159 tests passing (+3 new suites), typecheck, client smoke, and Store size preflight clean (0 FAIL).
+
 ## 0.5.38 — prerelease peer range compatibility and audit cleanup
 
 - **Peer dependencies (#131)**: expanded `@deepseek-ai/*` peer dependencies range to `">=0.2.1-rc.2 <0.2.3-0 || >=0.2.2-0 <0.2.3-0"` to satisfy npm semver prerelease rules for intermediate `0.2.2-rc.1` devDependencies, clearing `preflight.sh` rule #13 and eliminating `pnpm peers check` warnings.

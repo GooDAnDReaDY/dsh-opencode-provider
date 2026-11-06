@@ -949,6 +949,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           <Field label={t('streamIdleTimeoutMs')} type="number" value={draft.streamIdleTimeoutMs} onChange={(value) => update({ streamIdleTimeoutMs: value })} />
           <Field label={t('requestPreparationTimeoutMs')} type="number" value={draft.requestPreparationTimeoutMs} onChange={(value) => update({ requestPreparationTimeoutMs: value })} />
           <Field label={t('maxImages')} type="number" value={draft.maxImages} onChange={(value) => update({ maxImages: value })} />
+          <Field label={t('maxTools')} type="number" value={draft.maxTools} onChange={(value) => update({ maxTools: value })} hint={t('maxToolsHint')} />
           <Field label={t('maxRequestImageBytes')} type="number" value={draft.maxRequestImageBytes} onChange={(value) => update({ maxRequestImageBytes: value })} />
           <Field label={t('requestImagePixelBudget')} type="number" value={draft.requestImagePixelBudget} onChange={(value) => update({ requestImagePixelBudget: value })} />
           <Field label={t('requestImageMaxBytes')} type="number" value={draft.requestImageMaxBytes} onChange={(value) => update({ requestImageMaxBytes: value })} />

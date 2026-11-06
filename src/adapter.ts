@@ -37,7 +37,7 @@ import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { endpointFor, isGoProvider } from './routing.ts'
 import { recordRequest as defaultRecordRequest, type RequestOutcome } from './request-log.ts'
 import { openCodeSessionId } from './session-id.ts'
-import { limitTools, MAX_TOOLS } from './tools.ts'
+import { limitToolsResult, MAX_TOOLS } from './tools.ts'
 import { buildAnthropicBody, parseAnthropicStream } from './transports/anthropic.ts'
 import { buildGoogleBody, parseGoogleStream } from './transports/google.ts'
 import { parseChatStream } from './transports/openai-chat.ts'
@@ -115,7 +115,7 @@ export class OpenCodeAdapter extends LlmAdapter {
 
   constructor(private readonly deps: OpenCodeAdapterDeps) {
     super()
-    this.fetchImpl = deps.fetchImpl ?? fetch
+    this.fetchImpl = deps.fetchImpl ?? ((input, init) => globalThis.fetch(input, init))
     this.cooldownPath = deps.cooldownPath ?? defaultCooldownPath()
     this.stickyPath = deps.stickyPath ?? defaultStickyPath()
     this.loadCooldowns()
@@ -290,12 +290,18 @@ export class OpenCodeAdapter extends LlmAdapter {
     }
     let bodyOptions: GenerateOptions = options
     if (options.tools !== undefined) {
-      const limited = limitTools(options.tools) ?? []
-      if (limited.length < options.tools.length && !this.warnedTools) {
+      const toolLimit = config.maxTools ?? MAX_TOOLS
+      const result = limitToolsResult(options.tools, toolLimit)
+      const limited = result?.tools ?? []
+      const dropped = result?.dropped ?? []
+      if (dropped.length > 0 && !this.warnedTools) {
         this.warnedTools = true
+        const sample = dropped.slice(0, 5).map((t) => t.name).join(', ')
+        const more = dropped.length > 5 ? ` and ${dropped.length - 5} more` : ''
         this.deps.warn?.(
-          `llm-opencode: provider accepts at most ${MAX_TOOLS} tools; `
-          + `${options.tools.length - limited.length} tool declaration(s) omitted`,
+          `llm-opencode: tool cap (${toolLimit}) exceeded; `
+          + `${dropped.length} tool(s) omitted: [${sample}${more}]. `
+          + `Core tools (file, shell, ops_*) prioritized. Configure maxTools to adjust.`,
         )
       }
       bodyOptions = { ...options, tools: limited }

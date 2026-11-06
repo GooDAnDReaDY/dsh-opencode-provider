@@ -12,6 +12,7 @@ export interface PublicConfig {
   streamIdleTimeoutMs: number
   requestPreparationTimeoutMs: number
   maxImages: number
+  maxTools: number
   maxRequestImageBytes: number
   requestImagePixelBudget: number
   requestImageMaxBytes: number
@@ -55,6 +56,7 @@ export function publicConfig(config: ResolvedConfig): PublicConfig {
     streamIdleTimeoutMs: config.streamIdleTimeoutMs,
     requestPreparationTimeoutMs: config.requestPreparationTimeoutMs,
     maxImages: config.maxImages,
+    maxTools: config.maxTools,
     maxRequestImageBytes: config.maxRequestImageBytes,
     requestImagePixelBudget: config.requestImagePixelBudget,
     requestImageMaxBytes: config.requestImageMaxBytes,

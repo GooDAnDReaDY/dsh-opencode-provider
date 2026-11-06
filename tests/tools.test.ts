@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 
-import { limitTools } from '../src/tools.ts'
+import { isCoreTool, limitTools, limitToolsResult } from '../src/tools.ts'
 
 function tool(name: string): ToolSchema {
   return {
@@ -39,4 +39,29 @@ test('keeps core tools when a large MCP set hits the cap', () => {
   const limited = limitTools(tools)
   assert.equal(limited?.length, 128)
   assert.equal(limited?.[0]?.name, 'read')
+})
+
+test('keeps ops_* and dsh_* tool families ahead of generic MCP tools at the cap', () => {
+  const tools = Array.from({ length: 150 }, (_, index) => tool(`mcp__rea__tool_${index}`))
+  const opsTools = [
+    tool('ops_bash'),
+    tool('ops_read_files'),
+    tool('ops_grep'),
+    tool('ops_glob'),
+  ]
+  tools.push(...opsTools)
+  const limited = limitTools(tools, 128)
+  assert.equal(limited?.length, 128)
+  const names = new Set(limited?.map((t) => t.name))
+  for (const op of opsTools) {
+    assert.equal(names.has(op.name), true, `Expected ${op.name} to be kept`)
+  }
+})
+
+test('supports custom maxTools cap and reports dropped tools in limitToolsResult', () => {
+  const tools = Array.from({ length: 300 }, (_, index) => tool(`tool_${index}`))
+  const result = limitToolsResult(tools, 200)
+  assert.equal(result?.tools.length, 200)
+  assert.equal(result?.dropped.length, 100)
+  assert.equal(result?.dropped[0]?.name, 'tool_200')
 })

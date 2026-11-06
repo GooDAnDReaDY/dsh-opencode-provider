@@ -17,6 +17,7 @@ export interface PublicConfig {
   streamIdleTimeoutMs: number
   requestPreparationTimeoutMs: number
   maxImages: number
+  maxTools: number
   maxRequestImageBytes: number
   requestImagePixelBudget: number
   requestImageMaxBytes: number
