@@ -152,6 +152,7 @@ export function apply(ctx: Context, config: Config): void {
       stickySession: () => current().stickySession,
       usageDisplay: () => current().usageDisplay,
       showSidebarQuota: () => current().showSidebarQuota,
+      showSwitchNotice: () => current().showSwitchNotice,
     })
   })
 

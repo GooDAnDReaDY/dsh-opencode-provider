@@ -43,6 +43,7 @@ export interface PublicConfig {
   activeAccount: string
   usageDisplay: UsageDisplay
   showSidebarQuota: boolean
+  showSwitchNotice: boolean
   userAgent: string
 }
 
@@ -153,6 +154,7 @@ export function fetchState(): Promise<HostState> {
 
 export interface RoutingNotices {
   events: RoutingTraceRow[]
+  enabled?: boolean
 }
 
 export function fetchNotices(): Promise<RoutingNotices> {

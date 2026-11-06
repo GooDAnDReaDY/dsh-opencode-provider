@@ -107,6 +107,7 @@ test('settings draft and patch keep client edits normalized', () => {
       activeAccount: '',
       usageDisplay: 'auto',
       showSidebarQuota: true,
+      showSwitchNotice: false,
       visibleModels: [],
       filterModelsByPlan: true,
       modelTransports: {},
@@ -446,7 +447,7 @@ test('default output ceiling is 65,536 tokens', () => {
 
 test('maps legacy sidebar quota to usage display modes', () => {
   assert.equal(resolved({ showSidebarQuota: true }).usageDisplay, 'always')
-  assert.equal(resolved({}).usageDisplay, 'auto')
+  assert.equal(resolved({}).usageDisplay, 'off')
   assert.equal(resolved({ showSidebarQuota: true, usageDisplay: 'off' }).usageDisplay, 'off')
   assert.equal(resolved({ showSidebarQuota: true, usageDisplay: 'auto' }).usageDisplay, 'auto')
 })

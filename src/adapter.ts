@@ -532,7 +532,8 @@ export class OpenCodeAdapter extends LlmAdapter {
         this.sticky.set(sessionId, { fingerprint, label, provider, model, at })
       }
       this.pruneSticky()
-    } catch {
+    } catch (error) {
+      void error
       // Missing or corrupt state is ignored; sticky routing is an optimization.
     }
   }
@@ -697,7 +698,8 @@ export class OpenCodeAdapter extends LlmAdapter {
         this.cooldowns.set(id, { until, reason })
       }
       this.pruneCooldowns()
-    } catch {
+    } catch (error) {
+      void error
       // Missing or corrupt state is ignored; cooldowns are an optimization.
     }
   }

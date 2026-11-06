@@ -65,7 +65,8 @@ async function resolveRef(
       if (hit !== undefined && hit.value.trim() !== '') {
         return { key: hit.value.trim(), source: hit.source ?? refName }
       }
-    } catch {
+    } catch (error) {
+      void error
       // An invalid reference name is a configuration problem, not a storage miss.
     }
   }

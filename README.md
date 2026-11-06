@@ -112,9 +112,10 @@ graph LR
 - **Request-wide image budget** (newest images win, oldest become an omitted placeholder) and **object-root tool-schema normalization** for MCP/third-party tools.
 - **Usage analytics dashboard** in the quota panel: KPI cards (requests, tokens, success, input/output, reasoning, cache, TTFT, latency, errors), a 7/30/90 selector, and Models / Days / Sessions tables. Success and error cards show `—`: the local projection does not expose failed attempts or reasoning tokens.
 - **Usage by model** from the local session projection cache: sessions and tokens per OpenCode model. Only numeric metadata is read; titles and message content stay local.
+- **On-screen indicators off by default**: All UI badges, buttons and ambient alerts (`usageDisplay` in sidebar footer, `showSwitchNotice` under composer) are initially disabled. Enable them in Settings → OpenCode.
 - **Browser UI**:
   - **Settings → OpenCode**: key status, paste/import/clear, quota bars, accounts, model allowlist, per-model transport overrides, connection settings.
-  - **Sidebar quota card** (`Auto` by default, shown when Go usage exists): a ring with the active account and the highest window, then 5-hour / weekly / monthly rows with remaining quota, reset countdown and bars; clicking opens the full quota panel in the center column. The panel scrolls internally, so the heatmap and usage table below the fold stay reachable.
+  - **Sidebar quota card** (`Off` by default; enable in Settings → OpenCode): a ring with the active account and the highest window, then 5-hour / weekly / monthly rows with remaining quota, reset countdown and bars; clicking opens the full quota panel in the center column. The panel scrolls internally, so the heatmap and usage table below the fold stay reachable.
   - **Cost** is shown only by DSH's native cost display; the plugin does not add a second composer pill.
   - Model price badges in the settings page; the OpenCode auth-entry field autocompletes from `auth.json`.
   - Host routes under `/dsh-opencode/*` serve state and accept writes with same-origin and JSON checks; loopback peers are trusted, and non-loopback profiles require an admin token. `GET /dsh-opencode/health` reports provider registration, accounts and model count.
@@ -133,12 +134,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.36.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.37.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.36.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.37.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.36
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.37
 ```
 
 Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.

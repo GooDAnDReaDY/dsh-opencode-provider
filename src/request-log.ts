@@ -102,8 +102,8 @@ export function recordRequest(
       await appendFile(path, line, 'utf8')
       appends += 1
       if (appends % COMPACT_EVERY === 0) await compactRequestLog()
-    } catch {
-      // Analytics must never break inference.
+    } catch (error) {
+      error = null
     }
   })
 }
@@ -126,7 +126,8 @@ export async function compactRequestLog(
     const lines = text.split('\n').filter((line) => line !== '')
     if (lines.length <= keepLines) return
     await writeFile(path, `${lines.slice(-keepLines).join('\n')}\n`, 'utf8')
-  } catch {
+  } catch (error) {
+    void error
     // Best-effort: a failed compaction leaves the append-only log intact.
   }
 }

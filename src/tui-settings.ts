@@ -58,6 +58,7 @@ export interface OpenCodeTuiSettingsDeps {
   readonly stickySession: () => boolean
   readonly usageDisplay: () => 'auto' | 'always' | 'off'
   readonly showSidebarQuota: () => boolean
+  readonly showSwitchNotice?: () => boolean
   /** Poll interval for settings changed from inside the terminal UI. */
   readonly refreshMs?: number
 }
@@ -215,6 +216,15 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         label: 'Show quota card in sidebar',
         hint: 'Card visibility updates on the next sidebar refresh.',
         format: (value) => String(value === undefined ? deps.showSidebarQuota() : value === true),
+        parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
+      },
+      {
+        path: ['showSwitchNotice'],
+        group: 'sidebar',
+        kind: 'boolean',
+        label: 'Show account switch notices',
+        hint: 'Show ambient notices under composer when switching accounts.',
+        format: (value) => String(value === undefined ? (deps.showSwitchNotice?.() ?? false) : value === true),
         parse: (text) => ({ kind: 'set', value: text.trim() === 'true' }),
       },
       {

@@ -8,7 +8,7 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.36'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.37'
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 65_536
@@ -119,6 +119,8 @@ export interface Config {
   usageDisplay?: UsageDisplay
   /** Legacy boolean; used only when `usageDisplay` is absent. */
   showSidebarQuota?: boolean
+  /** Ambient switch notices under the composer. */
+  showSwitchNotice?: boolean
   /** Product user agent sent to OpenCode. */
   userAgent?: string
 }
@@ -177,6 +179,7 @@ export const Config: z<Config> = z.object({
   activeAccount: markVolatile(z.string().default('')),
   usageDisplay: markVolatile(z.union(['auto', 'always', 'off'])),
   showSidebarQuota: markVolatile(z.boolean().default(false)),
+  showSwitchNotice: markVolatile(z.boolean().default(false)),
   userAgent: markVolatile(z.string().default(DEFAULT_USER_AGENT)),
 })
 
@@ -220,6 +223,7 @@ export interface ResolvedConfig {
   activeAccount: string
   usageDisplay: UsageDisplay
   showSidebarQuota: boolean
+  showSwitchNotice: boolean
   userAgent: string
 }
 
@@ -361,10 +365,11 @@ export function resolveConfig(config: Config): ResolvedConfig {
     autoSwitch: config.autoSwitch !== false,
     stickySession: config.stickySession !== false,
     activeAccount: typeof config.activeAccount === 'string' ? config.activeAccount : '',
-    usageDisplay: config.usageDisplay === 'always' || config.usageDisplay === 'off'
+    usageDisplay: config.usageDisplay === 'always' || config.usageDisplay === 'auto'
       ? config.usageDisplay
-      : config.usageDisplay === 'auto' ? 'auto' : config.showSidebarQuota === true ? 'always' : 'auto',
+      : config.usageDisplay === 'off' ? 'off' : config.showSidebarQuota === true ? 'always' : 'off',
     showSidebarQuota: config.showSidebarQuota === true,
+    showSwitchNotice: config.showSwitchNotice === true,
     userAgent: typeof config.userAgent === 'string' && config.userAgent !== '' ? config.userAgent : DEFAULT_USER_AGENT,
   }
 }

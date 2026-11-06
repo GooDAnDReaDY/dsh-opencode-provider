@@ -1,4 +1,4 @@
-import { timingSafeEqual } from 'node:crypto'
+import { createHash, timingSafeEqual } from 'node:crypto'
 
 interface AuthRequest {
   readonly headers: Record<string, string | string[] | undefined>
@@ -23,7 +23,8 @@ export function adminAllowed(request: AuthRequest, expected: string): boolean {
     : first(request.headers.authorization).startsWith('Bearer ')
       ? first(request.headers.authorization).slice(7).trim()
       : ''
-  const left = Buffer.from(expected)
-  const right = Buffer.from(provided)
-  return left.length === right.length && timingSafeEqual(left, right)
+  if (provided === '') return false
+  const left = createHash('sha256').update(expected).digest()
+  const right = createHash('sha256').update(provided).digest()
+  return timingSafeEqual(left, right)
 }

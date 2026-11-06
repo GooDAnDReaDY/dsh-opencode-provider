@@ -1007,6 +1007,17 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           </select>
         </label>
         <p className="oc-hint">{t('usageDisplayHint')}</p>
+        <label className="oc-field" style={{ marginTop: '8px' }}>
+          <span className="oc-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={draft.showSwitchNotice}
+              onChange={(event) => update({ showSwitchNotice: event.target.checked })}
+            />
+            {t('showSwitchNotice')}
+          </span>
+        </label>
+        <p className="oc-hint">{t('showSwitchNoticeHint')}</p>
       </section>
 
       <div className="oc-row">
