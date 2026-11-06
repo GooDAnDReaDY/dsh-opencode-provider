@@ -61,3 +61,22 @@ test('account normalization enforces the 20-slot cap', () => {
   }))
   assert.equal(cleanAccounts(accounts).length, 20)
 })
+
+test('createProxyFetch late-binds to globalThis.fetch dynamically when proxy is off', async () => {
+  const originalFetch = globalThis.fetch
+  let intercepted = false
+  try {
+    globalThis.fetch = (async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      intercepted = true
+      return new Response('{"ok":true}', { status: 200 })
+    }) as typeof fetch
+
+    const proxy = createProxyFetch(() => '')
+    const response = await proxy.fetch('https://opencode.ai/zen/go/v1/models')
+    assert.equal(intercepted, true)
+    assert.equal(response.status, 200)
+    await proxy.dispose()
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

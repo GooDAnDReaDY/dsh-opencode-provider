@@ -8,7 +8,8 @@ export const DEFAULT_GO_API_BASE = 'https://opencode.ai/inference/go'
 export const DEFAULT_GO_ZEN_BASE = 'https://opencode.ai/zen/go/v1'
 export const DEFAULT_USAGE_URL = 'https://opencode.ai/zen/go/v1/usage'
 export const DEFAULT_AUTH_ENTRY = 'opencode-go'
-export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.38'
+export const DEFAULT_USER_AGENT = 'dsh-opencode-provider/0.5.39'
+export const DEFAULT_MAX_TOOLS = 128
 export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 export const DEFAULT_GENERATE_MAX_TOKENS = 65_536
@@ -123,6 +124,8 @@ export interface Config {
   showSwitchNotice?: boolean
   /** Product user agent sent to OpenCode. */
   userAgent?: string
+  /** Maximum tool declarations sent per request (16–512); defaults to 128. */
+  maxTools?: number
 }
 
 function markVolatile<T>(schema: T): T {
@@ -181,6 +184,7 @@ export const Config: z<Config> = z.object({
   showSidebarQuota: markVolatile(z.boolean().default(false)),
   showSwitchNotice: markVolatile(z.boolean().default(false)),
   userAgent: markVolatile(z.string().default(DEFAULT_USER_AGENT)),
+  maxTools: markVolatile(z.number().min(16).max(512).default(DEFAULT_MAX_TOOLS)),
 })
 
 export interface ResolvedConfig {
@@ -225,6 +229,7 @@ export interface ResolvedConfig {
   showSidebarQuota: boolean
   showSwitchNotice: boolean
   userAgent: string
+  maxTools: number
 }
 
 /** Read each volatile field through its live reference, if the loader installed one. */
@@ -371,5 +376,8 @@ export function resolveConfig(config: Config): ResolvedConfig {
     showSidebarQuota: config.showSidebarQuota === true,
     showSwitchNotice: config.showSwitchNotice === true,
     userAgent: typeof config.userAgent === 'string' && config.userAgent !== '' ? config.userAgent : DEFAULT_USER_AGENT,
+    maxTools: typeof config.maxTools === 'number' && Number.isFinite(config.maxTools)
+      ? Math.max(16, Math.min(512, Math.trunc(config.maxTools)))
+      : DEFAULT_MAX_TOOLS,
   }
 }

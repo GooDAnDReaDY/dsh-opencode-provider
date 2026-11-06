@@ -12,6 +12,7 @@ export interface Draft {
   streamIdleTimeoutMs: string
   requestPreparationTimeoutMs: string
   maxImages: string
+  maxTools: string
   maxRequestImageBytes: string
   requestImagePixelBudget: string
   requestImageMaxBytes: string
@@ -54,6 +55,7 @@ export function draftOf(state: HostState): Draft {
     streamIdleTimeoutMs: String(state.config.streamIdleTimeoutMs),
     requestPreparationTimeoutMs: String(state.config.requestPreparationTimeoutMs),
     maxImages: String(state.config.maxImages),
+    maxTools: String(state.config.maxTools ?? 128),
     maxRequestImageBytes: String(state.config.maxRequestImageBytes),
     requestImagePixelBudget: String(state.config.requestImagePixelBudget),
     requestImageMaxBytes: String(state.config.requestImageMaxBytes),
@@ -119,6 +121,7 @@ export function patchOf(draft: Draft): Record<string, unknown> {
     streamIdleTimeoutMs: numberOrNull(draft.streamIdleTimeoutMs),
     requestPreparationTimeoutMs: numberOrNull(draft.requestPreparationTimeoutMs),
     maxImages: numberOrNull(draft.maxImages),
+    maxTools: numberOrNull(draft.maxTools),
     maxRequestImageBytes: numberOrNull(draft.maxRequestImageBytes),
     requestImagePixelBudget: numberOrNull(draft.requestImagePixelBudget),
     requestImageMaxBytes: numberOrNull(draft.requestImageMaxBytes),

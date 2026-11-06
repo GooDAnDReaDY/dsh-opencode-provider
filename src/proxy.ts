@@ -65,15 +65,17 @@ export interface ProxyFetch {
 export function createProxyFetch(
   address: () => string | Promise<string>,
   auth?: () => ProxyAuth | Promise<ProxyAuth>,
-  baseFetch: typeof fetch = fetch,
+  baseFetch?: typeof fetch,
 ): ProxyFetch {
+  const defaultFetch: typeof fetch = (input, init) => globalThis.fetch(input, init)
+  const resolvedBase = baseFetch ?? defaultFetch
   const agents = new Map<string, Dispatcher>()
   let disposed = false
 
   const wrapped = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     if (disposed) throw new Error('proxy transport is disposed')
     const bare = normalizeProxyUrl(await address())
-    if (bare === '') return baseFetch(input, init)
+    if (bare === '') return resolvedBase(input, init)
     const credentials = await auth?.()
     const proxy = credentials === undefined || credentials.username === ''
       ? bare
@@ -92,7 +94,7 @@ export function createProxyFetch(
         }
       }
     }
-    return baseFetch(input, { ...init, dispatcher: agent } as RequestInit)
+    return resolvedBase(input, { ...init, dispatcher: agent } as RequestInit)
   }) as typeof fetch
 
   return {

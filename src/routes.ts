@@ -199,6 +199,7 @@ function configOps(
   if ('streamIdleTimeoutMs' in patch) set('streamIdleTimeoutMs', patch.streamIdleTimeoutMs)
   if ('requestPreparationTimeoutMs' in patch) set('requestPreparationTimeoutMs', patch.requestPreparationTimeoutMs)
   if ('maxImages' in patch) set('maxImages', patch.maxImages)
+  if ('maxTools' in patch) set('maxTools', patch.maxTools)
   if ('maxRequestImageBytes' in patch) set('maxRequestImageBytes', patch.maxRequestImageBytes)
   if ('requestImagePixelBudget' in patch) set('requestImagePixelBudget', patch.requestImagePixelBudget)
   if ('requestImageMaxBytes' in patch) set('requestImageMaxBytes', patch.requestImageMaxBytes)
