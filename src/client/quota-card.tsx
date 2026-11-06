@@ -169,7 +169,7 @@ export function QuotaCard(props: {
   }, [state])
   if (state === null) return null
   const mode = state.config.usageDisplay
-    ?? (state.config.showSidebarQuota === true ? 'always' : 'auto')
+    ?? (state.config.showSidebarQuota === true ? 'always' : 'off')
   if (mode === 'off') return null
   if (mode === 'auto' && state.usage === null) return null
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.38 — prerelease peer range compatibility and audit cleanup
+
+- **Peer dependencies (#131)**: expanded `@deepseek-ai/*` peer dependencies range to `">=0.2.1-rc.2 <0.2.3-0 || >=0.2.2-0 <0.2.3-0"` to satisfy npm semver prerelease rules for intermediate `0.2.2-rc.1` devDependencies, clearing `preflight.sh` rule #13 and eliminating `pnpm peers check` warnings.
+- **Screen indicators fallback (#132)**: guaranteed `QuotaCard` mode fallback resolves strictly to `'off'` (`showSidebarQuota === true ? 'always' : 'off'`) when `state.config.usageDisplay` is omitted or undefined.
+- **Dead code and DRY cleanup (#133)**: connected `effectiveTransport` in `src/catalog.ts`, removed dead export `clearAnalyticsCache` from analytics, removed dead exports `hasAdminToken`/`clearAdminToken` from `src/client/admin-token.ts`, and eliminated empty catch block.
+- **Tests and verification**: 156 tests passing (+1 new suite), typecheck, client smoke, and 0 FAIL on `preflight.sh`.
+
 ## 0.5.37 — on-screen indicators off by default and token hardening
 
 - **Screen indicators (#128)**: all on-screen badges, indicators and notices are initially disabled by default. `usageDisplay` defaults to `'off'` (hidden from sidebar); `showSwitchNotice` (default: `false`) allows toggling composer switch notices in Settings → OpenCode.

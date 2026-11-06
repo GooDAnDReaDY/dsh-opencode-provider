@@ -503,3 +503,11 @@ test('error classification uses the body type, not the status alone', () => {
   const payment = classifyResponseError(402, '{}', new Headers())
   assert.equal(payment.code, 'QUOTA')
 })
+
+test('effectiveModel uses effectiveTransport to apply overrides', () => {
+  const config = resolveConfig({
+    modelTransports: { 'claude-haiku-5-5': 'anthropic' },
+  })
+  const model = effectiveModel('claude-haiku-5-5', config)
+  assert.equal(model.transport, 'anthropic')
+})

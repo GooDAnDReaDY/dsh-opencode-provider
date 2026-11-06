@@ -5,7 +5,7 @@ import {
   type ResolvedConfig,
 } from './config.ts'
 import { GENERATED_MODELS, type OpenCodeModelMeta, type OpenCodeTransport } from './models.generated.ts'
-import { isGoProvider, modelsUrlFor } from './routing.ts'
+import { effectiveTransport, isGoProvider, modelsUrlFor } from './routing.ts'
 import { describeLimitsShort, limitsFor } from './subscription-limits.ts'
 import { parseGatewayPricing, type Pricing } from './pricing.ts'
 
@@ -43,7 +43,7 @@ export function baseMeta(id: string): OpenCodeModelMeta {
 
 export function effectiveModel(id: string, config: ResolvedConfig): EffectiveModel {
   const meta = baseMeta(id)
-  const transport = config.modelTransports[id] ?? meta.transport
+  const transport = effectiveTransport('opencode', meta, config)
   const contextWindow = config.contextWindowOverrides[id] ?? config.contextWindow ?? meta.contextWindow
   return { ...meta, transport, contextWindow }
 }
