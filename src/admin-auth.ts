@@ -9,6 +9,18 @@ function first(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? ''
 }
 
+export function hasForwardedHeaders(request: AuthRequest): boolean {
+  const h = request.headers
+  return Boolean(
+    h['x-forwarded-for']
+    || h['x-real-ip']
+    || h['forwarded']
+    || h['via']
+    || h['x-forwarded-host']
+    || h['x-forwarded-proto'],
+  )
+}
+
 export function isLoopbackPeer(request: AuthRequest): boolean {
   const address = request.socket?.remoteAddress?.toLowerCase().replace(/^\[|\]$/g, '')
   return address === 'localhost' || address === 'localhost.' || address === '::1'
@@ -17,7 +29,10 @@ export function isLoopbackPeer(request: AuthRequest): boolean {
 }
 
 export function adminAllowed(request: AuthRequest, expected: string): boolean {
-  if (expected === '') return isLoopbackPeer(request)
+  if (expected === '') {
+    if (hasForwardedHeaders(request)) return false
+    return isLoopbackPeer(request)
+  }
   const provided = first(request.headers['x-opencode-token']) !== ''
     ? first(request.headers['x-opencode-token'])
     : first(request.headers.authorization).startsWith('Bearer ')

@@ -48,3 +48,50 @@ test('reports every missing production entry point', () => {
   assert.match(result.errors.join('\n'), /missing package\/lib\/index\.js/)
   assert.match(result.errors.join('\n'), /missing package\/lib\/client\.js/)
 })
+
+
+test('rejects candidate when declared release contradicts engines.dsh range', () => {
+  const result = validateManifest(
+    manifest({
+      engines: { node: '>=22', dsh: '>=99.0.0' },
+      dsh: { compatibility: { dshReleases: { '0.2.2-rc.1': 'compatible' } } },
+    }),
+    files,
+  )
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join('\n'), /declared release 0.2.2-rc.1 does not satisfy engines.dsh range/)
+})
+
+test('rejects candidate with invalid semver in engines.dsh or releases', () => {
+  const invalidRange = validateManifest(
+    manifest({
+      engines: { node: '>=22', dsh: 'completely-invalid-range' },
+    }),
+    files,
+  )
+  assert.equal(invalidRange.ok, false)
+  assert.match(invalidRange.errors.join('\n'), /invalid engines.dsh semver range/)
+
+  const invalidVersion = validateManifest(
+    manifest({
+      dsh: { compatibility: { dshReleases: { 'not-a-semver': 'compatible' } } },
+    }),
+    files,
+  )
+  assert.equal(invalidVersion.ok, false)
+  assert.match(invalidVersion.errors.join('\n'), /invalid semver version in dshReleases/)
+})
+
+test('rejects candidate when declared release contradicts peerDependency range', () => {
+  const result = validateManifest(
+    manifest({
+      peerDependencies: {
+        '@deepseek-ai/dsh-commands': '>=1.0.0',
+      },
+      dsh: { compatibility: { dshReleases: { '0.2.2-rc.1': 'compatible' } } },
+    }),
+    files,
+  )
+  assert.equal(result.ok, false)
+  assert.match(result.errors.join('\n'), /does not satisfy peerDependency range for @deepseek-ai\/dsh-commands/)
+})

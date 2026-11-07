@@ -127,12 +127,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.39.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.40.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.39.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.40.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.39
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.40
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。
@@ -197,7 +197,7 @@ modelAccountRules:
 - **按模型覆盖**：上下文、输出上限、传输；`0` 表示不发送输出上限。
 - **分析与热力图**：请求、令牌、TTFT、延迟、模型/日期/会话及星期×小时网格；只读取本地数值元数据。
 - **配额模式** Auto/Always/Off、粘性路由、`autoSwitch`、账户切换提示与更新卡片。
-- **Admin token** 用于 LAN/Web profile；**AUDIT.md** 记录依赖与部署残余风险。
+- **Admin token** 用于 LAN/Web profile；通过代理且未配置 token 的请求将被拦截 (401 fail-closed)。
 
 ## 安全规范
 

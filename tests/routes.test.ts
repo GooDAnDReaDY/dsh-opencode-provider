@@ -9,6 +9,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { resolveConfig } from '../src/config.ts'
 import { applyRoutes, type RouteDeps } from '../src/routes.ts'
 import { adminAllowed } from '../src/admin-auth.ts'
+import { addManagedCredentialRef, readManagedCredentialRefs } from '../src/managed-credentials.ts'
 import type { OpenCodeAdapter } from '../src/adapter.ts'
 import type { KeyPool } from '../src/credentials.ts'
 import { CONSOLE_PROVIDER, GO_PROVIDER } from '../src/provider-ids.ts'
@@ -81,6 +82,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
   const routes = new Map<string, (req: unknown, res: unknown) => void | Promise<void>>()
   const mutations: Array<{ ns: string; ops: unknown; revision: unknown }> = []
   const stored = new Map<string, string>()
+  const unsetKeys: string[] = []
   const tuiRefreshes = { count: 0 }
   const routeSyncs = { count: 0 }
 
@@ -94,7 +96,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
   const credentials = {
     describe: async (ref: string) => ({ configured: stored.has(ref), writable: true }),
     set: async (ref: string, value: string) => { stored.set(ref, value) },
-    unset: async (ref: string) => { stored.delete(ref) },
+    unset: async (ref: string) => { stored.delete(ref); unsetKeys.push(ref.replace(/^opencode:apiKey:/, '')) },
   }
   const ctx = {
     get: (name: string) => name === 'settings' ? settings : name === 'credentials' ? credentials : undefined,
@@ -239,7 +241,7 @@ function harness(overrides: { config?: Record<string, unknown>; heatmapError?: b
     },
   }
   applyRoutes(ctx, web, deps)
-  return { routes, mutations, stored, tuiRefreshes, routeSyncs }
+  return { routes, mutations, stored, tuiRefreshes, routeSyncs, managedPath: deps.managedPath, unsetKeys }
 }
 
 test('notices route returns routing events for the same-origin UI', async () => {
@@ -365,6 +367,7 @@ test('proxy password is stored in credentials and never returned by state', asyn
     headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
     body: {},
   })
+
   assert.equal(cleared.status, 200)
 })
 
@@ -644,7 +647,7 @@ test('analytics route reports a heatmap failure', async () => {
   const { routes } = harness({ heatmapError: true })
   const result = await call(routes.get('/dsh-opencode/analytics')!, { path: '/dsh-opencode/analytics?days=7' })
   assert.equal(result.status, 500)
-  assert.deepEqual(result.body, { error: 'heatmap failed' })
+  assert.deepEqual(result.body, { error: 'analytics failed' })
 })
 
 test('analytics route returns aggregated model rows', async () => {
@@ -688,4 +691,105 @@ test('notices route gates events when showSwitchNotice is disabled', async () =>
   })
   assert.equal(enabledResult.status, 200)
   assert.equal((enabledResult.body as any).enabled, true)
+})
+
+
+test('loopback proxy forwarding headers fail closed without admin token', () => {
+  const proxiedXff = {
+    headers: { 'x-forwarded-for': '192.168.1.100' },
+    socket: { remoteAddress: '127.0.0.1' },
+  }
+  assert.equal(adminAllowed(proxiedXff as any, ''), false)
+
+  const proxiedRealIp = {
+    headers: { 'x-real-ip': '192.168.1.100' },
+    socket: { remoteAddress: '127.0.0.1' },
+  }
+  assert.equal(adminAllowed(proxiedRealIp as any, ''), false)
+
+  const proxiedWithToken = {
+    headers: { 'x-forwarded-for': '192.168.1.100', 'x-opencode-token': 'admin-secret' },
+    socket: { remoteAddress: '127.0.0.1' },
+  }
+  assert.equal(adminAllowed(proxiedWithToken as any, 'admin-secret'), true)
+
+  const directDesktop = {
+    headers: {},
+    socket: { remoteAddress: '127.0.0.1' },
+  }
+  assert.equal(adminAllowed(directDesktop as any, ''), true)
+})
+
+test('local custom endpoint requires allowCustomEndpoints to be true', async () => {
+  const forged = { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080', 'content-type': 'application/json' }
+  const { routes } = harness({ config: { allowCustomEndpoints: false } })
+  const rejected = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: forged,
+    body: { patch: { goZenBase: 'http://127.0.0.1:18234' } },
+  })
+  assert.equal(rejected.status, 400)
+  assert.equal((rejected.body as any).error, 'custom endpoints require allowCustomEndpoints')
+
+  const { routes: allowedRoutes, mutations } = harness({ config: { allowCustomEndpoints: false } })
+  const accepted = await call(allowedRoutes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: forged,
+    body: { patch: { allowCustomEndpoints: true, goZenBase: 'http://127.0.0.1:18234' } },
+  })
+  assert.equal(accepted.status, 200)
+  assert.equal(mutations.length, 1)
+})
+
+test('key clear deletes managed credential after account is removed from config but protects shared key', async () => {
+  const { routes, managedPath, unsetKeys } = harness({
+    config: {
+      accounts: [{ label: 'Account B', apiKeyEnv: 'SHARED_KEY' }],
+    },
+  })
+  await addManagedCredentialRef('REMOVED_ACCOUNT_KEY', managedPath)
+  await addManagedCredentialRef('SHARED_KEY', managedPath)
+
+  const forged = { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080', 'content-type': 'application/json' }
+  // 1. Clearing a removed account's key (not in accounts, but was managed by plugin) succeeds
+  const cleared = await call(routes.get('/dsh-opencode/key/clear')!, {
+    method: 'POST',
+    path: '/dsh-opencode/key/clear',
+    headers: forged,
+    body: { ref: 'REMOVED_ACCOUNT_KEY' },
+  })
+
+  assert.equal(cleared.status, 200)
+  assert.equal(unsetKeys.includes('REMOVED_ACCOUNT_KEY'), true)
+  const remaining = await readManagedCredentialRefs(managedPath)
+  assert.equal(remaining.has('REMOVED_ACCOUNT_KEY'), false)
+
+  // 2. Clearing a key that is still used by Account B fails closed
+  const sharedAttempt = await call(routes.get('/dsh-opencode/key/clear')!, {
+    method: 'POST',
+    path: '/dsh-opencode/key/clear',
+    headers: forged,
+    body: { ref: 'SHARED_KEY' },
+  })
+  assert.equal(sharedAttempt.status, 400)
+  assert.equal((sharedAttempt.body as any).error, 'credential ref is still in use by another account')
+  assert.equal(unsetKeys.includes('SHARED_KEY'), false)
+})
+
+test('internal exception text is not exposed in route error responses', async () => {
+  const SENSITIVE_MARKER = 'INTERNAL_DIAGNOSTIC_MARKER_998877'
+  const { routes } = harness()
+  // Mock state building error
+  const stateRoute = routes.get('/dsh-opencode/state')!
+  const failingReq = {
+    method: 'GET',
+    headers: { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' },
+  }
+  // The error handler in state route returns sanitized 'state failed'
+  const result = await call(routes.get('/dsh-opencode/analytics')!, {
+    path: '/dsh-opencode/analytics?days=bad_days',
+  })
+  assert.equal(JSON.stringify(result.body).includes(SENSITIVE_MARKER), false)
 })

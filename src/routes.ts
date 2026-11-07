@@ -173,7 +173,7 @@ function validateEndpoint(value: unknown, allowCustom: boolean): string {
     throw new HttpError(400, 'endpoint must use https://')
   }
   const opencode = url.hostname === 'opencode.ai' || url.hostname.endsWith('.opencode.ai')
-  if (!allowCustom && !opencode && !local) {
+  if (!allowCustom && !opencode) {
     throw new HttpError(400, 'custom endpoints require allowCustomEndpoints')
   }
   return url.href
@@ -398,7 +398,7 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     service: {
       ...(usage?.checkedAt === undefined ? {} : { usageCheckedAt: usage.checkedAt }),
       ...(usage?.latencyMs === undefined ? {} : { usageLatencyMs: usage.latencyMs }),
-      ...(usage?.error === undefined ? {} : { usageError: usage.error }),
+      ...(usage?.error === undefined ? {} : { usageError: 'usage unavailable' }),
       ...(usage?.stale === true ? { usageStale: true } : {}),
     },
     routing: deps.adapter.routingTrace(),
@@ -445,7 +445,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     try {
       json(res, 200, await buildState(ctx, deps))
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'state failed' })
+      fail(res, error, 'state failed')
     }
   })
 
@@ -492,7 +492,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         models: models.length,
       })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'health failed' })
+      fail(res, error, 'health failed')
     }
   })
 
@@ -519,7 +519,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const heatmap = deps.heatmap === undefined ? undefined : await deps.heatmap(days)
       json(res, 200, heatmap === undefined ? report : { ...report, heatmap })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'analytics failed' })
+      fail(res, error, 'analytics failed')
     }
   })
 
@@ -604,8 +604,22 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const refName = typeof body.ref === 'string' && body.ref.trim() !== ''
         ? body.ref.trim()
         : deps.config().apiKeyEnv
-      if (!ownedCredentialRefs(deps.config()).has(refName)) {
+      const managed = await readManagedCredentialRefs(deps.managedPath)
+      const owned = ownedCredentialRefs(deps.config())
+      if (!owned.has(refName) && !managed.has(refName)) {
         json(res, 400, { error: 'credential ref is not owned by this plugin' })
+        return
+      }
+      const currentConfig = deps.config()
+      const stillUsed = new Set([
+        currentConfig.apiKeyEnv,
+        currentConfig.proxyPasswordRef,
+        ...currentConfig.accounts
+          .map((account) => typeof account.apiKeyEnv === 'string' ? account.apiKeyEnv.trim() : '')
+          .filter((ref) => ref !== ''),
+      ])
+      if (body.ref !== undefined && stillUsed.has(refName)) {
+        json(res, 400, { error: 'credential ref is still in use by another account' })
         return
       }
       await credentials.unset(credentialRef(refName))
@@ -694,7 +708,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     try {
       json(res, 200, await buildState(ctx, deps))
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'refresh failed' })
+      fail(res, error, 'refresh failed')
     }
   })
 
@@ -720,7 +734,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         ...(result?.error === undefined ? {} : { error: result.error }),
       })
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'account check failed' })
+      fail(res, error, 'account check failed')
     }
   })
 
@@ -730,7 +744,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     try {
       json(res, 200, await buildState(ctx, deps))
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : 'catalog refresh failed' })
+      fail(res, error, 'catalog refresh failed')
     }
   })
 
@@ -776,9 +790,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         model,
         provider,
         latencyMs: Date.now() - started,
-        error: controller.signal.aborted
-          ? 'timeout'
-          : error instanceof Error ? error.message : 'test failed',
+        error: controller.signal.aborted ? 'timeout' : 'test failed',
       })
     } finally {
       clearTimeout(timer)

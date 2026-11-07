@@ -38,13 +38,18 @@ function limitsOf(policy: ImagePolicy | undefined): Required<ImagePolicy> {
 export interface SelectedRequestImages {
   readonly kept: readonly ImageAttachmentRef[]
   readonly dropped: readonly ImageAttachmentRef[]
+  readonly allowedOccurrences?: ReadonlyMap<string, number>
 }
 
-/**
- * Keep the newest images under one request-wide budget. The oldest images are
- * dropped first; the transports render them as an "image omitted" placeholder
- * instead of failing the whole request.
- */
+export function normalizedEncodedBytes(ref: ImageAttachmentRef, policy?: ImagePolicy): number {
+  const targetBytes = policy?.requestImageMaxBytes
+  const raw = ref.bytes > 0 ? ref.bytes : 0
+  const effective = targetBytes !== undefined && targetBytes > 0
+    ? Math.min(raw, targetBytes)
+    : raw
+  return Math.ceil(effective * 4 / 3)
+}
+
 export function selectRequestImages(
   refs: readonly ImageAttachmentRef[],
   occurrences?: ReadonlyMap<string, number>,
@@ -62,6 +67,7 @@ export function selectRequestImages(
   const countOf = (ref: ImageAttachmentRef): number =>
     Math.max(1, occurrences?.get(ref.attachmentId) ?? 1)
   const encoded = (bytes: number): number => Math.ceil(Math.max(0, bytes) * 4 / 3)
+
   let start = 0
   let totalImages = unique.reduce((sum, ref) => sum + countOf(ref), 0)
   let bytes = unique.reduce((sum, ref) => sum + encoded(ref.bytes) * countOf(ref), 0)
@@ -76,14 +82,70 @@ export function selectRequestImages(
     start += 1
   }
 
-  const kept = unique.slice(start)
-  // The normalized per-image target keeps a single image small; if a malformed
-  // reference still exceeds the budget, keep the newest one rather than sending
-  // no image at all.
-  if (kept.length === 0 && unique.length > 0) {
-    return { kept: unique.slice(-1), dropped: unique.slice(0, -1) }
+  const keptList = unique.slice(start)
+  let kept: ImageAttachmentRef[]
+  let dropped: ImageAttachmentRef[]
+
+  if (keptList.length === 0 && unique.length > 0) {
+    kept = unique.slice(-1)
+    dropped = unique.slice(0, -1)
+  } else {
+    kept = keptList
+    dropped = unique.slice(0, start)
   }
-  return { kept, dropped: unique.slice(0, start) }
+
+  const allowed = new Map<string, number>()
+  for (const ref of dropped) {
+    allowed.set(ref.attachmentId, 0)
+  }
+  let remainingSlots = limits.maxImages
+  let remainingBytes = limits.maxRequestImageBytes
+  for (let i = kept.length - 1; i >= 0; i--) {
+    const ref = kept[i]!
+    const count = countOf(ref)
+    const cost = normalizedEncodedBytes(ref, policy)
+    const maxByCount = Math.min(count, remainingSlots)
+    const maxByBytes = cost > 0 ? Math.floor(remainingBytes / cost) : count
+    const isIndividuallyOversized = policy?.maxRequestImageBytes !== undefined && cost > limits.maxRequestImageBytes
+    const maxAllowed = isIndividuallyOversized ? 0 : Math.max(1, Math.min(maxByCount, maxByBytes))
+    const finalAllowed = Math.min(count, Math.min(limits.maxImages, maxAllowed))
+    allowed.set(ref.attachmentId, finalAllowed)
+    remainingSlots = Math.max(0, remainingSlots - finalAllowed)
+    remainingBytes = Math.max(0, remainingBytes - finalAllowed * cost)
+  }
+
+  return { kept, dropped, allowedOccurrences: allowed }
+}
+
+export function applyImageBudget(
+  options: GenerateOptions,
+  selected: SelectedRequestImages,
+): GenerateOptions {
+  if (selected.allowedOccurrences === undefined) return options
+  const remaining = new Map(selected.allowedOccurrences)
+
+  const clonedMessages = options.messages.map((message) => ({
+    ...message,
+    content: [...message.content],
+  }))
+
+  for (let m = clonedMessages.length - 1; m >= 0; m--) {
+    const msg = clonedMessages[m]!
+    for (let b = msg.content.length - 1; b >= 0; b--) {
+      const block = msg.content[b]!
+      if (block.type === 'image' && block.offloaded !== true) {
+        const id = block.attachment.attachmentId
+        const allowed = remaining.get(id) ?? 0
+        if (allowed > 0) {
+          remaining.set(id, allowed - 1)
+        } else {
+          msg.content[b] = { ...block, offloaded: true }
+        }
+      }
+    }
+  }
+
+  return { ...options, messages: clonedMessages }
 }
 
 function targetOf(ref: ImageAttachmentRef, policy?: ImagePolicy): { width: number; height: number; maxBytes: number } {
@@ -100,17 +162,20 @@ function targetOf(ref: ImageAttachmentRef, policy?: ImagePolicy): { width: numbe
 }
 
 export function hasImages(options: GenerateOptions): boolean {
-  return options.messages.some((message) =>
-    message.content.some((block) => block.type === 'image' && block.offloaded !== true))
+  for (const message of options.messages) {
+    for (const block of message.content) {
+      if (block.type === 'image' && block.offloaded !== true) return true
+    }
+  }
+  return false
 }
 
-/** Decode the distinct request images that fit the request-wide budget. */
 export async function resolveImages(
   options: GenerateOptions,
   store: AttachmentStore,
   signal: AbortSignal | undefined,
   policy?: ImagePolicy,
-): Promise<ImageMap> {
+): Promise<{ images: ImageMap; bodyOptions: GenerateOptions }> {
   const refs: ImageAttachmentRef[] = []
   const counts = new Map<string, number>()
   const seen = new Set<string>()
@@ -125,8 +190,12 @@ export async function resolveImages(
     }
   }
 
+  const selected = selectRequestImages(refs, counts, policy)
+  const bodyOptions = applyImageBudget(options, selected)
+
   const images = new Map<string, ResolvedImage>()
-  for (const ref of selectRequestImages(refs, counts, policy).kept) {
+  for (const ref of selected.kept) {
+    if ((selected.allowedOccurrences?.get(ref.attachmentId) ?? 1) <= 0) continue
     const request = await store.readImageRequest(ref, targetOf(ref, policy), signal)
     const base64 = Buffer.from(request.data).toString('base64')
     images.set(ref.attachmentId, {
@@ -137,7 +206,7 @@ export async function resolveImages(
       height: request.height,
     })
   }
-  return images
+  return { images, bodyOptions }
 }
 
 export function offloadPlaceholder(ref: ImageAttachmentRef): string {

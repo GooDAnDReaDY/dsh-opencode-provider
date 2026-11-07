@@ -5,7 +5,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { apply } from '../src/index.ts'
 import type { HostState } from '../src/client/api.ts'
 import { authRefForEntry } from '../src/client/auth-ref.ts'
-import { draftOf, patchOf, safeSame } from '../src/client/settings-draft.ts'
+import { draftOf, mergeDraft, patchOf, safeSame } from '../src/client/settings-draft.ts'
 import { effectiveModel, effectiveMaxTokens, describeModel } from '../src/catalog.ts'
 import { resolveConfig, type Config } from '../src/config.ts'
 import { classifyResponseError } from '../src/errors.ts'
@@ -510,4 +510,38 @@ test('effectiveModel uses effectiveTransport to apply overrides', () => {
   })
   const model = effectiveModel('claude-haiku-5-5', config)
   assert.equal(model.transport, 'anthropic')
+})
+
+
+test('mergeDraft incorporates non-conflicting remote changes and preserves local edits', () => {
+  const baseState: any = {
+    revision: 1,
+    config: resolveConfig({}),
+    models: [{ id: 'model-a' }],
+  }
+  const base = draftOf(baseState)
+  const local = { ...base, maxTools: '256' }
+  const remote = { ...base, revision: 2, showSidebarQuota: true }
+
+  const { merged, conflicts } = mergeDraft(base, local, remote)
+  assert.deepEqual(conflicts, [])
+  assert.equal(merged.revision, 2)
+  assert.equal(merged.maxTools, '256')
+  assert.equal(merged.showSidebarQuota, true)
+})
+
+test('mergeDraft detects conflicting edits on the same field without advancing revision', () => {
+  const baseState: any = {
+    revision: 1,
+    config: resolveConfig({}),
+    models: [{ id: 'model-a' }],
+  }
+  const base = draftOf(baseState)
+  const local = { ...base, maxTools: '200' }
+  const remote = { ...base, revision: 2, maxTools: '300' }
+
+  const { merged, conflicts } = mergeDraft(base, local, remote)
+  assert.deepEqual(conflicts, ['maxTools'])
+  assert.equal(merged.revision, 1) // Does NOT advance revision
+  assert.equal(merged.maxTools, '200') // Retains local edit
 })

@@ -1,6 +1,10 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.39 — current release
+## 0.5.40 — current release
+
+- Full audit remediation (#139–#148): Node 22 timeout fix, proxy header auth fail-closed, CAS settings draft 3-way merge, credential deletion & shared-ref guard, image budget & byte limits across all transports, atomic credential registry lock, package sanitization, strict custom endpoint opt-in, API error sanitization, DSH semver engine matrix validation.
+
+## 0.5.39 — previous release
 
 - Empty numeric settings unset the field rather than silently writing hardcoded defaults. Final release artifact for the audit remediation set.
 
