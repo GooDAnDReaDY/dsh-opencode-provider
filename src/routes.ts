@@ -61,10 +61,21 @@ function json(res: ServerResponse, status: number, value: unknown): void {
 }
 
 function allowedOrigin(req: IncomingMessage): boolean {
-  const origin = req.headers.origin
-  if (origin === undefined || origin === '') return true
+  const site = req.headers['sec-fetch-site']
+  if (site !== undefined && site !== 'same-origin' && site !== 'none') {
+    return false
+  }
   const host = req.headers.host
-  return host !== undefined && sameOrigin(host, origin)
+  if (host === undefined || host === '') return false
+  const origin = req.headers.origin
+  if (origin !== undefined && origin !== '' && !sameOrigin(host, origin)) {
+    return false
+  }
+  const referer = req.headers.referer
+  if (referer !== undefined && referer !== '' && !sameOrigin(host, referer)) {
+    return false
+  }
+  return true
 }
 
 /**
@@ -509,7 +520,9 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       json(res, 403, { error: 'cross-origin request refused' })
       return
     }
-    const url = new URL(req.url ?? '/', 'http://localhost')
+    const rawUrl = req.url ?? '/'
+    const safePath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`
+    const url = new URL(safePath, 'http://127.0.0.1')
     const requested = Number(url.searchParams.get('days') ?? '30')
     const days = Number.isFinite(requested) ? Math.max(1, Math.min(365, Math.trunc(requested))) : 30
     try {
@@ -618,7 +631,11 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
           .map((account) => typeof account.apiKeyEnv === 'string' ? account.apiKeyEnv.trim() : '')
           .filter((ref) => ref !== ''),
       ])
-      if (body.ref !== undefined && stillUsed.has(refName)) {
+      const auxiliaryUsing = currentConfig.accounts
+        .map((account) => typeof account.apiKeyEnv === 'string' ? account.apiKeyEnv.trim() : '')
+        .filter((ref) => ref !== '')
+      const isSharedWithAuxiliary = auxiliaryUsing.includes(refName) || currentConfig.proxyPasswordRef === refName
+      if (body.ref !== undefined ? stillUsed.has(refName) : isSharedWithAuxiliary) {
         json(res, 400, { error: 'credential ref is still in use by another account' })
         return
       }

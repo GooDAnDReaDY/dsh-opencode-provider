@@ -74,31 +74,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [dragFrom, setDragFrom] = useState<number | null>(null)
   const [pendingCleanup, setPendingCleanup] = useState<string[]>([])
 
-  const load = useCallback(async (): Promise<void> => {
-    setLoading(true)
-    try {
-      const next = await fetchState()
-      setState(next)
-      setDraft((current) => current ?? draftOf(next))
-      setTestModel((current) => next.models.some((model) => model.id === current)
-        ? current
-        : next.models[0]?.id ?? current)
-      setError(null)
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => { void load() }, [load])
-
-  const update = (next: Partial<Draft>): void => {
-    setDraft((current) => current === null ? current : { ...current, ...next })
-    setNotice(null)
-  }
-
-  const adoptState = (next: HostState): void => {
+  const adoptState = useCallback((next: HostState): void => {
     setState(next)
     setDraft((current) => {
       if (current === null || state === null || safeSame(current, draftOf(state))) return draftOf(next)
@@ -110,6 +86,29 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
       }
       return merged
     })
+  }, [state, t])
+
+  const load = useCallback(async (): Promise<void> => {
+    setLoading(true)
+    try {
+      const next = await fetchState()
+      adoptState(next)
+      setTestModel((current) => next.models.some((model) => model.id === current)
+        ? current
+        : next.models[0]?.id ?? current)
+      setError(null)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setLoading(false)
+    }
+  }, [adoptState])
+
+  useEffect(() => { void load() }, [load])
+
+  const update = (next: Partial<Draft>): void => {
+    setDraft((current) => current === null ? current : { ...current, ...next })
+    setNotice(null)
   }
 
   const save = async (): Promise<void> => {

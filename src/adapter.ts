@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 
@@ -79,6 +79,14 @@ export interface OpenCodeAdapterDeps {
   readonly stickyPath?: string
   /** Receives a one-time warning when the provider tool limit drops tools. */
   readonly warn?: (message: string) => void
+}
+
+async function atomicWriteFile(path: string, content: string): Promise<void> {
+  const dir = dirname(path)
+  await mkdir(dir, { recursive: true })
+  const tmp = `${path}.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}.tmp`
+  await writeFile(tmp, content, 'utf8')
+  await rename(tmp, path)
 }
 
 function defaultCooldownPath(): string {
@@ -566,8 +574,7 @@ export class OpenCodeAdapter extends LlmAdapter {
     })
     this.stickyWrites = this.stickyWrites
       .then(async () => {
-        await mkdir(dirname(this.stickyPath), { recursive: true })
-        await writeFile(this.stickyPath, payload, 'utf8')
+        await atomicWriteFile(this.stickyPath, payload)
       })
       .catch(() => {})
   }
@@ -728,8 +735,7 @@ export class OpenCodeAdapter extends LlmAdapter {
     const payload = JSON.stringify({ cooldowns: Object.fromEntries(this.cooldowns) })
     this.cooldownWrites = this.cooldownWrites
       .then(async () => {
-        await mkdir(dirname(this.cooldownPath), { recursive: true })
-        await writeFile(this.cooldownPath, payload, 'utf8')
+        await atomicWriteFile(this.cooldownPath, payload)
       })
       .catch(() => {})
   }

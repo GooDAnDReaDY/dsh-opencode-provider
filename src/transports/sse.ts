@@ -1,5 +1,7 @@
 import { LlmError } from '@deepseek-ai/dsh-llm'
 
+export const MAX_SSE_EVENT_BYTES = 4 * 1024 * 1024
+
 async function readWithIdleTimeout(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   idleTimeoutMs: number,
@@ -61,6 +63,9 @@ export async function* sseData(
         break
       }
       buffer = appendDecoded(buffer, decoder.decode(result.value, { stream: true }))
+      if (buffer.length > MAX_SSE_EVENT_BYTES) {
+        throw new LlmError(`OpenCode stream event exceeded buffer limit (${MAX_SSE_EVENT_BYTES} bytes)`, 'TRANSPORT')
+      }
       for (;;) {
         const boundary = buffer.indexOf('\n\n')
         if (boundary < 0) break
@@ -107,6 +112,9 @@ export async function* sseEvents(
         break
       }
       buffer = appendDecoded(buffer, decoder.decode(result.value, { stream: true }))
+      if (buffer.length > MAX_SSE_EVENT_BYTES) {
+        throw new LlmError(`OpenCode stream event exceeded buffer limit (${MAX_SSE_EVENT_BYTES} bytes)`, 'TRANSPORT')
+      }
       for (;;) {
         const boundary = buffer.indexOf('\n\n')
         if (boundary < 0) break

@@ -112,3 +112,24 @@ test('records requests and builds a local weekday/hour heatmap', async () => {
     await rm(home, { recursive: true, force: true })
   }
 })
+
+test('compactRequestLog atomically compacts lines and keeps newest intact', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'dsh-opencode-compact-'))
+  const previous = process.env.DSH_HOME
+  process.env.DSH_HOME = home
+  try {
+    for (let i = 0; i < 20; i++) {
+      recordRequest('opencode-go', 'm', Date.now() + i * 1000, undefined, 'default')
+    }
+    await flushRequestLog()
+    // Force compact with small maxBytes to trigger rewrite
+    await compactRequestLog(10, 5)
+    const content = await readFile(requestLogPath(), 'utf8')
+    const lines = content.trim().split('\n')
+    assert.equal(lines.length, 5)
+  } finally {
+    if (previous === undefined) delete process.env.DSH_HOME
+    else process.env.DSH_HOME = previous
+    await rm(home, { recursive: true, force: true })
+  }
+})
