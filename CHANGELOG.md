@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.40 — audit remediation: proxy auth, CAS draft merge, credential cleanup, image budgets, atomic storage, and engine matrix (#139–#148)
+
+- **Test timeout resolution (#139)**: removed premature timer unreferencing during in-flight image preparation and fetch operations, ensuring deterministic test completion across Node 22 and Node 24 without early event loop termination.
+- **Proxy header rejection (#140)**: blocked loopback bypass via forwarded headers (`x-forwarded-for`, `x-real-ip`, `forwarded`, `via`, `x-forwarded-host`, `x-forwarded-proto`) when unauthenticated, failing closed on reverse proxy requests without an admin token.
+- **Three-way settings draft merge (#141)**: implemented CAS/3-way draft merge (`mergeDraft`) to prevent overwriting concurrent configuration updates on page refresh while preserving active local edits and flagging conflicting fields.
+- **Credential cleanup on account deletion (#142)**: ensured managed and owned credential references are cleaned up from storage upon account removal when no longer referenced by other accounts.
+- **Image budget enforcement (#143)**: strictly enforced image limits across repeated attachments and oversized payloads (`policy.requestImageMaxBytes` and `maxImages`), gracefully omitting excess images with explicit omission markers across all transports.
+- **Atomic credential registry writes (#144)**: protected managed credential storage against race conditions and corruption using per-path file locks, atomic temp-file replacement, and corrupt-state error handling.
+- **Package hygiene (#145)**: stripped internal audit documentation (`AUDIT.md`) and stale report artifacts from public npm distribution package.
+- **Strict custom endpoint validation (#146)**: required explicit `allowCustomEndpoints` opt-in for all custom endpoints, including local loopback/private network addresses.
+- **API error sanitization (#147)**: sanitized administrative and telemetry API routes to mask internal exception traces and return standardized error messages.
+- **DSH engine compatibility matrix (#148)**: enforced semantic version range validation against DSH engine releases and peer dependencies with prerelease-aware matching.
+- **Tests and verification**: 172 tests passing (+13 new tests across 5 suites), Node 22 & Node 24 verified, client bundle within budget (163 kB <= 262 kB), and clean preflight.
+
 ## 0.5.39 — late-bound fetch for host proxies (billion-context) and tool cap prioritization (GH-3, GH-4)
 
 - **Late-bound fetch (#135, GH-3)**: resolved `fetch` at call time instead of statically capturing at module initialization. Plugins and hosts installing dynamic `globalThis.fetch` wrappers (such as `billion-context` compression layers and reverse proxies) now intercept all model and gateway traffic, restoring context folding and eliminating unbounded-token 400 errors.

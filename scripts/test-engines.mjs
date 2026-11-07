@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process'
 import { stat } from 'node:fs/promises'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
+import semver from 'semver'
 
 const REQUIRED_FILES = [
   'package/package.json',
@@ -29,14 +30,48 @@ export function validateManifest(manifest, files) {
   const errors = []
   if (manifest?.name !== '@goodandready/dsh-opencode-provider') errors.push('unexpected package name')
   if (typeof manifest?.version !== 'string' || manifest.version === '') errors.push('missing version')
+  else if (!semver.valid(manifest.version)) errors.push(`invalid package version: ${manifest.version}`)
+
   const range = normalizeRange(manifest?.engines?.dsh)
-  if (range === '') errors.push('engines.dsh is missing')
+  if (range === '') {
+    errors.push('engines.dsh is missing')
+  } else if (!semver.validRange(range)) {
+    errors.push(`invalid engines.dsh semver range: ${range}`)
+  }
+
+  const dshCompatRange = normalizeRange(manifest?.dsh?.compatibility?.dsh)
+  if (dshCompatRange !== '' && !semver.validRange(dshCompatRange)) {
+    errors.push(`invalid dsh.compatibility.dsh semver range: ${dshCompatRange}`)
+  }
+
   const releases = manifest?.dsh?.compatibility?.dshReleases
   if (typeof releases !== 'object' || releases === null || Array.isArray(releases)) {
     errors.push('dsh.compatibility.dshReleases is missing')
   } else if (Object.keys(releases).length === 0) {
     errors.push('dsh.compatibility.dshReleases is empty')
+  } else {
+    for (const [ver, status] of Object.entries(releases)) {
+      if (!semver.valid(ver)) {
+        errors.push(`invalid semver version in dshReleases: ${ver}`)
+        continue
+      }
+      if (status === 'compatible') {
+        if (range !== '' && semver.validRange(range) && !semver.satisfies(ver, range, { includePrerelease: true })) {
+          errors.push(`declared release ${ver} does not satisfy engines.dsh range ${range}`)
+        }
+        if (manifest?.peerDependencies && typeof manifest.peerDependencies === 'object') {
+          for (const [peerPkg, peerRange] of Object.entries(manifest.peerDependencies)) {
+            if (peerPkg.startsWith('@deepseek-ai/dsh-') && typeof peerRange === 'string') {
+              if (semver.validRange(peerRange) && !semver.satisfies(ver, peerRange, { includePrerelease: true })) {
+                errors.push(`declared release ${ver} does not satisfy peerDependency range for ${peerPkg}: ${peerRange}`)
+              }
+            }
+          }
+        }
+      }
+    }
   }
+
   const listed = new Set(files)
   for (const required of REQUIRED_FILES) {
     if (!listed.has(required)) errors.push(`missing ${required}`)

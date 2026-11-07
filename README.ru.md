@@ -132,12 +132,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.39.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.40.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.39.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.40.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.39
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.40
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode (plugin)** или **OpenCode Go (plugin)** в списке моделей.
@@ -222,7 +222,7 @@ modelAccountRules:
 - **Переопределения по моделям**: контекст, лимит вывода, транспорт; `0` убирает лимит вывода.
 - **Аналитика и heatmap**: запросы, токены, TTFT, задержки, модели/дни/сессии и сетка день×час; только локальные числовые метаданные.
 - **Режимы квоты** Auto/Always/Off, sticky-маршрутизация, `autoSwitch`, уведомление о смене аккаунта и карточка обновления.
-- **Admin token** для LAN/web-профиля; **AUDIT.md** содержит остаточные риски зависимостей и деплоя.
+- **Admin token** для LAN/web-профиля; запросы через прокси без токена отклоняются (401 fail-closed).
 
 ## Безопасность и надежность
 

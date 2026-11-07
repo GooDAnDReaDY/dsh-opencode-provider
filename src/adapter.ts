@@ -254,6 +254,7 @@ export class OpenCodeAdapter extends LlmAdapter {
     const initial = candidates[0]
     const url = endpointFor(options.provider, model.transport, options.model, config)
     let images: ImageMap | undefined
+    let bodyOptions: GenerateOptions = options
     if (hasImages(options)) {
       const store = this.deps.resolveAttachments?.()
       if (store === undefined) {
@@ -270,9 +271,10 @@ export class OpenCodeAdapter extends LlmAdapter {
         timedOut = true
         preparation.abort()
       }, config.requestPreparationTimeoutMs)
-      timer.unref?.()
       try {
-        images = await resolveImages(options, store, preparation.signal, config)
+        const resolved = await resolveImages(options, store, preparation.signal, config)
+        images = resolved.images
+        bodyOptions = resolved.bodyOptions
       } catch (error) {
         if (options.signal?.aborted === true) throw options.signal.reason ?? error
         if (timedOut) {
@@ -288,7 +290,6 @@ export class OpenCodeAdapter extends LlmAdapter {
         options.signal?.removeEventListener('abort', onAbort)
       }
     }
-    let bodyOptions: GenerateOptions = options
     if (options.tools !== undefined) {
       const toolLimit = config.maxTools ?? MAX_TOOLS
       const result = limitToolsResult(options.tools, toolLimit)
@@ -304,7 +305,7 @@ export class OpenCodeAdapter extends LlmAdapter {
           + `Core tools (file, shell, ops_*) prioritized. Configure maxTools to adjust.`,
         )
       }
-      bodyOptions = { ...options, tools: limited }
+      bodyOptions = { ...bodyOptions, tools: limited }
     }
     const body = model.transport === 'openai-chat'
       ? buildChatBody(bodyOptions, model, config, images)
@@ -619,7 +620,6 @@ export class OpenCodeAdapter extends LlmAdapter {
       timedOut = true
       timeoutController.abort()
     }, config.requestTimeoutMs)
-    timer.unref?.()
     const requestSignal = signal === undefined
       ? timeoutController.signal
       : AbortSignal.any([signal, timeoutController.signal])

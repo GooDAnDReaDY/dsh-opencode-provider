@@ -167,3 +167,47 @@ export function safeSame(a: Draft, b: Draft): boolean {
     return false
   }
 }
+
+
+export function mergeDraft(
+  base: Draft,
+  local: Draft,
+  remote: Draft,
+): { merged: Draft; conflicts: string[] } {
+  const conflicts: string[] = []
+  const merged: Draft = { ...local, revision: remote.revision }
+
+  const keys = Object.keys(local) as Array<keyof Draft>
+  for (const key of keys) {
+    if (key === 'revision') continue
+    const baseVal = base[key]
+    const localVal = local[key]
+    const remoteVal = remote[key]
+
+    const baseJson = JSON.stringify(baseVal)
+    const localJson = JSON.stringify(localVal)
+    const remoteJson = JSON.stringify(remoteVal)
+
+    if (localJson === baseJson) {
+      // Local did not modify this field: adopt remote value
+      ;(merged as unknown as Record<string, unknown>)[key] = remoteVal
+    } else if (remoteJson === baseJson) {
+      // Remote did not modify this field: keep local value
+      ;(merged as unknown as Record<string, unknown>)[key] = localVal
+    } else if (localJson === remoteJson) {
+      // Both made the identical change
+      ;(merged as unknown as Record<string, unknown>)[key] = localVal
+    } else {
+      // Conflict: both modified this field to different values
+      conflicts.push(key)
+      ;(merged as unknown as Record<string, unknown>)[key] = localVal
+    }
+  }
+
+  if (conflicts.length > 0) {
+    // If there are conflicts, DO NOT advance revision so save CAS detects it
+    merged.revision = local.revision
+  }
+
+  return { merged, conflicts }
+}

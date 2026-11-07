@@ -2,7 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 
-import { hasImages, resolveImages, selectRequestImages } from '../src/images.ts'
+import { hasImages, resolveImages, selectRequestImages, applyImageBudget } from '../src/images.ts'
+import { buildMessages } from '../src/messages.ts'
 
 function ref(id: string, bytes: number): ImageAttachmentRef {
   return {
@@ -82,4 +83,67 @@ test('offloaded images do not require a live attachment read', () => {
     messages: [{ role: 'user', content: [{ type: 'image', attachment: offloaded, offloaded: true }] }],
   } as never
   assert.equal(hasImages(options), false)
+})
+
+
+test('enforces maxImages limit on repeated occurrences with explicit omission placeholders', async () => {
+  const image = ref('multi', 100)
+  const store = {
+    readImageRequest: async () => ({
+      mediaType: 'image/png',
+      data: new Uint8Array([1, 2, 3]),
+      width: 10,
+      height: 10,
+    }),
+  }
+  // 8 messages, each with the same attachment
+  const options = {
+    messages: Array.from({ length: 8 }, (_, i) => ({
+      role: 'user',
+      content: [{ type: 'image', attachment: image }],
+    })),
+  } as never
+
+  const { images, bodyOptions } = await resolveImages(options, store as never, undefined, { maxImages: 3 })
+  assert.equal(images.size, 1) // Loaded once
+
+  // In bodyOptions, the first 5 occurrences should be offloaded, last 3 kept
+  const offloadedCount = bodyOptions.messages.filter((m: any) => m.content[0].offloaded === true).length
+  const keptCount = bodyOptions.messages.filter((m: any) => m.content[0].offloaded !== true).length
+  assert.equal(keptCount, 3)
+  assert.equal(offloadedCount, 5)
+
+  // Serialized messages in OpenAI chat transport
+  const serialized = buildMessages(bodyOptions, images)
+  const imageUrlParts = serialized.flatMap((m: any) =>
+    Array.isArray(m.content) ? m.content.filter((p: any) => p.type === 'image_url') : []
+  )
+  const textParts = serialized.flatMap((m: any) =>
+    Array.isArray(m.content)
+      ? m.content.filter((p: any) => p.type === 'text' && p.text.includes('[image omitted'))
+      : typeof m.content === 'string' && m.content.includes('[image omitted') ? [m.content] : []
+  )
+  assert.equal(imageUrlParts.length, 3)
+  assert.equal(textParts.length, 5)
+})
+
+test('individually oversized image is dropped and replaced with placeholder', async () => {
+  const oversized = ref('huge', 50 * 1024 * 1024)
+  const store = {
+    readImageRequest: async () => { throw new Error('should not read oversized') },
+  }
+  const options = {
+    messages: [{ role: 'user', content: [{ type: 'image', attachment: oversized }] }],
+  } as never
+
+  const { images, bodyOptions } = await resolveImages(options, store as never, undefined, {
+    maxRequestImageBytes: 10 * 1024 * 1024,
+    requestImageMaxBytes: 20 * 1024 * 1024,
+  })
+  assert.equal(images.size, 0)
+  const firstBlock = bodyOptions.messages[0]?.content[0] as any
+  assert.equal(firstBlock?.offloaded, true)
+
+  const serialized = buildMessages(bodyOptions, images) as any[]
+  assert.equal(serialized[0]?.content, '[image omitted: huge]')
 })

@@ -21,7 +21,7 @@ import {
 } from './api.ts'
 import { UsageBars } from './usage-bars.tsx'
 import { CONFIG_CHANGED_EVENT } from './events.ts'
-import { draftOf, patchOf, safeSame, type Draft } from './settings-draft.ts'
+import { draftOf, mergeDraft, patchOf, safeSame, type Draft } from './settings-draft.ts'
 import { Field, accountMark, limitsCell, usageChip } from './settings-widgets.tsx'
 import { PluginUpdateCard } from './update-card.tsx'
 import { authRefForEntry } from './auth-ref.ts'
@@ -102,7 +102,13 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     setState(next)
     setDraft((current) => {
       if (current === null || state === null || safeSame(current, draftOf(state))) return draftOf(next)
-      return { ...current, revision: next.revision ?? current.revision }
+      const base = draftOf(state)
+      const remote = draftOf(next)
+      const { merged, conflicts } = mergeDraft(base, current, remote)
+      if (conflicts.length > 0) {
+        setError(`${t('externalConflict') ?? 'External changes conflict with unsaved edits in'}: ${conflicts.join(', ')}`)
+      }
+      return merged
     })
   }
 
@@ -119,15 +125,17 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
           .filter((ref) => ref !== ''),
       )
       let cleanupError: string | null = null
+      const remainingCleanup: string[] = []
       for (const ref of pendingCleanup) {
         if (stillUsed.has(ref)) continue
         try {
           await clearKey(ref)
         } catch (caught) {
           cleanupError = caught instanceof Error ? caught.message : String(caught)
+          remainingCleanup.push(ref)
         }
       }
-      setPendingCleanup([])
+      setPendingCleanup(remainingCleanup)
       window.dispatchEvent(new CustomEvent(CONFIG_CHANGED_EVENT))
       setNotice(t('saved'))
       setState(null)
