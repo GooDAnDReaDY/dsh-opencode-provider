@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.41 — security and reliability: cross-site origin defense, atomic state persistence, SSE memory limits, and draft sync (#150–#156)
+
+- **GET routes cross-site origin defense (#150)**: enforced `Sec-Fetch-Site` (`same-origin`/`none`) and validated `Referer` same-origin across GET routes (`/dsh-opencode/state`, `/dsh-opencode/notices`, `/dsh-opencode/health`, `/dsh-opencode/analytics`), blocking cross-site probing and timing attacks when browser `Origin` headers are omitted.
+- **Atomic state persistence for cooldowns and sticky routing (#151)**: implemented atomic temp-file write and rename (`atomicWriteFile`) for `cooldowns.json` and `sticky.json` in `OpenCodeAdapter`, preventing JSON corruption or truncation during concurrent writes or sudden termination.
+- **Atomic request log compaction (#152)**: switched `compactRequestLog` to atomic file replacement, preventing log loss or malformed JSONL records during compaction interruptions.
+- **Unconditional image byte budget enforcement (#153)**: enforced individual image size limit check (`cost > limits.maxRequestImageBytes`) unconditionally under default image policies, preventing oversized image budget bypass.
+- **SSE streaming buffer cap (#154)**: bounded SSE line/event buffers to a strict maximum limit (`MAX_SSE_EVENT_BYTES = 4MB`) across `sseData` and `sseEvents`, preventing unbounded memory allocation from non-delimited streams.
+- **Settings draft remote adoption (#155)**: updated settings page load cycle to invoke `adoptState(next)`, ensuring remote configuration changes are merged cleanly via 3-way merge on re-fetch without dropping user edits.
+- **Shared default credential guard (#156)**: protected shared credentials when clearing the default key without an explicit `ref`, rejecting the deletion if configured auxiliary accounts share the credential reference.
+- **Tests and verification**: 177 tests passing (+5 new tests), clean typecheck, bundle verified (163 kB <= 262 kB), and 0 FAIL on `preflight.sh`.
+
 ## 0.5.40 — audit remediation: proxy auth, CAS draft merge, credential cleanup, image budgets, atomic storage, and engine matrix (#139–#148)
 
 - **Test timeout resolution (#139)**: removed premature timer unreferencing during in-flight image preparation and fetch operations, ensuring deterministic test completion across Node 22 and Node 24 without early event loop termination.

@@ -50,3 +50,12 @@ test('sseData handles multibyte UTF-8 split between chunks', async () => {
   })
   assert.deepEqual(await collect(sseData(body, 5000, undefined)), ['привет'])
 })
+
+test('sseData aborts with error when single event exceeds buffer limit', async () => {
+  const hugeChunk = 'data: ' + 'x'.repeat(4 * 1024 * 1024 + 50)
+  const body = stream([hugeChunk])
+  await assert.rejects(
+    async () => { await collect(sseData(body, 5000, undefined)) },
+    /exceeded buffer limit/,
+  )
+})

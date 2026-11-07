@@ -793,3 +793,50 @@ test('internal exception text is not exposed in route error responses', async ()
   })
   assert.equal(JSON.stringify(result.body).includes(SENSITIVE_MARKER), false)
 })
+
+test('GET routes enforce Sec-Fetch-Site and Referer same-origin checks', async () => {
+  const { routes } = harness()
+  const stateRoute = routes.get('/dsh-opencode/state')!
+
+  // 1. Cross-site sec-fetch-site is rejected
+  const crossSite = await call(stateRoute, {
+    method: 'GET',
+    headers: { host: '127.0.0.1:3080', 'sec-fetch-site': 'cross-site' },
+  })
+  assert.equal(crossSite.status, 403)
+  assert.equal((crossSite.body as any).error, 'cross-origin request refused')
+
+  // 2. Cross-origin referer is rejected
+  const crossReferer = await call(stateRoute, {
+    method: 'GET',
+    headers: { host: '127.0.0.1:3080', referer: 'http://malicious.example.com/evil.html' },
+  })
+  assert.equal(crossReferer.status, 403)
+
+  // 3. Same-origin referer with same-origin sec-fetch-site succeeds
+  const validSameOrigin = await call(stateRoute, {
+    method: 'GET',
+    headers: { host: '127.0.0.1:3080', referer: 'http://127.0.0.1:3080/settings', 'sec-fetch-site': 'same-origin' },
+  })
+  assert.equal(validSameOrigin.status, 200)
+})
+
+test('clearing default key protects key if shared by auxiliary account', async () => {
+  const { routes, unsetKeys } = harness({
+    config: {
+      apiKeyEnv: 'SHARED_DEFAULT',
+      accounts: [{ label: 'Aux Account', apiKeyEnv: 'SHARED_DEFAULT' }],
+    },
+  })
+  const forged = { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080', 'content-type': 'application/json' }
+  // Clearing default key without explicit ref fails because Aux Account still uses it
+  const attempt = await call(routes.get('/dsh-opencode/key/clear')!, {
+    method: 'POST',
+    path: '/dsh-opencode/key/clear',
+    headers: forged,
+    body: {},
+  })
+  assert.equal(attempt.status, 400)
+  assert.equal((attempt.body as any).error, 'credential ref is still in use by another account')
+  assert.equal(unsetKeys.includes('SHARED_DEFAULT'), false)
+})

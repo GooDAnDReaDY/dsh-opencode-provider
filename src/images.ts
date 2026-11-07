@@ -106,7 +106,7 @@ export function selectRequestImages(
     const cost = normalizedEncodedBytes(ref, policy)
     const maxByCount = Math.min(count, remainingSlots)
     const maxByBytes = cost > 0 ? Math.floor(remainingBytes / cost) : count
-    const isIndividuallyOversized = policy?.maxRequestImageBytes !== undefined && cost > limits.maxRequestImageBytes
+    const isIndividuallyOversized = cost > limits.maxRequestImageBytes
     const maxAllowed = isIndividuallyOversized ? 0 : Math.max(1, Math.min(maxByCount, maxByBytes))
     const finalAllowed = Math.min(count, Math.min(limits.maxImages, maxAllowed))
     allowed.set(ref.attachmentId, finalAllowed)

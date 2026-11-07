@@ -1,6 +1,10 @@
 # dsh-opencode-provider — архитектура и план
 
-## 0.5.40 — current release
+## 0.5.41 — current release
+
+- Deep code & security remediation (#150–#156): GET routes Sec-Fetch-Site and Referer same-origin protection, atomic state file writes (cooldowns & sticky), atomic request log compaction, unconditional default image budget sizing, SSE stream buffer limit to prevent unbounded memory growth, settings draft remote state adoption, and shared default credential deletion guard.
+
+## 0.5.40 — previous release
 
 - Full audit remediation (#139–#148): Node 22 timeout fix, proxy header auth fail-closed, CAS settings draft 3-way merge, credential deletion & shared-ref guard, image budget & byte limits across all transports, atomic credential registry lock, package sanitization, strict custom endpoint opt-in, API error sanitization, DSH semver engine matrix validation.
 

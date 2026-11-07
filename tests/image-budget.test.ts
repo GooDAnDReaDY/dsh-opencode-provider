@@ -147,3 +147,12 @@ test('individually oversized image is dropped and replaced with placeholder', as
   const serialized = buildMessages(bodyOptions, images) as any[]
   assert.equal(serialized[0]?.content, '[image omitted: huge]')
 })
+
+test('selectRequestImages drops individually oversized images under default policy', () => {
+  const selected = selectRequestImages([
+    ref('huge', 25 * 1024 * 1024), // cost (33MB) exceeds 24MB default limit
+    ref('normal', 1024),
+  ])
+  assert.equal(selected.allowedOccurrences?.get('huge'), 0)
+  assert.equal(selected.allowedOccurrences?.get('normal'), 1)
+})
