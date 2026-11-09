@@ -41,16 +41,42 @@ export interface RouteDeps {
 
 type UsageValue = Awaited<ReturnType<UsageReader>> | null
 
-class HttpError extends Error {
-  constructor(readonly status: number, message: string) {
+export class HttpError extends Error {
+  constructor(readonly status: number, message: string, readonly code?: string) {
     super(message)
   }
 }
 
-function fail(res: ServerResponse, error: unknown, fallback: string): void {
-  json(res, error instanceof HttpError ? error.status : 500, {
-    error: error instanceof HttpError ? error.message : fallback,
+export function statusToCode(status: number): string {
+  switch (status) {
+    case 400: return 'BAD_REQUEST'
+    case 401: return 'UNAUTHORIZED'
+    case 403: return 'FORBIDDEN'
+    case 404: return 'NOT_FOUND'
+    case 405: return 'METHOD_NOT_ALLOWED'
+    case 409: return 'CONFLICT'
+    case 413: return 'PAYLOAD_TOO_LARGE'
+    case 415: return 'UNSUPPORTED_MEDIA_TYPE'
+    case 503: return 'SERVICE_UNAVAILABLE'
+    default: return 'INTERNAL_ERROR'
+  }
+}
+
+function errorJson(res: ServerResponse, status: number, error: string, code?: string, extra?: Record<string, unknown>): void {
+  json(res, status, {
+    error,
+    code: code ?? statusToCode(status),
+    ...extra,
   })
+}
+
+function fail(res: ServerResponse, error: unknown, fallback: string, fallbackCode?: string): void {
+  const status = error instanceof HttpError ? error.status : 500
+  const message = error instanceof HttpError ? error.message : fallback
+  const code = error instanceof HttpError
+    ? (error.code ?? statusToCode(status))
+    : (fallbackCode ?? 'INTERNAL_ERROR')
+  errorJson(res, status, message, code)
 }
 
 function json(res: ServerResponse, status: number, value: unknown): void {
@@ -102,7 +128,7 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     size += buffer.length
-    if (size > MAX_BODY_BYTES) throw new HttpError(413, 'payload too large')
+    if (size > MAX_BODY_BYTES) throw new HttpError(413, 'payload too large', 'PAYLOAD_TOO_LARGE')
     chunks.push(buffer)
   }
   if (size === 0) return {}
@@ -110,35 +136,35 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   try {
     parsed = JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown
   } catch {
-    throw new HttpError(400, 'invalid JSON body')
+    throw new HttpError(400, 'invalid JSON body', 'BAD_REQUEST')
   }
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new HttpError(400, 'body must be a JSON object')
+    throw new HttpError(400, 'body must be a JSON object', 'BAD_REQUEST')
   }
   return parsed as Record<string, unknown>
 }
 
 function requirePost(req: IncomingMessage, res: ServerResponse): boolean {
   if (req.method !== 'POST') {
-    json(res, 405, { error: 'POST required' })
+    errorJson(res, 405, 'POST required', 'METHOD_NOT_ALLOWED')
     return false
   }
   if (!trustedHost(req)) {
-    json(res, 403, { error: 'non-local Host refused' })
+    errorJson(res, 403, 'non-local Host refused', 'FORBIDDEN')
     return false
   }
   if (!writeOrigin(req)) {
-    json(res, 403, { error: 'same-origin Origin or Referer required' })
+    errorJson(res, 403, 'same-origin Origin or Referer required', 'FORBIDDEN')
     return false
   }
   const site = req.headers['sec-fetch-site']
   if (site !== undefined && site !== 'same-origin' && site !== 'none') {
-    json(res, 403, { error: 'cross-site request refused' })
+    errorJson(res, 403, 'cross-site request refused', 'FORBIDDEN')
     return false
   }
   const type = req.headers['content-type'] ?? ''
   if (!type.includes('application/json')) {
-    json(res, 415, { error: 'application/json required' })
+    errorJson(res, 415, 'application/json required', 'UNSUPPORTED_MEDIA_TYPE')
     return false
   }
   return true
@@ -432,7 +458,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       path,
       handler: async (req, res) => {
         if (!adminAllowed(req, deps.adminToken?.() ?? '')) {
-          json(res, 401, { error: 'admin token required', authRequired: true })
+          errorJson(res, 401, 'admin token required', 'ADMIN_TOKEN_REQUIRED', { authRequired: true })
           return
         }
         await handler(req, res)
@@ -442,15 +468,15 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
 
   route('/dsh-opencode/state', async (req, res) => {
     if (req.method !== 'GET') {
-      json(res, 405, { error: 'GET required' })
+      errorJson(res, 405, 'GET required', 'METHOD_NOT_ALLOWED')
       return
     }
     if (!trustedHost(req)) {
-      json(res, 403, { error: 'non-local Host refused' })
+      errorJson(res, 403, 'non-local Host refused', 'FORBIDDEN')
       return
     }
     if (!allowedOrigin(req)) {
-      json(res, 403, { error: 'cross-origin request refused' })
+      errorJson(res, 403, 'cross-origin request refused', 'FORBIDDEN')
       return
     }
     try {
@@ -462,15 +488,15 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
 
   route('/dsh-opencode/notices', async (req, res) => {
     if (req.method !== 'GET') {
-      json(res, 405, { error: 'GET required' })
+      errorJson(res, 405, 'GET required', 'METHOD_NOT_ALLOWED')
       return
     }
     if (!trustedHost(req)) {
-      json(res, 403, { error: 'non-local Host refused' })
+      errorJson(res, 403, 'non-local Host refused', 'FORBIDDEN')
       return
     }
     if (!allowedOrigin(req)) {
-      json(res, 403, { error: 'cross-origin request refused' })
+      errorJson(res, 403, 'cross-origin request refused', 'FORBIDDEN')
       return
     }
     const enabled = deps.config().showSwitchNotice === true
@@ -482,15 +508,15 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
 
   route('/dsh-opencode/health', async (req, res) => {
     if (req.method !== 'GET') {
-      json(res, 405, { error: 'GET required' })
+      errorJson(res, 405, 'GET required', 'METHOD_NOT_ALLOWED')
       return
     }
     if (!trustedHost(req)) {
-      json(res, 403, { error: 'non-local Host refused' })
+      errorJson(res, 403, 'non-local Host refused', 'FORBIDDEN')
       return
     }
     if (!allowedOrigin(req)) {
-      json(res, 403, { error: 'cross-origin request refused' })
+      errorJson(res, 403, 'cross-origin request refused', 'FORBIDDEN')
       return
     }
     try {
@@ -509,15 +535,15 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
 
   route('/dsh-opencode/analytics', async (req, res) => {
     if (req.method !== 'GET') {
-      json(res, 405, { error: 'GET required' })
+      errorJson(res, 405, 'GET required', 'METHOD_NOT_ALLOWED')
       return
     }
     if (!trustedHost(req)) {
-      json(res, 403, { error: 'non-local Host refused' })
+      errorJson(res, 403, 'non-local Host refused', 'FORBIDDEN')
       return
     }
     if (!allowedOrigin(req)) {
-      json(res, 403, { error: 'cross-origin request refused' })
+      errorJson(res, 403, 'cross-origin request refused', 'FORBIDDEN')
       return
     }
     const rawUrl = req.url ?? '/'
@@ -540,11 +566,11 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     if (!requirePost(req, res)) return
     const settings = getSettings(ctx)
     if (settings?.mutate === undefined) {
-      json(res, 503, { error: 'settings service unavailable' })
+      errorJson(res, 503, 'settings service unavailable', 'SERVICE_UNAVAILABLE')
       return
     }
     if (settings.writable === false) {
-      json(res, 403, { error: 'settings are read-only' })
+      errorJson(res, 403, 'settings are read-only', 'FORBIDDEN')
       return
     }
     try {
@@ -554,7 +580,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         : body
       const ops = configOps(patch, deps.config().allowCustomEndpoints || patch.allowCustomEndpoints === true)
       if (ops.length === 0) {
-        json(res, 400, { error: 'no known fields in patch' })
+        errorJson(res, 400, 'no known fields in patch', 'BAD_REQUEST')
         return
       }
       const revision = typeof body.revision === 'number' && Number.isInteger(body.revision)
@@ -572,7 +598,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       }
       const message = error instanceof Error ? error.message : 'config write failed'
       const conflict = /revision|conflict|stale/i.test(message)
-      json(res, conflict ? 409 : 500, { error: conflict ? 'settings revision conflict' : 'config write failed' })
+      errorJson(res, conflict ? 409 : 500, conflict ? 'settings revision conflict' : 'config write failed', conflict ? 'SETTINGS_CONFLICT' : 'INTERNAL_ERROR')
     }
   })
 
@@ -580,7 +606,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     if (!requirePost(req, res)) return
     const credentials = getCredentials(ctx)
     if (credentials === undefined) {
-      json(res, 503, { error: 'credentials service unavailable' })
+      errorJson(res, 503, 'credentials service unavailable', 'SERVICE_UNAVAILABLE')
       return
     }
     try {
@@ -589,12 +615,12 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         ? body.ref.trim()
         : deps.config().apiKeyEnv
       if (!ownedCredentialRefs(deps.config()).has(refName)) {
-        json(res, 400, { error: 'credential ref is not owned by this plugin' })
+        errorJson(res, 400, 'credential ref is not owned by this plugin', 'BAD_REQUEST')
         return
       }
       const key = typeof body.key === 'string' ? body.key.trim() : ''
       if (key === '') {
-        json(res, 400, { error: 'key is required' })
+        errorJson(res, 400, 'key is required', 'BAD_REQUEST')
         return
       }
       await credentials.set(credentialRef(refName), key)
@@ -609,7 +635,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     if (!requirePost(req, res)) return
     const credentials = getCredentials(ctx)
     if (credentials === undefined) {
-      json(res, 503, { error: 'credentials service unavailable' })
+      errorJson(res, 503, 'credentials service unavailable', 'SERVICE_UNAVAILABLE')
       return
     }
     try {
@@ -620,7 +646,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const managed = await readManagedCredentialRefs(deps.managedPath)
       const owned = ownedCredentialRefs(deps.config())
       if (!owned.has(refName) && !managed.has(refName)) {
-        json(res, 400, { error: 'credential ref is not owned by this plugin' })
+        errorJson(res, 400, 'credential ref is not owned by this plugin', 'BAD_REQUEST')
         return
       }
       const currentConfig = deps.config()
@@ -636,7 +662,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         .filter((ref) => ref !== '')
       const isSharedWithAuxiliary = auxiliaryUsing.includes(refName) || currentConfig.proxyPasswordRef === refName
       if (body.ref !== undefined ? stillUsed.has(refName) : isSharedWithAuxiliary) {
-        json(res, 400, { error: 'credential ref is still in use by another account' })
+        errorJson(res, 400, 'credential ref is still in use by another account', 'BAD_REQUEST')
         return
       }
       await credentials.unset(credentialRef(refName))
@@ -651,14 +677,14 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     if (!requirePost(req, res)) return
     const credentials = getCredentials(ctx)
     if (credentials === undefined) {
-      json(res, 503, { error: 'credentials service unavailable' })
+      errorJson(res, 503, 'credentials service unavailable', 'SERVICE_UNAVAILABLE')
       return
     }
     try {
       const body = await readJson(req)
       const password = typeof body.password === 'string' ? body.password : ''
       if (password === '') {
-        json(res, 400, { error: 'proxy password is required' })
+        errorJson(res, 400, 'proxy password is required', 'BAD_REQUEST')
         return
       }
       const refName = deps.config().proxyPasswordRef
@@ -674,7 +700,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     if (!requirePost(req, res)) return
     const credentials = getCredentials(ctx)
     if (credentials === undefined) {
-      json(res, 503, { error: 'credentials service unavailable' })
+      errorJson(res, 503, 'credentials service unavailable', 'SERVICE_UNAVAILABLE')
       return
     }
     try {
@@ -691,7 +717,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     if (!requirePost(req, res)) return
     const credentials = getCredentials(ctx)
     if (credentials === undefined) {
-      json(res, 503, { error: 'credentials service unavailable' })
+      errorJson(res, 503, 'credentials service unavailable', 'SERVICE_UNAVAILABLE')
       return
     }
     try {
@@ -703,7 +729,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
         ? body.ref.trim()
         : deps.config().apiKeyEnv
       if (!ownedCredentialRefs(deps.config()).has(ref)) {
-        json(res, 400, { error: 'credential ref is not owned by this plugin' })
+        errorJson(res, 400, 'credential ref is not owned by this plugin', 'BAD_REQUEST')
         return
       }
       const key = await readOpenCodeAuthKey(entry)
@@ -771,7 +797,7 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     try {
       body = await readJson(req)
     } catch (error) {
-      json(res, 400, { error: error instanceof Error ? error.message : 'invalid body' })
+      errorJson(res, 400, error instanceof Error ? error.message : 'invalid body', 'BAD_REQUEST')
       return
     }
     const model = typeof body.model === 'string' && body.model !== '' ? body.model : 'deepseek-v4.1-flash'

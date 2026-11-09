@@ -133,6 +133,13 @@ export interface HostState {
   revision?: number
 }
 
+export class ApiError extends Error {
+  constructor(readonly status: number, message: string, readonly code?: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     credentials: 'same-origin',
@@ -144,8 +151,8 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
       ...(init?.headers ?? {}),
     },
   })
-  const body = await response.json().catch(() => ({})) as { error?: string }
-  if (!response.ok) throw new Error(body.error ?? `HTTP ${response.status}`)
+  const body = await response.json().catch(() => ({})) as { error?: string; code?: string }
+  if (!response.ok) throw new ApiError(response.status, body.error ?? `HTTP ${response.status}`, body.code)
   return body as T
 }
 

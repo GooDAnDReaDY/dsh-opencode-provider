@@ -180,7 +180,7 @@ export const Config: z<Config> = z.object({
   autoSwitch: markVolatile(z.boolean().default(true)),
   stickySession: markVolatile(z.boolean().default(true)),
   activeAccount: markVolatile(z.string().default('')),
-  usageDisplay: markVolatile(z.union(['auto', 'always', 'off'])),
+  usageDisplay: markVolatile(z.union(['auto', 'always', 'off']).default('off')),
   showSidebarQuota: markVolatile(z.boolean().default(false)),
   showSwitchNotice: markVolatile(z.boolean().default(false)),
   userAgent: markVolatile(z.string().default(DEFAULT_USER_AGENT)),

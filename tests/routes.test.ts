@@ -327,7 +327,7 @@ test('admin token gates reads and writes even with forged same-origin headers', 
   const forged = { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' }
   const read = await call(routes.get('/dsh-opencode/state')!, { headers: forged })
   assert.equal(read.status, 401)
-  assert.deepEqual(read.body, { error: 'admin token required', authRequired: true })
+  assert.deepEqual(read.body, { error: 'admin token required', code: 'ADMIN_TOKEN_REQUIRED', authRequired: true })
 
   const write = await call(routes.get('/dsh-opencode/config')!, {
     method: 'POST',
@@ -647,7 +647,7 @@ test('analytics route reports a heatmap failure', async () => {
   const { routes } = harness({ heatmapError: true })
   const result = await call(routes.get('/dsh-opencode/analytics')!, { path: '/dsh-opencode/analytics?days=7' })
   assert.equal(result.status, 500)
-  assert.deepEqual(result.body, { error: 'analytics failed' })
+  assert.deepEqual(result.body, { error: 'analytics failed', code: 'INTERNAL_ERROR' })
 })
 
 test('analytics route returns aggregated model rows', async () => {
@@ -839,4 +839,38 @@ test('clearing default key protects key if shared by auxiliary account', async (
   assert.equal(attempt.status, 400)
   assert.equal((attempt.body as any).error, 'credential ref is still in use by another account')
   assert.equal(unsetKeys.includes('SHARED_DEFAULT'), false)
+})
+
+test('error responses include machine-readable error codes', async () => {
+  const { routes } = harness()
+  const loopback = { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080' }
+
+  const methodNotAllowed = await call(routes.get('/dsh-opencode/state')!, {
+    method: 'POST',
+    headers: loopback,
+  })
+  assert.equal(methodNotAllowed.status, 405)
+  assert.equal((methodNotAllowed.body as any).code, 'METHOD_NOT_ALLOWED')
+
+  const forbidden = await call(routes.get('/dsh-opencode/state')!, {
+    method: 'GET',
+    headers: { host: 'evil.com', origin: 'http://evil.com' },
+  })
+  assert.equal(forbidden.status, 403)
+  assert.equal((forbidden.body as any).code, 'FORBIDDEN')
+
+  const unsupportedType = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    headers: { ...loopback, 'content-type': 'text/plain' },
+  })
+  assert.equal(unsupportedType.status, 415)
+  assert.equal((unsupportedType.body as any).code, 'UNSUPPORTED_MEDIA_TYPE')
+
+  const badRequest = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    headers: { ...loopback, 'content-type': 'application/json' },
+    body: { patch: {} },
+  })
+  assert.equal(badRequest.status, 400)
+  assert.equal((badRequest.body as any).code, 'BAD_REQUEST')
 })

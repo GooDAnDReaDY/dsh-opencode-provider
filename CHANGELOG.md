@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.42 — idle polling termination, explicit schema defaults, design & OpenAPI contracts, and error code standardization (#158–#163)
+
+- **Idle polling termination (#158)**: eliminated unconditional 5s interval polling in `SwitchNotice` when notices are disabled (`showSwitchNotice: false`), freeing client and webserver resources and re-arming polling only on configuration activation events.
+- **Explicit default('off') for usageDisplay schema (#159)**: enforced `.default('off')` explicitly in the Cordis/Schemastery schema declaration in `src/config.ts`, guaranteeing that all on-screen badges remain disabled by default.
+- **Design contract documentation (#160)**: added `docs/design/DESIGN.md` specifying all 4 user surfaces (`settings.section`, `main`, `sidebar.footer.action`, `conversation.composer.dock`), canonical component states, and locked design invariants.
+- **OpenAPI 3.1 contract specification (#161)**: added `docs/openapi.yaml` documenting all 14 `/dsh-opencode/*` HTTP endpoints with request/response schemas, security schemes, and status codes.
+- **DSH release compatibility matrix update (#162)**: added official upstream release `0.2.1-rc.5` to `dsh.compatibility.dshReleases` in `package.json`.
+- **Standardized machine-readable error codes (#163)**: standardized all HTTP error responses from `/dsh-opencode/*` routes with structured `code` attributes (`METHOD_NOT_ALLOWED`, `FORBIDDEN`, `BAD_REQUEST`, `SETTINGS_CONFLICT`, etc.) and introduced `ApiError` in the client library.
+- **Tests and verification**: 178 tests passing (+1 new test), clean typecheck, bundle verified (163.7 kB <= 262 kB), and 0 FAIL on `preflight.sh`.
+
 ## 0.5.41 — security and reliability: cross-site origin defense, atomic state persistence, SSE memory limits, and draft sync (#150–#156)
 
 - **GET routes cross-site origin defense (#150)**: enforced `Sec-Fetch-Site` (`same-origin`/`none`) and validated `Referer` same-origin across GET routes (`/dsh-opencode/state`, `/dsh-opencode/notices`, `/dsh-opencode/health`, `/dsh-opencode/analytics`), blocking cross-site probing and timing attacks when browser `Origin` headers are omitted.

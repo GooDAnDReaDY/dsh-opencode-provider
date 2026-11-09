@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { fetchNotices } from './api.ts'
+import { CONFIG_CHANGED_EVENT } from './events.ts'
 
 interface SwitchNoticeProps {
   readonly sessionId?: unknown
@@ -22,13 +23,26 @@ export function SwitchNotice({ sessionId, t }: SwitchNoticeProps): ReactNode {
   useEffect(() => {
     if (sessionId === undefined || String(sessionId) === '') return
     let alive = true
+    let timer: NodeJS.Timeout | undefined
+
+    const clearTimer = (): void => {
+      if (timer !== undefined) {
+        clearInterval(timer)
+        timer = undefined
+      }
+    }
+
     const poll = (): void => {
       void fetchNotices()
         .then(({ events, enabled }) => {
           if (!alive) return
           if (enabled === false) {
             setNotice(null)
+            clearTimer()
             return
+          }
+          if (timer === undefined) {
+            timer = setInterval(poll, 5_000)
           }
           const event = events
             .filter((entry) => entry.session === String(sessionId)
@@ -45,10 +59,14 @@ export function SwitchNotice({ sessionId, t }: SwitchNoticeProps): ReactNode {
         })
     }
     poll()
-    const timer = setInterval(poll, 5_000)
+
+    const onConfigChanged = (): void => { poll() }
+    window.addEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
+
     return () => {
       alive = false
-      clearInterval(timer)
+      clearTimer()
+      window.removeEventListener(CONFIG_CHANGED_EVENT, onConfigChanged)
     }
   }, [sessionId])
 
