@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import type { Context } from '@deepseek-ai/cordis'
-import { apply } from '../src/index.ts'
+import { apply, name } from '../src/index.ts'
 import type { HostState } from '../src/client/api.ts'
 import { authRefForEntry } from '../src/client/auth-ref.ts'
 import { draftOf, mergeDraft, patchOf, safeSame } from '../src/client/settings-draft.ts'
@@ -37,6 +37,10 @@ function options(overrides: Partial<GenerateOptions> = {}): GenerateOptions {
     ...overrides,
   } as GenerateOptions
 }
+
+test('plugin export name matches package name', () => {
+  assert.equal(name, '@goodandready/dsh-opencode-provider')
+})
 
 test('plugin provider ids do not collide with the built-in pi-ai catalog', () => {
   assert.notEqual(CONSOLE_PROVIDER, 'opencode')

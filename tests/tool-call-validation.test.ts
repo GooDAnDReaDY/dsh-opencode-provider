@@ -178,3 +178,43 @@ test('google normalizes numeric tool name', async () => {
   assert.equal(block.block.name, '')
   assert.equal(hasNonStringId(block.block.id), false)
 })
+
+test('anthropic finishes with max-tokens when truncated inside tool call', async () => {
+  const chunks = await collect(parseAnthropicStream(sse(
+    { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', id: 'call_1', name: 'read_file' } },
+    { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"path":"a' } },
+    { type: 'message_delta', delta: { stop_reason: 'max_tokens' } },
+    { type: 'message_stop' },
+  ), 5000, undefined))
+  const finish = chunks.find((chunk) => chunk.type === 'finish')
+  assert.ok(finish?.type === 'finish')
+  assert.deepEqual(finish.reason, { kind: 'max-tokens' })
+})
+
+test('responses finishes with max-tokens when truncated inside tool call', async () => {
+  const chunks = await collect(parseResponsesStream(sse(
+    { type: 'response.output_item.added', item: { type: 'function_call', call_id: 'call_1', name: 'read_file' } },
+    { type: 'response.function_call_arguments.delta', delta: '{"path":"a' },
+    {
+      type: 'response.incomplete',
+      response: {
+        incomplete_details: { reason: 'max_output_tokens' },
+      },
+    },
+  ), 5000, undefined))
+  const finish = chunks.find((chunk) => chunk.type === 'finish')
+  assert.ok(finish?.type === 'finish')
+  assert.deepEqual(finish.reason, { kind: 'max-tokens' })
+})
+
+test('google finishes with max-tokens when truncated inside tool call', async () => {
+  const chunks = await collect(parseGoogleStream(sse({
+    candidates: [{
+      content: { parts: [{ functionCall: { id: 'call_1', name: 'read_file', args: { path: 'a' } } }] },
+      finishReason: 'MAX_TOKENS',
+    }],
+  }), 5000, undefined))
+  const finish = chunks.find((chunk) => chunk.type === 'finish')
+  assert.ok(finish?.type === 'finish')
+  assert.deepEqual(finish.reason, { kind: 'max-tokens' })
+})

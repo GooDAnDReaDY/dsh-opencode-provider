@@ -197,8 +197,8 @@ function mapUsage(usage: ResponsesUsage | undefined): TokenUsage {
 }
 
 function finishReasonOf(hasTools: boolean, incomplete: string | undefined): FinishReason {
-  if (hasTools) return { kind: 'tool-calls' }
   if (incomplete === 'max_output_tokens') return { kind: 'max-tokens' }
+  if (hasTools) return { kind: 'tool-calls' }
   return { kind: 'stop' }
 }
 

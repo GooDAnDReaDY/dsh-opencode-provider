@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: OpenCode Provider Host API
-  version: 0.5.42
+  version: 0.5.43
   description: Host HTTP endpoints provided by @goodandready/dsh-opencode-provider for DSH client settings and telemetry.
 
 servers:

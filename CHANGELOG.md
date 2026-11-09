@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.43 — tool truncation finish reasons, export name consistency, dead code removal, and docs consolidation (#164–#168)
+
+- **Tool call token truncation finish reason (#164)**: in Anthropic, OpenAI Responses, and Google transports, prioritized `max-tokens` / `max_output_tokens` / `MAX_TOKENS` finish status before tool call presence in `finishReasonOf`. Stream chunks now reliably signal `{ kind: 'max-tokens' }` rather than partial `{ kind: 'tool-calls' }` when output limits truncate active tool calls.
+- **Exported plugin name consistency (#167)**: aligned `export const name` in `src/index.ts` with the canonical package name `@goodandready/dsh-opencode-provider`, satisfying DSH family plugin authoring standards across all 4 entrypoints.
+- **Dead code removal (#168)**: removed obsolete unused `createKeyResolver` single-key facade from `src/credentials.ts` and `src/index.ts`.
+- **Design documentation consolidation (#166)**: merged historical architecture and specification docs from root `DESIGN.md` into the canonical `docs/design/DESIGN.md` and deleted the duplicate root file.
+- **Tests and verification**: 182 tests passing (+4 new tests covering token limit tool truncation and export name), clean typecheck and preflight.
+
 ## 0.5.42 — idle polling termination, explicit schema defaults, design & OpenAPI contracts, and error code standardization (#158–#163)
 
 - **Idle polling termination (#158)**: eliminated unconditional 5s interval polling in `SwitchNotice` when notices are disabled (`showSwitchNotice: false`), freeing client and webserver resources and re-arming polling only on configuration activation events.

@@ -18,7 +18,7 @@ import { readRequestHeatmap } from './request-log.ts'
 import { applyOpenCodeTuiSettings } from './tui-settings.ts'
 import { createUsageReader } from './usage.ts'
 
-export const name = 'llm-opencode'
+export const name = '@goodandready/dsh-opencode-provider'
 export const inject = ['llm']
 
 export { Config }
@@ -26,7 +26,7 @@ export { OpenCodeAdapter }
 export type { OpenCodeAdapterDeps } from './adapter.ts'
 export type { Config as OpenCodeConfig, ResolvedConfig, TransportId } from './config.ts'
 export type { ResolvedKey } from './credentials.ts'
-export { createKeyPool, createKeyResolver } from './credentials.ts'
+export { createKeyPool } from './credentials.ts'
 export { applyCommands } from './commands.ts'
 export type { CommandDeps } from './commands.ts'
 export { applyRoutes } from './routes.ts'

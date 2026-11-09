@@ -191,7 +191,3 @@ function missingKey(config: ResolvedConfig): LlmError {
   )
 }
 
-/** Backwards-compatible single-key facade over the pool. */
-export function createKeyResolver(ctx: Context, config: () => ResolvedConfig): KeyResolver {
-  return createKeyPool(ctx, config).resolve
-}

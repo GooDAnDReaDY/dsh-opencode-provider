@@ -195,8 +195,8 @@ function mapUsage(usage: GoogleUsage | undefined): TokenUsage {
 }
 
 function finishReasonOf(raw: string | undefined, hasTools: boolean): FinishReason {
-  if (hasTools) return { kind: 'tool-calls' }
   if (raw === 'MAX_TOKENS') return { kind: 'max-tokens' }
+  if (hasTools) return { kind: 'tool-calls' }
   return { kind: 'stop' }
 }
 

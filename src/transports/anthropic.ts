@@ -251,8 +251,8 @@ function usageOf(input: AnthropicUsage | undefined, outputTokens: number | undef
 }
 
 function finishReasonOf(stopReason: string | undefined, hasTools: boolean): FinishReason {
-  if (stopReason === 'tool_use' || hasTools) return { kind: 'tool-calls' }
   if (stopReason === 'max_tokens') return { kind: 'max-tokens' }
+  if (stopReason === 'tool_use' || hasTools) return { kind: 'tool-calls' }
   return { kind: 'stop' }
 }
 
