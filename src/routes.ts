@@ -35,6 +35,7 @@ export interface RouteDeps {
   readonly refreshTui?: () => void
   readonly syncRoutes?: () => void
   readonly adminToken?: () => string
+  readonly warn?: (message: string) => void
   /** Test seam; defaults to the local managed-credentials registry. */
   readonly managedPath?: string
 }
@@ -301,7 +302,10 @@ async function buildState(ctx: Context, deps: RouteDeps): Promise<Record<string,
     }
   }
 
-  const resolved = await deps.pool.resolveAll(GO_PROVIDER).catch(() => [])
+  const resolved = await deps.pool.resolveAll(GO_PROVIDER).catch((error) => {
+    deps.warn?.(`failed to resolve accounts in /state: ${(error as Error)?.message ?? error}`)
+    return []
+  })
   if (!keyInfo.configured) {
     keyInfo = { ...keyInfo, configured: resolved.length > 0 }
   }
@@ -521,7 +525,10 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
     }
     try {
       const config = deps.config()
-      const models = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true }).catch(() => [])
+      const models = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true }).catch((error) => {
+        deps.warn?.(`failed to list models in /health: ${(error as Error)?.message ?? error}`)
+        return []
+      })
       json(res, 200, {
         ok: true,
         providers: [CONSOLE_PROVIDER, GO_PROVIDER],
@@ -762,7 +769,10 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const label = typeof body.label === 'string' && body.label.trim() !== ''
         ? body.label.trim()
         : 'default'
-      const entries = await deps.pool.resolveAll(GO_PROVIDER).catch(() => [])
+      const entries = await deps.pool.resolveAll(GO_PROVIDER).catch((error) => {
+        deps.warn?.(`failed to resolve accounts in /test: ${(error as Error)?.message ?? error}`)
+        return []
+      })
       const hit = entries.find((entry) => (entry.label ?? 'default') === label)
       if (hit === undefined) {
         json(res, 404, { error: `account "${label}" is not configured` })

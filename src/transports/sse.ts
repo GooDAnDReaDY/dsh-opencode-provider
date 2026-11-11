@@ -18,14 +18,14 @@ async function readWithIdleTimeout(
       action()
     }
     const timer = setTimeout(() => {
-      reader.cancel().catch(() => {})
+      reader.cancel().catch(/* bestEffort: idle timeout cancel */ () => {})
       finish(() => reject(new LlmError(
         `OpenCode stream went idle for ${idleTimeoutMs}ms`,
         'TIMEOUT',
       )))
     }, idleTimeoutMs)
     const onAbort = () => {
-      reader.cancel().catch(() => {})
+      reader.cancel().catch(/* bestEffort: abort cancel */ () => {})
       finish(() => reject(signal?.reason ?? new DOMException('aborted', 'AbortError')))
     }
     signal?.addEventListener('abort', onAbort, { once: true })
@@ -89,7 +89,7 @@ export async function* sseData(
       if (data !== '') yield data
     }
   } finally {
-    if (!completed) await reader.cancel().catch(() => {})
+    if (!completed) await reader.cancel().catch(/* bestEffort: stream incomplete */ () => {})
     reader.releaseLock()
   }
 }
@@ -139,7 +139,7 @@ export async function* sseEvents(
       if (data.length > 0) yield { event, data: data.join('\n') }
     }
   } finally {
-    if (!completed) await reader.cancel().catch(() => {})
+    if (!completed) await reader.cancel().catch(/* bestEffort: stream incomplete */ () => {})
     reader.releaseLock()
   }
 }

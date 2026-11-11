@@ -2,24 +2,24 @@ export const CSS_ID = 'dsh-opencode-provider'
 
 export const CSS = `
 :where(.oc-page, .oc-panel, .oc-card, .oc-foot, .oc-railButton) {
-  --oc-border: var(--dsw-alias-border-l3, rgba(127,127,127,0.25));
+  --oc-border: var(--dsw-alias-border-l3, currentColor);
   --oc-border-strong: color-mix(in srgb, var(--oc-border) 55%, var(--oc-text));
   --oc-border-soft: color-mix(in srgb, var(--oc-border) 70%, transparent);
-  --oc-fill: var(--dsw-alias-settings-card-fill, rgba(127,127,127,0.06));
-  --oc-fill-soft: var(--dsw-alias-bg-layer-2, rgba(127,127,127,0.08));
-  --oc-fill-hover: var(--dsw-alias-interactive-bg-hover, rgba(127,127,127,0.12));
+  --oc-fill: var(--dsw-alias-settings-card-fill, transparent);
+  --oc-fill-soft: var(--dsw-alias-bg-layer-2, transparent);
+  --oc-fill-hover: var(--dsw-alias-interactive-bg-hover, transparent);
   --oc-fill-active: color-mix(in srgb, var(--oc-fill-hover) 60%, var(--oc-accent-soft));
-  --oc-text: var(--dsw-alias-label-primary, #e6e6e6);
-  --oc-text-secondary: var(--dsw-alias-label-secondary, #a0a0a0);
-  --oc-text-tertiary: var(--dsw-alias-label-tertiary, #7a7a7a);
-  --oc-accent: var(--dsw-alias-state-business-primary, #508cff);
+  --oc-text: var(--dsw-alias-label-primary, inherit);
+  --oc-text-secondary: var(--dsw-alias-label-secondary, inherit);
+  --oc-text-tertiary: var(--dsw-alias-label-tertiary, inherit);
+  --oc-accent: var(--dsw-alias-state-business-primary, currentColor);
   --oc-accent-soft: color-mix(in srgb, var(--oc-accent) 16%, transparent);
   --oc-accent-border: color-mix(in srgb, var(--oc-accent) 55%, transparent);
-  --oc-success: var(--dsw-alias-state-success-primary, #4fbf86);
+  --oc-success: var(--dsw-alias-state-success-primary, currentColor);
   --oc-success-border: color-mix(in srgb, var(--oc-success) 50%, transparent);
-  --oc-warning: var(--dsw-alias-state-warning-primary, #d9a24a);
+  --oc-warning: var(--dsw-alias-state-warning-primary, currentColor);
   --oc-warning-border: color-mix(in srgb, var(--oc-warning) 50%, transparent);
-  --oc-danger: var(--dsw-alias-state-error-primary, #e07a7a);
+  --oc-danger: var(--dsw-alias-state-error-primary, currentColor);
   --oc-danger-soft: color-mix(in srgb, var(--oc-danger) 12%, transparent);
   --oc-danger-border: color-mix(in srgb, var(--oc-danger) 35%, transparent);
   --oc-focus: var(--dsw-focus-ring-color, var(--oc-accent));

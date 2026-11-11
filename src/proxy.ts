@@ -90,7 +90,7 @@ export function createProxyFetch(
         if (oldest !== undefined && oldest !== proxy) {
           const retired = agents.get(oldest)
           agents.delete(oldest)
-          void retired?.close().catch(() => retired?.destroy())
+          void retired?.close().catch(/* bestEffort: destroy on close failure */ () => retired?.destroy())
         }
       }
     }
@@ -103,7 +103,7 @@ export function createProxyFetch(
       disposed = true
       const open = [...agents.values()]
       agents.clear()
-      await Promise.all(open.map((agent) => agent.close().catch(() => agent.destroy())))
+      await Promise.all(open.map((agent) => agent.close().catch(/* bestEffort: destroy on close failure */ () => agent.destroy())))
     },
   }
 }

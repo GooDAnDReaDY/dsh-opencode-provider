@@ -54,8 +54,8 @@ export function SwitchNotice({ sessionId, t }: SwitchNoticeProps): ReactNode {
           seenAt.current = event.at
           setNotice({ account: event.account, reason: event.reason, at: event.at })
         })
-        .catch(() => {
-          // The ambient notice is optional; a failed poll must not disturb chat.
+        .catch((_err) => {
+          /* bestEffort: ambient notice poll failure is non-fatal */
         })
     }
     poll()

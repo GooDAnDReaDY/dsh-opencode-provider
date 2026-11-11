@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.44 — project index & deploy standardization, packaging hygiene, publication layer, and bundle domain splitting (#169–#172)
+
+- **Project map & canonical deployment script (#169)**: added comprehensive `index.md` covering project purpose, scripts map, test matrix, and architecture. Created canonical `deploy.sh` script enforcing quality gates (`typecheck`, `test`, `build`, `smoke-client`, `pack:check`), 4-point package identity validation, and safe installation into DSH profiles without `--force`.
+- **Packaging hygiene & pack size guard (#170)**: moved 7 release tarballs out of checkout root into `.artifacts-cache/`. Added `scripts/pack-check.mjs` checking for zero root tarballs and enforcing the 256 KiB Store limit per file. Wired `pack:check` into `npm run check` and configured `npm pack --pack-destination /tmp` for `release`.
+- **Public tree publication layer (#171)**: added `.gitattributes` (`export-ignore`) and canonical `publish.sh` ensuring internal development files (`AGENTS.md`, `index.md`, `deploy.sh`, `publish.sh`, `docs/**`, `scripts/smoke-*`) stay in Gitea and are completely excluded from the public GitHub tree. Recorded decision on smoke tests and OpenAPI spec retention in Gitea.
+- **Client theme tokens, explicit error logging, and bundle domain splitting (#172)**: eliminated 14 hardcoded color literals in `src/client/styles.ts` and `src/client/quota-card.tsx` in favor of DSH theme CSS variables, resolving light-theme rendering issues and achieving 0 color warnings in preflight. Replaced all 13 silent catch blocks with explicit `warn` logging via `ctx.logger` or marked `/* bestEffort */` handlers. Split server bundle into domain entries (`adapter`, `routes`, `config`, `index`), reducing `lib/index.js` from 223 kB down to 37 kB and ensuring no chunk exceeds 93 kB.
+- **Tests and verification**: 182 unit tests passing, clean typecheck, build clean, preflight passed with 0 FAIL and reduced warnings.
+
 ## 0.5.43 — tool truncation finish reasons, export name consistency, dead code removal, and docs consolidation (#164–#168)
 
 - **Tool call token truncation finish reason (#164)**: in Anthropic, OpenAI Responses, and Google transports, prioritized `max-tokens` / `max_output_tokens` / `MAX_TOKENS` finish status before tool call presence in `finishReasonOf`. Stream chunks now reliably signal `{ kind: 'max-tokens' }` rather than partial `{ kind: 'tool-calls' }` when output limits truncate active tool calls.

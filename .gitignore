@@ -9,3 +9,5 @@ coverage/
 *.tgz
 .env
 .env.*
+.worktrees/
+pnpm-lock.yaml

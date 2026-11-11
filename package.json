@@ -1,6 +1,6 @@
 {
   "name": "@goodandready/dsh-opencode-provider",
-  "version": "0.5.43",
+  "version": "0.5.44",
   "description": "OpenCode / OpenCode Go LLM provider plugin for DeepSeek Harness (dsh).",
   "license": "MIT",
   "type": "module",
@@ -72,10 +72,11 @@
     "prepare": "tsdown 1>&2",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test \"tests/*.test.ts\" \"tests/*.test.tsx\"",
-    "check": "npm run typecheck && npm test && npm run build && node scripts/smoke-client.mjs",
-    "release": "npm run check && npm pack",
+    "check": "npm run typecheck && npm test && npm run build && node scripts/smoke-client.mjs && npm run pack:check",
+    "release": "npm run check && npm pack --pack-destination /tmp",
     "sync:models": "node scripts/sync-models.mjs",
-    "test:engine": "node scripts/test-engines.mjs"
+    "test:engine": "node scripts/test-engines.mjs",
+    "pack:check": "node scripts/pack-check.mjs"
   },
   "keywords": [
     "dsh",

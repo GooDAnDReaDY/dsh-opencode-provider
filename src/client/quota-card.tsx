@@ -33,7 +33,7 @@ function useHostState(intervalMs: number, active = true): HostState | null {
   useEffect(() => {
     let cancelled = false
     const load = (): void => {
-      void fetchState().then((next) => { if (!cancelled) setState(next) }).catch(() => {})
+      void fetchState().then((next) => { if (!cancelled) setState(next) }).catch(/* bestEffort: background poll */ () => {})
     }
     load()
     const timer = active ? setInterval(load, intervalMs) : undefined
@@ -133,7 +133,7 @@ function MiniRing(props: { percent: number; warn: boolean; size?: number }): Rea
         cx="10"
         cy="10"
         r={radius}
-        stroke="var(--dsw-alias-bg-layer-2, rgba(127,127,127,0.25))"
+        stroke="var(--dsw-alias-bg-layer-2, var(--oc-border))"
         strokeWidth="2.5"
       />
       <circle
@@ -141,8 +141,8 @@ function MiniRing(props: { percent: number; warn: boolean; size?: number }): Rea
         cy="10"
         r={radius}
         stroke={props.warn
-          ? 'var(--dsw-alias-state-error-primary, #e07a7a)'
-          : 'var(--dsw-alias-brand-primary, #4fbf86)'}
+          ? 'var(--dsw-alias-state-error-primary, var(--oc-danger))'
+          : 'var(--dsw-alias-brand-primary, var(--oc-success))'}
         strokeWidth="2.5"
         strokeDasharray={circumference}
         strokeDashoffset={offset}

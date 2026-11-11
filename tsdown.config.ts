@@ -1,10 +1,11 @@
 import { defineConfig } from 'tsdown'
 
 const lib = defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/adapter.ts', 'src/routes.ts', 'src/config.ts'],
   format: 'esm',
   outDir: 'lib',
   dts: true,
+  
   sourcemap: true,
   clean: true,
   outExtensions: () => ({ js: '.js', dts: '.d.ts' }),

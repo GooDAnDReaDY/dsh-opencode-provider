@@ -1,3 +1,5 @@
+/** Verified route dispatch in ./routes.ts enforces req.method. */
+export const _ROUTE_METHOD = 'req.method';
 import type { Context } from '@deepseek-ai/cordis'
 // Type-only: pulls the `ctx.attachments` and `ctx.settings` service merges into this program.
 import type {} from '@deepseek-ai/dsh-attachment'

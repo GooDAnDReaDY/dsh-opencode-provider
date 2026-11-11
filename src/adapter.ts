@@ -576,7 +576,9 @@ export class OpenCodeAdapter extends LlmAdapter {
       .then(async () => {
         await atomicWriteFile(this.stickyPath, payload)
       })
-      .catch(() => {})
+      .catch((error) => {
+        this.deps.warn?.(`failed to persist sticky accounts: ${(error as Error)?.message ?? error}`)
+      })
   }
 
   private pushTrace(entry: RoutingTraceEntry): void {
@@ -737,7 +739,9 @@ export class OpenCodeAdapter extends LlmAdapter {
       .then(async () => {
         await atomicWriteFile(this.cooldownPath, payload)
       })
-      .catch(() => {})
+      .catch((error) => {
+        this.deps.warn?.(`failed to persist cooldowns: ${(error as Error)?.message ?? error}`)
+      })
   }
 
   private modelCoolingDown(key: string, model: string): boolean {
