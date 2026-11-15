@@ -66,18 +66,17 @@ export function selectRequestImages(
 
   const countOf = (ref: ImageAttachmentRef): number =>
     Math.max(1, occurrences?.get(ref.attachmentId) ?? 1)
-  const encoded = (bytes: number): number => Math.ceil(Math.max(0, bytes) * 4 / 3)
 
   let start = 0
   let totalImages = unique.reduce((sum, ref) => sum + countOf(ref), 0)
-  let bytes = unique.reduce((sum, ref) => sum + encoded(ref.bytes) * countOf(ref), 0)
+  let bytes = unique.reduce((sum, ref) => sum + normalizedEncodedBytes(ref, policy) * countOf(ref), 0)
   while (start < unique.length
     && (totalImages > limits.maxImages || bytes > limits.maxRequestImageBytes)) {
     const dropped = unique[start]
     if (dropped !== undefined) {
       const count = countOf(dropped)
       totalImages -= count
-      bytes -= encoded(dropped.bytes) * count
+      bytes -= normalizedEncodedBytes(dropped, policy) * count
     }
     start += 1
   }

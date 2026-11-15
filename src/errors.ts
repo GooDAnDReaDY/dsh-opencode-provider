@@ -60,6 +60,8 @@ export function classifyResponseError(status: number, text: string, headers: Hea
     || detail.includes('insufficient funds')
     || detail.includes('credit balance')
     || detail.includes('out of credit')
+  const rateLimited = /rate[ _-]?limit/.test(detail)
+    || detail.includes('too many requests')
 
   if (type === 'MissingSessionID' || detail.includes('missing x-opencode-session')) {
     return new LlmError(
@@ -96,7 +98,7 @@ export function classifyResponseError(status: number, text: string, headers: Hea
       options,
     )
   }
-  if (status === 429) {
+  if (status === 429 || rateLimited) {
     return new LlmError(`OpenCode rate-limited the request: ${message}`, 'RATE_LIMIT', options)
   }
   if (status >= 500) {

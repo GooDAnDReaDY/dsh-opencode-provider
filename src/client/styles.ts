@@ -1,7 +1,7 @@
 export const CSS_ID = 'dsh-opencode-provider'
 
 export const CSS = `
-:where(.oc-page, .oc-panel, .oc-card, .oc-foot, .oc-railButton) {
+:where(.oc-page, .oc-panel, .oc-card, .oc-foot, .oc-railButton, .oc-switch-notice) {
   --oc-border: var(--dsw-alias-border-l3, currentColor);
   --oc-border-strong: color-mix(in srgb, var(--oc-border) 55%, var(--oc-text));
   --oc-border-soft: color-mix(in srgb, var(--oc-border) 70%, transparent);

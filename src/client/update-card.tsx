@@ -47,7 +47,14 @@ export function PluginUpdateCard(props: { t: (key: string) => string }): ReactNo
               ? <span className="oc-badge oc-badge-warn">{t('updateCheckFailed')}</span>
               : <span className="oc-badge oc-badge-ok">{t('upToDate')}</span>}
       </h3>
-      {status === null ? <p className="oc-hint">{error ?? t('checking')}</p> : (
+      {status === null ? (
+        <>
+          <p className="oc-hint">{error ?? t('checking')}</p>
+          {error === null
+            ? null
+            : <button type="button" className="oc-button" onClick={load}>{t('refresh')}</button>}
+        </>
+      ) : (
         <>
           <div className="oc-row">
             <span className="oc-badge">{t('currentVersion')}: {status.currentVersion}</span>

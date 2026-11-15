@@ -134,12 +134,12 @@ npm pack
 Install the **packed tarball** into a profile:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.41.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.45.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.41.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.45.tgz
 
 # Or install the published package:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.41
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.45
 ```
 
 Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (plugin)** in the model picker.
@@ -151,7 +151,7 @@ Restart dsh (or DSH Desktop), then pick **OpenCode (plugin)** or **OpenCode Go (
 
 ## Verified in DSH Desktop
 
-Tested against DSH **0.2.2-rc.1** (all 0.2.2 releases are admitted by the compatibility range) and regression-tested on **0.2.1-rc.2/rc.4**: both routes activate, model discovery returns the live catalog, and a real `deepseek-v4.1-flash` request returns `OK`.
+Tested against DSH **0.2.2-rc.1** (all 0.2.2 releases are admitted by the compatibility range) and regression-tested on **0.2.1-rc.2/rc.4**: both routes activate, model discovery returns the live catalog, and a real chat request against the first catalog model returns `OK`.
 
 The historical Desktop verification below was captured on 0.2.1-rc.4 (and retained rc.2/rc.3 compatibility):
 
@@ -249,16 +249,16 @@ Open **Settings → OpenCode**:
 - **Plugin update** — current/latest version, update badge, and **Update now**. It installs the exact registry version through the normal `dsh plugin add` path, blocks a second click while installing, and reports when DSH must be restarted.
 - **Routing** — sticky account per conversation and the free fallback model used after a Go quota error. The quota panel shows the last routing decisions with their reason.
 
-The sidebar quota card defaults to **Auto**: it appears when Go usage exists and can be set to **Always** or **Off** under **Sidebar**. Clicking it opens the full quota panel with the **Usage by model** table (7/30/90-day window).
+The sidebar quota card defaults to **Off**: enable it under **Sidebar** as **Auto** (show when Go usage exists) or **Always**. Clicking it opens the full quota panel with the **Usage by model** table (7/30/90-day window).
 
-The Host serves `/dsh-opencode/state`, `/health`, `/analytics`, `/config`, `/key`, `/key/clear`, `/auth-import`, `/refresh`, `/models/refresh`, `/test` and `/update`. Writes require JSON and same-origin Host/Origin. Loopback peers are trusted; a LAN/web profile must set `adminToken` or `OPENCODE_ADMIN_TOKEN`, after which every `/dsh-opencode/*` route requires `x-opencode-token` or `Authorization: Bearer`. The UI prompts for the token once and keeps it in this browser.
+The Host serves `/dsh-opencode/state`, `/notices`, `/health`, `/analytics`, `/config`, `/key`, `/key/clear`, `/proxy-password`, `/proxy-password/clear`, `/auth-import`, `/refresh`, `/accounts/check`, `/models/refresh`, `/test` and `/update`. Writes require JSON and same-origin Host/Origin. Loopback peers are trusted; a LAN/web profile must set `adminToken` or `OPENCODE_ADMIN_TOKEN`, after which every `/dsh-opencode/*` route requires `x-opencode-token` or `Authorization: Bearer`. The UI prompts for the token once and keeps it in this browser tab.
 
 ## Updates
 
 The **Plugin update** card in Settings → OpenCode calls `GET /dsh-opencode/update`, which compares the installed `package.json` with the npm registry. When a newer version exists, **Update now** sends the same-origin request with `x-dsh-plugin-update: 1`; the Host runs the normal DSH CLI:
 
 ```text
-dsh plugin --profile <profile> add --config.minimumReleaseAge=0 @goodandready/dsh-opencode-provider@<exact-version>
+dsh plugin --profile <profile> add --registry=https://registry.npmjs.org/ @goodandready/dsh-opencode-provider@<exact-version>
 ```
 
 The update is blocked while another update is running, never uses `--force`, and never installs from a worktree or a `file:` path. The card reports that DSH must be restarted after a successful install. If the runtime does not expose the CLI entry, the card says that automatic update is unavailable and points to the DSH plugin manager; the status check still works.
@@ -267,7 +267,7 @@ The update is blocked while another update is running, never uses `--force`, and
 
 ![OpenCode quota and analytics panel](media/visual-verification.png)
 
-Captured from the exact 0.5.0 release candidate in DSH Desktop in the dark theme.
+Historical capture from the 0.5.0 release in DSH Desktop (dark theme); the current layout is described in the sections above.
 
 ## Command
 
@@ -298,7 +298,7 @@ Set **Settings → OpenCode → `/opencode` command language** to `中文` to lo
 npm run typecheck
 npm run build
 npm test
-npm run check         # typecheck + tests + build
+npm run check         # typecheck + tests + build + client smoke + pack:check
 npm run release       # check + packed tarball
 npm run sync:models   # regenerate src/models.generated.ts from models.dev
 ```

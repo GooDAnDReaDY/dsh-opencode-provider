@@ -332,12 +332,13 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
   }
 
   return (
-    <div className="oc-panel">
+    <div className="oc-panel" role="dialog" aria-label={t('quotaTitle')}>
       <div className="oc-panel-head">
         <h2 className="oc-title">{t('quotaTitle')}</h2>
         <div className="oc-row">
           <select
             className="oc-select"
+            aria-label={t('days')}
             value={String(days)}
             onChange={(event) => setDays(Number(event.target.value))}
           >
@@ -473,9 +474,11 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
         {analyticsError !== null
           ? <button type="button" className="oc-button" onClick={() => loadAnalytics(days)}>{t('refresh')}</button>
           : null}
-        {analytics === null
-          ? <p className="oc-hint">{t('loading')}</p>
-          : <UsageAnalyticsView analytics={analytics} t={t} days={days} onDays={setDays} />}
+        {analyticsError !== null
+          ? null
+          : analytics === null
+            ? <p className="oc-hint">{t('loading')}</p>
+            : <UsageAnalyticsView analytics={analytics} t={t} days={days} onDays={setDays} />}
       </section>
 
       <section className="oc-card">
@@ -486,9 +489,11 @@ export function QuotaPanel(props: { t: (key: string) => string; close?: () => vo
         {analyticsStale && analytics !== null
           ? <p className="oc-hint">{t('analyticsStale')}</p>
           : null}
-        {analytics === null
-          ? <p className="oc-hint">{t('loading')}</p>
-          : <RequestHeatmapView heatmap={analytics.heatmap} t={t} />}
+        {analyticsError !== null
+          ? null
+          : analytics === null
+            ? <p className="oc-hint">{t('loading')}</p>
+            : <RequestHeatmapView heatmap={analytics.heatmap} t={t} />}
       </section>
     </div>
   )

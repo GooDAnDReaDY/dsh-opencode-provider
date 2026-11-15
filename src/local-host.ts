@@ -9,7 +9,14 @@ function normalize(value: string): string {
 
 export function isLoopbackHostname(value: string): boolean {
   const hostname = normalize(value)
-  return LOOPBACK.has(hostname) || hostname.startsWith('127.') || hostname.startsWith('::ffff:127.')
+  if (LOOPBACK.has(hostname)) return true
+  // A prefix test alone would accept "127.0.0.1.attacker.example"; only a
+  // literal IP may claim the loopback range.
+  const family = isIP(hostname)
+  if (family === 0) return false
+  return family === 4
+    ? hostname.startsWith('127.')
+    : hostname.startsWith('::ffff:127.')
 }
 
 function localAddresses(): Set<string> {

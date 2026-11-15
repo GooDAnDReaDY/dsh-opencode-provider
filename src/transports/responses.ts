@@ -13,6 +13,7 @@ import { effectiveMaxTokens } from '../catalog.ts'
 import type { ResolvedConfig } from '../config.ts'
 import { filePlaceholder } from '../files.ts'
 import { offloadPlaceholder, type ImageMap } from '../images.ts'
+import { normalizeToolParameters } from '../tool-schema.ts'
 import { sseEvents } from './sse.ts'
 import { toolCallArguments, toolCallId, toolCallName } from './tool-call.ts'
 
@@ -129,7 +130,7 @@ export function buildResponsesBody(
     type: 'function',
     name: tool.name,
     description: tool.description,
-    parameters: tool.parameters,
+    parameters: normalizeToolParameters(tool.parameters),
   }))
 
   return {

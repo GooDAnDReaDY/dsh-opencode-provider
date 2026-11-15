@@ -217,16 +217,33 @@ function validateEndpoint(value: unknown, allowCustom: boolean): string {
   return url.href
 }
 
+/** Credential refs this plugin may write to or resolve from request input. */
+const PLUGIN_REF_PATTERN = /^OPENCODE_[A-Z0-9_]*$/
+
+function refAllowed(value: unknown, allowed: ReadonlySet<string>): value is string {
+  if (typeof value !== 'string') return false
+  const ref = value.trim()
+  if (ref === '') return false
+  return allowed.has(ref) || PLUGIN_REF_PATTERN.test(ref)
+}
+
 function configOps(
   patch: Record<string, unknown>,
   allowCustomEndpoints: boolean,
+  allowedRefs: ReadonlySet<string>,
 ): Array<{ op: 'set' | 'unset'; path: string[]; value?: unknown }> {
   const ops: Array<{ op: 'set' | 'unset'; path: string[]; value?: unknown }> = []
   const set = (field: keyof Config, value: unknown): void => {
     if (value === null || value === undefined) ops.push({ op: 'unset', path: [field] })
     else ops.push({ op: 'set', path: [field], value })
   }
-  if ('apiKeyEnv' in patch) set('apiKeyEnv', patch.apiKeyEnv)
+  if ('apiKeyEnv' in patch) {
+    const value = patch.apiKeyEnv
+    if (value !== null && value !== undefined && !refAllowed(value, allowedRefs)) {
+      throw new HttpError(400, 'credential ref is not owned by this plugin', 'BAD_REQUEST')
+    }
+    set('apiKeyEnv', typeof value === 'string' ? value.trim() : value)
+  }
   if ('apiBase' in patch) set('apiBase', validateEndpoint(patch.apiBase, allowCustomEndpoints))
   if ('goApiBase' in patch) set('goApiBase', validateEndpoint(patch.goApiBase, allowCustomEndpoints))
   if ('goZenBase' in patch) set('goZenBase', validateEndpoint(patch.goZenBase, allowCustomEndpoints))
@@ -243,7 +260,13 @@ function configOps(
   if ('requestImageMaxBytes' in patch) set('requestImageMaxBytes', patch.requestImageMaxBytes)
   if ('proxyUrl' in patch) set('proxyUrl', normalizeProxyUrl(typeof patch.proxyUrl === 'string' ? patch.proxyUrl : ''))
   if ('proxyUsername' in patch) set('proxyUsername', normalizeProxyUsername(typeof patch.proxyUsername === 'string' ? patch.proxyUsername : ''))
-  if ('proxyPasswordRef' in patch) set('proxyPasswordRef', patch.proxyPasswordRef)
+  if ('proxyPasswordRef' in patch) {
+    const value = patch.proxyPasswordRef
+    if (value !== null && value !== undefined && !refAllowed(value, allowedRefs)) {
+      throw new HttpError(400, 'credential ref is not owned by this plugin', 'BAD_REQUEST')
+    }
+    set('proxyPasswordRef', typeof value === 'string' ? value.trim() : value)
+  }
   if ('goEnabled' in patch) set('goEnabled', patch.goEnabled === true)
   if ('consoleEnabled' in patch) set('consoleEnabled', patch.consoleEnabled === true)
   if ('catalogRefreshMinutes' in patch) set('catalogRefreshMinutes', patch.catalogRefreshMinutes)
@@ -256,7 +279,11 @@ function configOps(
   if ('contextWindowOverrides' in patch) set('contextWindowOverrides', cleanNumberRecord(patch.contextWindowOverrides))
   if ('maxOutputTokens' in patch) set('maxOutputTokens', patch.maxOutputTokens)
   if ('maxOutputTokensOverrides' in patch) set('maxOutputTokensOverrides', cleanNonNegativeNumberRecord(patch.maxOutputTokensOverrides))
-  if ('accounts' in patch) set('accounts', cleanAccounts(patch.accounts))
+  if ('accounts' in patch) {
+    const accounts = cleanAccounts(patch.accounts).filter((account) =>
+      account.apiKeyEnv === '' || refAllowed(account.apiKeyEnv, allowedRefs))
+    set('accounts', accounts)
+  }
   if ('modelAccountRules' in patch) set('modelAccountRules', cleanModelAccountRules(patch.modelAccountRules))
   if ('quotaFallbackModel' in patch) set('quotaFallbackModel', patch.quotaFallbackModel)
   if ('autoSwitch' in patch) set('autoSwitch', patch.autoSwitch === true)
@@ -585,7 +612,13 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       const patch = typeof body.patch === 'object' && body.patch !== null && !Array.isArray(body.patch)
         ? body.patch as Record<string, unknown>
         : body
-      const ops = configOps(patch, deps.config().allowCustomEndpoints || patch.allowCustomEndpoints === true)
+      const allowedRefs = new Set([
+        ...ownedCredentialRefs(deps.config()),
+        ...await readManagedCredentialRefs(deps.managedPath),
+      ])
+      // Enabling custom endpoints is a separate write: a patch cannot both
+      // repoint an endpoint and opt out of the opencode.ai restriction.
+      const ops = configOps(patch, deps.config().allowCustomEndpoints, allowedRefs)
       if (ops.length === 0) {
         errorJson(res, 400, 'no known fields in patch', 'BAD_REQUEST')
         return
@@ -810,8 +843,19 @@ export function applyRoutes(ctx: Context, web: WebServer, deps: RouteDeps): void
       errorJson(res, 400, error instanceof Error ? error.message : 'invalid body', 'BAD_REQUEST')
       return
     }
-    const model = typeof body.model === 'string' && body.model !== '' ? body.model : 'deepseek-v4.1-flash'
     const provider = body.provider === CONSOLE_PROVIDER ? CONSOLE_PROVIDER : GO_PROVIDER
+    let model = typeof body.model === 'string' ? body.model.trim() : ''
+    if (model === '') {
+      const listed = await deps.adapter.listModels(provider, { unfiltered: true }).catch((error) => {
+        deps.warn?.(`failed to list models in /test: ${(error as Error)?.message ?? error}`)
+        return []
+      })
+      model = listed[0]?.id ?? ''
+    }
+    if (model === '') {
+      errorJson(res, 503, 'no models available for a test request', 'SERVICE_UNAVAILABLE')
+      return
+    }
     const started = Date.now()
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 60_000)

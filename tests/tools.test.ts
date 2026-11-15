@@ -2,7 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 
-import { isCoreTool, limitTools, limitToolsResult } from '../src/tools.ts'
+import { limitToolsResult } from '../src/tools.ts'
+
+function limitTools(tools: readonly ToolSchema[] | undefined, max = 128): ToolSchema[] | undefined {
+  return limitToolsResult(tools, max)?.tools
+}
 
 function tool(name: string): ToolSchema {
   return {

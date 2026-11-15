@@ -56,6 +56,7 @@ export function RequestHeatmapView(props: {
           <select
             className="oc-select"
             value={selectedAccount}
+            aria-label={t('heatmapByAccount')}
             title={t('heatmapByAccount')}
             onChange={(event) => {
               setSelectedAccount(event.target.value)
@@ -74,6 +75,7 @@ export function RequestHeatmapView(props: {
           <select
             className="oc-select"
             value={selectedKey}
+            aria-label={t('heatmapModel')}
             title={t('heatmapModel')}
             disabled={selectedAccount !== 'all'}
             onChange={(event) => setSelected(event.target.value)}
@@ -130,6 +132,9 @@ export function RequestHeatmapView(props: {
                   key={`c${day}-${hour}`}
                   className="oc-heat-cell"
                   style={{ background: cellColor(value, max) }}
+                  tabIndex={0}
+                  role="img"
+                  aria-label={`${days[day] ?? ''} ${pad(hour)}:00 — ${value}`}
                   title={`${days[day] ?? ''} ${pad(hour)}:00 — ${value}`}
                 />
               ))}
@@ -140,7 +145,12 @@ export function RequestHeatmapView(props: {
         <div className="oc-hour-strip">
           <span />
           {view.hours.map((value, hour) => (
-            <span key={`s${hour}`} className="oc-hour-col" title={`${pad(hour)}:00 — ${value}`}>
+            <span
+              key={`s${hour}`}
+              className="oc-hour-col"
+              aria-label={`${pad(hour)}:00 — ${value}`}
+              title={`${pad(hour)}:00 — ${value}`}
+            >
               <span
                 className="oc-hour-bar"
                 style={{
@@ -164,7 +174,7 @@ export function RequestHeatmapView(props: {
           <span
             key={ratio}
             className="oc-heat-swatch"
-            style={{ background: `color-mix(in srgb, var(--oc-success) ${(16 + 74 * ratio).toFixed(1)}%, transparent)` }}
+            style={{ background: `color-mix(in srgb, var(--oc-success) ${(16 + 74 * Math.sqrt(ratio)).toFixed(1)}%, transparent)` }}
           />
         ))}
         <span>{t('heatmapMore')}</span>

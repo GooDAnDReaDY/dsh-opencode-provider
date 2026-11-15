@@ -1,7 +1,9 @@
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
 
+import { DEFAULT_MAX_TOOLS } from './config.ts'
+
 /** OpenCode default ceiling; user can configure maxTools up to 512. */
-export const DEFAULT_MAX_TOOLS = 128
+export { DEFAULT_MAX_TOOLS }
 export const MAX_TOOLS = DEFAULT_MAX_TOOLS
 
 /**
@@ -54,11 +56,4 @@ export function limitToolsResult(
   const keptSet = new Set(kept.map((t) => t.name))
   const dropped = out.filter((t) => !keptSet.has(t.name))
   return { tools: kept, dropped }
-}
-
-export function limitTools(
-  tools: readonly ToolSchema[] | undefined,
-  max = DEFAULT_MAX_TOOLS,
-): ToolSchema[] | undefined {
-  return limitToolsResult(tools, max)?.tools
 }

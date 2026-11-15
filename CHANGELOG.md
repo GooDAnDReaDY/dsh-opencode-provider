@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.5.45 — trust-boundary hardening, cooldown visibility, transport parity and doc reconciliation (#173–#196)
+
+- **Host trust boundary (#173)**: a hostname may no longer claim the loopback range by prefix. `127.0.0.1.attacker.example` is rejected; only a literal IP passes `127.*` / `::ffff:127.*`. The shared guard is used by the HTTP routes and the updater, with regression tests.
+- **Config credential refs (#174)**: `/config` accepts `apiKeyEnv`, `accounts[].apiKeyEnv` and `proxyPasswordRef` only from plugin-owned or `OPENCODE_*` refs, closing the path that could repoint the provider at another service's secret.
+- **Two-step custom endpoints (#174, #175)**: enabling `allowCustomEndpoints` and repointing an endpoint must be separate writes. Endpoint scheme policy is shared with the TUI, so a settings write can no longer bypass the route check.
+- **Settings refetch loop (#176)**: `adoptState` reads the previous state from a ref instead of depending on it, removing the unbounded `/state` loop; concurrent loads are guarded and conflict messages are idempotent.
+- **Visible, persistent cooldowns (#177)**: quota and rate-limit cooldowns are written to `cooldowns.json` and surfaced through `accountHealth`, so account rows show `quota` / `rate-limit` and survive restarts as documented.
+- **Account promotion (#178)**: the account that served the last successful request is promoted for new conversations when sticky routing has no entry for that conversation.
+- **Image budget (#179)**: both budget passes use the same normalized byte model; large screenshots that fit after downscaling are no longer silently dropped.
+- **Transport parity (#180–#183)**: Anthropic falls back to the model's own cap when `maxOutputTokens` is `0`; object-root tool schemas are normalized on all four transports; reasoning efforts are advertised only where the transport honors them; in-band SSE rate-limit errors classify as `RATE_LIMIT` and rotate.
+- **Cancellation (#184)**: an already-aborted caller signal stops image preparation immediately instead of reading attachments for up to 60 seconds.
+- **No hardcoded model (#185)**: `/test`, `/opencode test` and the settings page pick the first available catalog model instead of a fixed id.
+- **User agent and version (#196)**: the product UA follows `package.json`; a test fails on drift.
+- **UI and accessibility (#190–#193)**: the switch notice inherits theme tokens; heatmap cells expose values to keyboard and screen readers; account priority is changeable from the keyboard; the quota panel is a labelled dialog; analytics errors no longer render "Loading" forever; the update card can retry; missing `en`/`zh` keys were added.
+- **Dead code and packaging (#194, #195)**: removed `_ROUTE_METHOD`, unused `limitTools` and the duplicated `DEFAULT_MAX_TOOLS`; stale release tarballs were moved out of the checkout root.
+- **Documentation (#186, #187)**: README states the real default (`Off`), install pins and the route list match the code, the `check` pipeline is documented, and RU/ZH gained the Limitations section.
+- **Tests and verification**: 193 tests passing (+11), clean typecheck, build, client smoke and `pack:check`.
+
 ## 0.5.44 — project index & deploy standardization, packaging hygiene, publication layer, and bundle domain splitting (#169–#172)
 
 - **Project map & canonical deployment script (#169)**: added comprehensive `index.md` covering project purpose, scripts map, test matrix, and architecture. Created canonical `deploy.sh` script enforcing quality gates (`typecheck`, `test`, `build`, `smoke-client`, `pack:check`), 4-point package identity validation, and safe installation into DSH profiles without `--force`.

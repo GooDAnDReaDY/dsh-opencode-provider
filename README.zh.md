@@ -127,12 +127,12 @@ npm pack
 通过**打包文件 (.tgz)**安装：
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.41.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.45.tgz
 # DSH 桌面端：
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.41.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.45.tgz
 
 # 或从 npm 安装已发布版本：
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.41
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.45
 ```
 
 安装完成后重启 dsh 或 DSH 桌面端，在模型选择器中选择 **OpenCode (plugin)** 或 **OpenCode Go (plugin)** 即可。
@@ -204,6 +204,16 @@ modelAccountRules:
 - 同源检查用于防御 CSRF，并非身份认证。在配置文件（`adminToken`）或 `OPENCODE_ADMIN_TOKEN` 中设置管理员令牌后，所有 `/dsh-opencode/*` 路由都要求 `x-opencode-token` 或 `Authorization: Bearer`；设置界面会要求输入一次并保存在当前浏览器。未设置令牌时 Loopback 客户端可用，LAN 客户端返回 401。
 - `npm audit` 仍报告 `zod < 4.6.6`（GHSA-mrhx-c7xc-m3w5）：`@deepseek-ai/dsh-*` 0.2.2-rc.1 固定使用 zod 4.4.3。目前没有使用 4.6.6 的 DSH 0.2.2 版本；本插件不打包 zod，也不使用强制 override。待上游 DSH 更新后重新审计。
 - 密钥冷却状态通过 SHA-256 哈希指纹持久化，本地日志不保存提示词与明文密钥。
+
+## 限制
+
+- 文件附件以 DSH 的文本句柄转发，而不是内联字节。工具结果中的图片在 Anthropic、OpenAI Responses 与 Google 上内联；OpenAI Chat 使用文本占位符。
+- 配额接口 (`/zen/go/v1/usage`) 是非官方接口，可能变更；聊天不依赖它。
+- 费用只由 DSH 原生指示器显示，插件不额外添加 composer 费用标签。
+- 自动更新需要运行时暴露 DSH CLI 入口；没有入口时卡片只显示当前/最新版本并指向插件管理器。
+- 订阅请求数是 OpenCode 公布的估算值，不是强制配额；最终以网关为准。
+- “按模型用量”聚合本地 projection 缓存，并把整个会话归到最后使用的模型；切换过模型的会话是近似值。不会读取提示词或标题。
+- `opencode-direct` (Console) 路由没有按模型限额；主要目标是 Go。
 
 ## 许可证
 

@@ -579,11 +579,22 @@ test('config route rejects non-opencode endpoints unless explicitly allowed', as
   assert.equal(denied.status, 400)
   assert.equal(mutations.length, 0)
 
-  const allowed = await call(routes.get('/dsh-opencode/config')!, {
+  // Enabling custom endpoints and repointing an endpoint in one write would
+  // let a single request redirect a credential; it must be two writes.
+  const combined = await call(routes.get('/dsh-opencode/config')!, {
     method: 'POST',
     path: '/dsh-opencode/config',
     headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
     body: { patch: { allowCustomEndpoints: true, apiBase: 'https://attacker.example' } },
+  })
+  assert.equal(combined.status, 400)
+
+  const { routes: optedIn } = harness({ config: { allowCustomEndpoints: true } })
+  const allowed = await call(optedIn.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: { 'content-type': 'application/json', origin: 'http://127.0.0.1:3080' },
+    body: { patch: { apiBase: 'https://attacker.example' } },
   })
   assert.equal(allowed.status, 200)
 })
@@ -732,12 +743,21 @@ test('local custom endpoint requires allowCustomEndpoints to be true', async () 
   assert.equal(rejected.status, 400)
   assert.equal((rejected.body as any).error, 'custom endpoints require allowCustomEndpoints')
 
-  const { routes: allowedRoutes, mutations } = harness({ config: { allowCustomEndpoints: false } })
-  const accepted = await call(allowedRoutes.get('/dsh-opencode/config')!, {
+  const { routes: combinedRoutes } = harness({ config: { allowCustomEndpoints: false } })
+  const combined = await call(combinedRoutes.get('/dsh-opencode/config')!, {
     method: 'POST',
     path: '/dsh-opencode/config',
     headers: forged,
     body: { patch: { allowCustomEndpoints: true, goZenBase: 'http://127.0.0.1:18234' } },
+  })
+  assert.equal(combined.status, 400)
+
+  const { routes: allowedRoutes, mutations } = harness({ config: { allowCustomEndpoints: true } })
+  const accepted = await call(allowedRoutes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    path: '/dsh-opencode/config',
+    headers: forged,
+    body: { patch: { goZenBase: 'http://127.0.0.1:18234' } },
   })
   assert.equal(accepted.status, 200)
   assert.equal(mutations.length, 1)
@@ -873,4 +893,37 @@ test('error responses include machine-readable error codes', async () => {
   })
   assert.equal(badRequest.status, 400)
   assert.equal((badRequest.body as any).code, 'BAD_REQUEST')
+})
+
+test('a 127.* hostname that is not a literal IP is refused', async () => {
+  const { routes } = harness()
+  const rebinding = await call(routes.get('/dsh-opencode/state')!, {
+    method: 'GET',
+    headers: {
+      host: '127.0.0.1.attacker.example:3080',
+      origin: 'http://127.0.0.1.attacker.example:3080',
+      'sec-fetch-site': 'same-origin',
+    },
+  })
+  assert.equal(rebinding.status, 403)
+  assert.equal((rebinding.body as any).code, 'FORBIDDEN')
+})
+
+test('config route rejects credential refs owned by other plugins', async () => {
+  const { routes, mutations } = harness()
+  const foreign = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    headers: { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080', 'content-type': 'application/json' },
+    body: { patch: { apiKeyEnv: 'ANTHROPIC_API_KEY' } },
+  })
+  assert.equal(foreign.status, 400)
+  assert.equal(mutations.length, 0)
+
+  const own = await call(routes.get('/dsh-opencode/config')!, {
+    method: 'POST',
+    headers: { host: '127.0.0.1:3080', origin: 'http://127.0.0.1:3080', 'content-type': 'application/json' },
+    body: { patch: { apiKeyEnv: 'OPENCODE_API_KEY_2' } },
+  })
+  assert.equal(own.status, 200)
+  assert.equal(mutations.length, 1)
 })

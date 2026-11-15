@@ -13,6 +13,7 @@ import { effectiveMaxTokens } from '../catalog.ts'
 import type { ResolvedConfig } from '../config.ts'
 import { filePlaceholder } from '../files.ts'
 import { offloadPlaceholder, type ImageMap } from '../images.ts'
+import { normalizeToolParameters } from '../tool-schema.ts'
 import { sseEvents } from './sse.ts'
 import { toolCallId, toolCallName } from './tool-call.ts'
 
@@ -166,7 +167,7 @@ export function buildAnthropicBody(
   images?: ImageMap,
 ): Record<string, unknown> {
   const { system, messages } = buildAnthropicMessages(options, images)
-  const maxTokens = options.maxTokens ?? effectiveMaxTokens(model, config) ?? 32_768
+  const maxTokens = options.maxTokens ?? effectiveMaxTokens(model, config) ?? model.maxTokens ?? 32_768
   const effort = options.reasoningEffort === undefined ? undefined : String(options.reasoningEffort)
   const outputEffort = model.id.startsWith('claude')
     && effort !== undefined
@@ -177,7 +178,7 @@ export function buildAnthropicBody(
   const tools = options.tools?.map((tool) => ({
     name: tool.name,
     description: tool.description,
-    input_schema: tool.parameters,
+    input_schema: normalizeToolParameters(tool.parameters),
   }))
 
   return {

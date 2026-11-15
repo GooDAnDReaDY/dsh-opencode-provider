@@ -113,7 +113,8 @@ graph LR
 - **Оценки лимитов подписки OpenCode Go**: долларовый лимит и расчетное число запросов для окон 5h, недели и месяца для планов Go и Go Plus.
 - **Команда `/opencode`**: быстрый просмотр статуса, квот, аккаунтов, моделей, правил и запуск теста связи `test [model]`.
 - **Настройки в терминале (TUI)**: раздел `/settings → OpenCode` для профиля terminal с ключом, эндпоинтами, allowlist, активным аккаунтом, fallback-моделью, sticky-маршрутизацией и таймаутами.
-- **Интеграция с Settings → Models**: стандартные карточки OpenCode/OpenCode Go; ключ задаётся только через «Изменить».
+- **Интеграция с Settings → OpenCode**: ключ и аккаунты управляются на собственной странице плагина; ключ вводится только там и хранится в credential-сервисе.
+- **Индикаторы на экране выключены по умолчанию**: карточка квот в сайдбаре (`usageDisplay`) и уведомления о смене аккаунта (`showSwitchNotice`) включаются вручную в Settings → OpenCode.
 - **One-Click обновление плагина**: кнопка **Update now** в настройках проверяет npm registry, ставит точную версию через DSH CLI и запрашивает перезапуск.
 - **Plan-aware Go picker**: фильтрация моделей вне тарифной сетки Go с бейджами `Go`, `Console` или `FREE`.
 - **Защита лимита MCP-инструментов**: сохраняет системные инструменты DSH (`read`, `write`, `edit`, `bash`, `glob`, `grep`) при сокращении сторонних инструментов под лимит 128.
@@ -132,12 +133,12 @@ npm pack
 Установка из **упакованного tarball**:
 
 ```bash
-dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.41.tgz
+dsh plugin --profile web add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.45.tgz
 # DSH Desktop:
-dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.41.tgz
+dsh plugin --profile desktop add /absolute/path/to/goodandready-dsh-opencode-provider-0.5.45.tgz
 
 # Либо установка опубликованного пакета из npm:
-dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.41
+dsh plugin --profile web add @goodandready/dsh-opencode-provider@0.5.45
 ```
 
 После установки перезапустите dsh (или DSH Desktop) и выберите **OpenCode (plugin)** или **OpenCode Go (plugin)** в списке моделей.
@@ -230,6 +231,16 @@ modelAccountRules:
 - `npm audit` по-прежнему показывает `zod < 4.6.6` (GHSA-mrhx-c7xc-m3w5): пакеты `@deepseek-ai/dsh-*` 0.2.2-rc.1 фиксируют zod 4.4.3. Релиза DSH 0.2.2 с 4.6.6 пока нет; плагин не бандлит zod и не применяет принудительный override. Повторить аудит после обновления DSH.
 - Тексты запросов и ответов пользователей никогда не записываются в файлы журнала.
 - При исчерпании квоты на одном ключе диалог пользователя не прерывается благодаря бесшовной ротации.
+
+## Ограничения
+
+- Файловые вложения передаются как текст-хэндл DSH, а не как байты. Изображения в результатах инструментов встраиваются на Anthropic, OpenAI Responses и Google; OpenAI Chat использует текстовый placeholder.
+- Endpoint квот (`/zen/go/v1/usage`) неофициальный и может измениться; чат от него не зависит.
+- Стоимость показывает только нативный индикатор DSH; отдельной пилюли в composer нет.
+- Автоматическое обновление требует CLI-вход DSH в рантайме. Без него карточка показывает текущую и последнюю версии и отправляет в менеджер плагинов.
+- Оценки запросов подписки — публичные оценки OpenCode, а не жёсткие квоты; последнее слово за шлюзом.
+- «Usage by model» агрегирует локальный projection-кэш и относит всю сессию к последней использованной модели; сессия со сменой модели приблизительна. Тексты запросов и заголовки не читаются.
+- У маршрута `opencode-direct` (Console) нет пер-модельного лимита; основной сценарий — Go.
 
 ## Лицензия
 

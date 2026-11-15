@@ -1,5 +1,7 @@
 import type { Context } from '@deepseek-ai/cordis'
 
+import { parseEndpoint } from './endpoint-policy.ts'
+
 /**
  * Minimal structural copy of the dsh-TUI settings seam. The terminal front door
  * is optional, so this module deliberately imports none of its packages.
@@ -113,7 +115,7 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         label: 'Console base',
         placeholder: 'https://opencode.ai/inference',
         hint: 'Leave empty for the public endpoint.',
-        parse: setOrClear,
+        parse: parseEndpoint,
       },
       {
         path: ['goApiBase'],
@@ -121,7 +123,7 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         kind: 'text',
         label: 'Go inference base',
         placeholder: 'https://opencode.ai/inference/go',
-        parse: setOrClear,
+        parse: parseEndpoint,
       },
       {
         path: ['goZenBase'],
@@ -129,7 +131,7 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         kind: 'text',
         label: 'Go gateway base',
         placeholder: 'https://opencode.ai/zen/go/v1',
-        parse: setOrClear,
+        parse: parseEndpoint,
       },
       {
         path: ['usageUrl'],
@@ -137,7 +139,7 @@ export function buildOpenCodeTuiSection(deps: OpenCodeTuiSettingsDeps): TuiSetti
         kind: 'text',
         label: 'Usage endpoint',
         placeholder: 'https://opencode.ai/zen/go/v1/usage',
-        parse: setOrClear,
+        parse: parseEndpoint,
       },
       {
         path: ['proxyUrl'],

@@ -8,7 +8,7 @@ import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { authorityHostname, isLocalHostname, sameOrigin } from './local-host.ts'
+import { authorityHostname, isLocalHostname, isLoopbackHostname, sameOrigin } from './local-host.ts'
 
 /**
  * Host-side one-click updater for a DSH Web plugin.
@@ -83,10 +83,7 @@ function header(request: Request, name: string): string | undefined {
 }
 
 function isLoopback(value: string | undefined): boolean {
-  const address = value?.toLowerCase().replace(/^\[|\]$/g, '')
-  return address === 'localhost' || address === 'localhost.' || address === '::1'
-    || address?.startsWith('127.') === true
-    || address?.startsWith('::ffff:127.') === true
+  return value !== undefined && isLoopbackHostname(value)
 }
 
 export function isTrustedUpdateRequest(request: Request): boolean {

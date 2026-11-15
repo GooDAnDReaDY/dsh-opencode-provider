@@ -191,7 +191,13 @@ export function applyCommands(ctx: Context, deps: CommandDeps): void {
         case 'rules':
           return { kind: 'success', text: rulesText(deps, copy) }
         case 'test': {
-          const result = await testText(deps, arg === '' ? 'deepseek-v4.1-flash' : arg, copy)
+          let model = arg
+          if (model === '') {
+            const models = await deps.adapter.listModels(GO_PROVIDER, { unfiltered: true }).catch(() => [])
+            model = models[0]?.id ?? ''
+          }
+          if (model === '') return { kind: 'error', text: copy.noModels }
+          const result = await testText(deps, model, copy)
           return result.ok
             ? { kind: 'success', text: result.text }
             : { kind: 'error', text: result.text }

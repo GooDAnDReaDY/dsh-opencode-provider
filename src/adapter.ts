@@ -37,7 +37,7 @@ import { CONSOLE_PROVIDER, GO_PROVIDER } from './provider-ids.ts'
 import { endpointFor, isGoProvider } from './routing.ts'
 import { recordRequest as defaultRecordRequest, type RequestOutcome } from './request-log.ts'
 import { openCodeSessionId } from './session-id.ts'
-import { limitToolsResult, MAX_TOOLS } from './tools.ts'
+import { limitToolsResult } from './tools.ts'
 import { buildAnthropicBody, parseAnthropicStream } from './transports/anthropic.ts'
 import { buildGoogleBody, parseGoogleStream } from './transports/google.ts'
 import { parseChatStream } from './transports/openai-chat.ts'
@@ -79,6 +79,13 @@ export interface OpenCodeAdapterDeps {
   readonly stickyPath?: string
   /** Receives a one-time warning when the provider tool limit drops tools. */
   readonly warn?: (message: string) => void
+}
+
+/** Efforts the selected transport actually honors on the wire. */
+function advertisedEfforts(model: EffectiveModel): readonly string[] {
+  if (model.transport === 'google') return []
+  if (model.transport === 'anthropic' && !model.id.startsWith('claude')) return []
+  return model.reasoning
 }
 
 async function atomicWriteFile(path: string, content: string): Promise<void> {
@@ -186,6 +193,7 @@ export class OpenCodeAdapter extends LlmAdapter {
     }
     const meta = effectiveModel(model, config)
     const maxTokens = effectiveMaxTokens(meta, config)
+    const efforts = advertisedEfforts(meta)
     return {
       provider,
       id: model,
@@ -194,11 +202,11 @@ export class OpenCodeAdapter extends LlmAdapter {
       inputModalities: meta.input,
       context: { contextWindow: meta.contextWindow },
       ...(maxTokens === undefined ? {} : { defaultMaxTokens: maxTokens }),
-      ...(meta.reasoning.length === 0
+      ...(efforts.length === 0
         ? {}
         : {
             reasoning: {
-              efforts: meta.reasoning.map((effort) => ({
+              efforts: efforts.map((effort) => ({
                 id: ReasoningEffortId(effort),
                 name: effort,
               })),
@@ -237,20 +245,20 @@ export class OpenCodeAdapter extends LlmAdapter {
       reason = 'quota-fallback'
     } else if (config.activeAccount !== '') {
       reason = 'pinned'
-    } else if (config.stickySession && rule === undefined) {
-      const previous = this.sticky.get(sessionId)
+    } else if (rule === undefined) {
+      const previous = config.stickySession ? this.sticky.get(sessionId) : undefined
       if (previous !== undefined) {
         const preferred = rawKeys.find((entry) => this.keyId(entry.key) === previous.fingerprint)
         if (preferred !== undefined) {
           keys = [preferred, ...rawKeys.filter((entry) => entry !== preferred)]
           reason = 'sticky'
         }
-      }
-    } else if (rule === undefined && this.lastGood.has(options.provider)) {
-      const preferred = rawKeys.find((entry) => this.keyId(entry.key) === this.lastGood.get(options.provider))
-      if (preferred !== undefined && rawKeys[0] !== preferred) {
-        keys = [preferred, ...rawKeys.filter((entry) => entry !== preferred)]
-        reason = 'promoted'
+      } else if (this.lastGood.has(options.provider)) {
+        const preferred = rawKeys.find((entry) => this.keyId(entry.key) === this.lastGood.get(options.provider))
+        if (preferred !== undefined && rawKeys[0] !== preferred) {
+          keys = [preferred, ...rawKeys.filter((entry) => entry !== preferred)]
+          reason = 'promoted'
+        }
       }
     }
     const eligible = fallback
@@ -272,6 +280,11 @@ export class OpenCodeAdapter extends LlmAdapter {
         )
       }
       const preparation = new AbortController()
+      if (options.signal?.aborted === true) {
+        throw options.signal.reason instanceof Error
+          ? options.signal.reason
+          : new LlmError('OpenCode request was aborted before image preparation', 'TRANSPORT')
+      }
       let timedOut = false
       const onAbort = (): void => preparation.abort(options.signal?.reason)
       options.signal?.addEventListener('abort', onAbort, { once: true })
@@ -284,7 +297,7 @@ export class OpenCodeAdapter extends LlmAdapter {
         images = resolved.images
         bodyOptions = resolved.bodyOptions
       } catch (error) {
-        if (options.signal?.aborted === true) throw options.signal.reason ?? error
+        if (options.signal?.aborted) throw options.signal.reason ?? error
         if (timedOut) {
           throw new LlmError(
             `OpenCode image preparation exceeded ${config.requestPreparationTimeoutMs}ms`,
@@ -299,7 +312,7 @@ export class OpenCodeAdapter extends LlmAdapter {
       }
     }
     if (options.tools !== undefined) {
-      const toolLimit = config.maxTools ?? MAX_TOOLS
+      const toolLimit = config.maxTools
       const result = limitToolsResult(options.tools, toolLimit)
       const limited = result?.tools ?? []
       const dropped = result?.dropped ?? []
@@ -686,12 +699,22 @@ export class OpenCodeAdapter extends LlmAdapter {
   accountHealth(key: string): { coolingUntil: number; reason: string } | undefined {
     const id = this.keyId(key)
     const entry = this.cooldowns.get(id)
-    if (entry === undefined) return undefined
-    if (entry.until <= Date.now()) {
+    if (entry !== undefined) {
+      if (entry.until > Date.now()) return { coolingUntil: entry.until, reason: entry.reason }
       this.cooldowns.delete(id)
-      return undefined
     }
-    return { coolingUntil: entry.until, reason: entry.reason }
+    // Quota/rate-limit rejections are scoped to key+model; surface the worst
+    // active one so the account row still explains why it is unusable.
+    const prefix = `${id}:`
+    let worst: { coolingUntil: number; reason: string } | undefined
+    for (const [modelId, value] of this.modelCooldowns) {
+      if (!modelId.startsWith(prefix)) continue
+      if (value.until <= Date.now()) continue
+      if (worst === undefined || value.until > worst.coolingUntil) {
+        worst = { coolingUntil: value.until, reason: value.reason }
+      }
+    }
+    return worst
   }
 
   /** Await pending cooldown persistence writes (tests and shutdown). */
@@ -701,18 +724,34 @@ export class OpenCodeAdapter extends LlmAdapter {
 
   private loadCooldowns(): void {
     try {
-      const parsed = JSON.parse(readFileSync(this.cooldownPath, 'utf8')) as { cooldowns?: unknown }
+      const parsed = JSON.parse(readFileSync(this.cooldownPath, 'utf8')) as {
+        cooldowns?: unknown
+        modelCooldowns?: unknown
+      }
       const entries = parsed.cooldowns
-      if (typeof entries !== 'object' || entries === null || Array.isArray(entries)) return
-      for (const [id, value] of Object.entries(entries as Record<string, unknown>)) {
-        if (typeof value !== 'object' || value === null || Array.isArray(value)) continue
-        const until = (value as { until?: unknown }).until
-        const reason = (value as { reason?: unknown }).reason
-        if (typeof until !== 'number' || !Number.isFinite(until) || until <= Date.now()) continue
-        if (typeof reason !== 'string' || reason === '') continue
-        this.cooldowns.set(id, { until, reason })
+      if (typeof entries === 'object' && entries !== null && !Array.isArray(entries)) {
+        for (const [id, value] of Object.entries(entries as Record<string, unknown>)) {
+          if (typeof value !== 'object' || value === null || Array.isArray(value)) continue
+          const until = (value as { until?: unknown }).until
+          const reason = (value as { reason?: unknown }).reason
+          if (typeof until !== 'number' || !Number.isFinite(until) || until <= Date.now()) continue
+          if (typeof reason !== 'string' || reason === '') continue
+          this.cooldowns.set(id, { until, reason })
+        }
+      }
+      const modelEntries = parsed.modelCooldowns
+      if (typeof modelEntries === 'object' && modelEntries !== null && !Array.isArray(modelEntries)) {
+        for (const [id, value] of Object.entries(modelEntries as Record<string, unknown>)) {
+          if (typeof value !== 'object' || value === null || Array.isArray(value)) continue
+          const until = (value as { until?: unknown }).until
+          const reason = (value as { reason?: unknown }).reason
+          if (typeof until !== 'number' || !Number.isFinite(until) || until <= Date.now()) continue
+          if (typeof reason !== 'string' || reason === '') continue
+          this.modelCooldowns.set(id, { until, reason })
+        }
       }
       this.pruneCooldowns()
+      this.pruneModelCooldowns()
     } catch (error) {
       void error
       // Missing or corrupt state is ignored; cooldowns are an optimization.
@@ -734,7 +773,11 @@ export class OpenCodeAdapter extends LlmAdapter {
 
   private persistCooldowns(): void {
     this.pruneCooldowns()
-    const payload = JSON.stringify({ cooldowns: Object.fromEntries(this.cooldowns) })
+    this.pruneModelCooldowns()
+    const payload = JSON.stringify({
+      cooldowns: Object.fromEntries(this.cooldowns),
+      modelCooldowns: Object.fromEntries(this.modelCooldowns),
+    })
     this.cooldownWrites = this.cooldownWrites
       .then(async () => {
         await atomicWriteFile(this.cooldownPath, payload)
@@ -742,6 +785,19 @@ export class OpenCodeAdapter extends LlmAdapter {
       .catch((error) => {
         this.deps.warn?.(`failed to persist cooldowns: ${(error as Error)?.message ?? error}`)
       })
+  }
+
+  private pruneModelCooldowns(): void {
+    const now = Date.now()
+    for (const [id, entry] of this.modelCooldowns) {
+      if (entry.until <= now) this.modelCooldowns.delete(id)
+    }
+    const overflow = this.modelCooldowns.size - 200
+    if (overflow <= 0) return
+    const oldest = [...this.modelCooldowns.entries()]
+      .sort((a, b) => a[1].until - b[1].until)
+      .slice(0, overflow)
+    for (const [id] of oldest) this.modelCooldowns.delete(id)
   }
 
   private modelCoolingDown(key: string, model: string): boolean {
@@ -780,27 +836,12 @@ export class OpenCodeAdapter extends LlmAdapter {
       until: Date.now() + delayMs,
       reason: code === 'QUOTA' ? 'quota' : 'rate-limit',
     })
+    this.persistCooldowns()
   }
 
-  private markCooldown(key: string, status: number, headers?: Headers, code?: string): void {
-    let delayMs = 30_000
-    let reason = 'transport'
-    if (code === 'QUOTA' || status === 402) {
-      const raw = headers?.get('retry-after')
-      const seconds = raw === null || raw === undefined ? Number.NaN : Number(raw)
-      delayMs = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 10 * 60 * 1000
-      reason = 'quota'
-    } else if (code === 'RATE_LIMIT' || status === 429) {
-      // A free-tier restriction is account/model-specific, not proof that the
-      // key itself is invalid; do not take the account out for 24 hours.
-      const raw = headers?.get('retry-after')
-      const seconds = raw === null || raw === undefined ? Number.NaN : Number(raw)
-      delayMs = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 60_000
-      reason = 'rate-limit'
-    } else if (status === 401 || status === 403) {
-      delayMs = 5 * 60 * 1000
-      reason = 'invalid-credential'
-    }
+  private markCooldown(key: string, status: number, _headers?: Headers, _code?: string): void {
+    const delayMs = status === 401 || status === 403 ? 5 * 60 * 1000 : 30_000
+    const reason = status === 401 || status === 403 ? 'invalid-credential' : 'transport'
     this.cooldowns.set(this.keyId(key), { until: Date.now() + delayMs, reason })
     this.persistCooldowns()
   }

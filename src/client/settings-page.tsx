@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import {
@@ -66,7 +66,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [tokenDraft, setTokenDraft] = useState('')
   const [keyDrafts, setKeyDrafts] = useState<Record<number, string>>({})
   const [search, setSearch] = useState('')
-  const [testModel, setTestModel] = useState('deepseek-v4.1-flash')
+  const [testModel, setTestModel] = useState('')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<TestResult | null>(null)
   const [importing, setImporting] = useState(false)
@@ -74,21 +74,29 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
   const [dragFrom, setDragFrom] = useState<number | null>(null)
   const [pendingCleanup, setPendingCleanup] = useState<string[]>([])
 
+  const stateRef = useRef<HostState | null>(null)
+  const loadingRef = useRef(false)
+
   const adoptState = useCallback((next: HostState): void => {
+    // Read the previously seen state from a ref: depending on `state` here
+    // rebuilt `load` on every fetch and re-armed the effect forever.
+    const currentState = stateRef.current
+    stateRef.current = next
     setState(next)
     setDraft((current) => {
-      if (current === null || state === null || safeSame(current, draftOf(state))) return draftOf(next)
-      const base = draftOf(state)
-      const remote = draftOf(next)
-      const { merged, conflicts } = mergeDraft(base, current, remote)
+      if (current === null || currentState === null || safeSame(current, draftOf(currentState))) return draftOf(next)
+      const { merged, conflicts } = mergeDraft(draftOf(currentState), current, draftOf(next))
       if (conflicts.length > 0) {
-        setError(`${t('externalConflict') ?? 'External changes conflict with unsaved edits in'}: ${conflicts.join(', ')}`)
+        const message = `${t('externalConflict') ?? 'External changes conflict with unsaved edits in'}: ${conflicts.join(', ')}`
+        setError((previous) => previous === message ? previous : message)
       }
       return merged
     })
-  }, [state, t])
+  }, [t])
 
   const load = useCallback(async (): Promise<void> => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setLoading(true)
     try {
       const next = await fetchState()
@@ -100,6 +108,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
   }, [adoptState])
@@ -324,6 +333,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
         </span>
         <select
           className="oc-select"
+          aria-label={t('transport')}
           value={draft.modelTransports[model.id] ?? ''}
           onChange={(event) => {
             const value = event.target.value as TransportId | ''
@@ -496,6 +506,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
         <div className="oc-row">
           <select
             className="oc-select"
+            aria-label={t('testModel')}
             value={testModel}
             onChange={(event) => setTestModel(event.target.value)}
           >
@@ -632,17 +643,32 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                 <span
                   className="oc-drag"
                   draggable
+                  tabIndex={0}
+                  role="button"
+                  aria-label={t('dragAccount')}
                   title={t('dragAccount')}
                   onDragStart={(event) => {
                     setDragFrom(index)
                     event.dataTransfer.effectAllowed = 'move'
                   }}
                   onDragEnd={() => setDragFrom(null)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
+                    const target = event.key === 'ArrowUp' ? index - 1 : index + 1
+                    if (target < 0 || target >= draft.accounts.length) return
+                    event.preventDefault()
+                    const accounts = [...draft.accounts]
+                    const [moved] = accounts.splice(index, 1)
+                    if (moved !== undefined) accounts.splice(target, 0, moved)
+                    update({ accounts })
+                    setKeyDrafts({})
+                  }}
                 >
                   ⋮⋮
                 </span>
                 <input
                   className="oc-input"
+                  aria-label={t('accountLabel')}
                   placeholder={t('accountLabel')}
                   value={account.label}
                   onChange={(event) => {
@@ -652,6 +678,7 @@ export function OpenCodeSettingsPage(props: { t: (key: string) => string; close?
                 />
                 <input
                   className="oc-input"
+                  aria-label={t('accountRef')}
                   placeholder={t('accountRef')}
                   value={account.apiKeyEnv}
                   onChange={(event) => {
