@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.46 — updater and client coverage, derived-field merge conflict, package hygiene (#188, #189, #195, #199)
+
+- **Updater test seam and coverage (#188)**: `PluginUpdaterOptions` accepts `fetchImpl`/`spawnImpl`; `latestVersion` and `installExact` are exported because the handler calls them. Tests cover registry caching, fail-open on errors and malformed bodies, the exact CLI argv and registry, non-zero exit, spawn errors, status reporting, and the 405/403 endpoint guards.
+- **Client HTTP-layer tests (#189)**: admin-token header presence and clearing, `ApiError` status/code preservation, non-JSON failures that do not leak the body, `saveConfig` revision payload, and the updater request headers.
+- **Settings draft (#199)**: turning on "show all" locally while the remote allowlist changes now produces a `visibleModels` conflict instead of writing `[]` and silently discarding the remote list.
+- **Package hygiene (#195)**: removed the unused `@deepseek-ai/dsh-api-remotes` devDependency, dropped `@deepseek-ai/dsh-client-ui-slots` from `peerDependencies` (kept as a type-only devDependency), and `pack:check` now rejects published source maps. The second alternative in the peer version range is kept: semver requires it for `0.2.2` prereleases.
+- **Documentation**: install commands use a `<version>` placeholder instead of a release-specific pin; the project index reports the current test matrix.
+- **Tests and verification**: 205 tests passing (+12), clean typecheck, build, client smoke and `pack:check`.
+
 ## 0.5.45 — trust-boundary hardening, cooldown visibility, transport parity and doc reconciliation (#173–#196)
 
 - **Host trust boundary (#173)**: a hostname may no longer claim the loopback range by prefix. `127.0.0.1.attacker.example` is rejected; only a literal IP passes `127.*` / `::ffff:127.*`. The shared guard is used by the HTTP routes and the updater, with regression tests.

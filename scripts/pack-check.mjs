@@ -33,6 +33,12 @@ try {
   const files = pkg.files || []
   let oversized = false
 
+  const sourceMaps = files.filter((f) => f.path.endsWith('.map'))
+  if (sourceMaps.length > 0) {
+    console.error(`[pack:check] ERROR: source maps must not be published: ${sourceMaps.map((f) => f.path).join(', ')}`)
+    oversized = true
+  }
+
   for (const f of files) {
     if (f.size > BLOCK_LIMIT) {
       console.error(`[pack:check] ERROR: File "${f.path}" (${f.size} bytes) exceeds block limit ${BLOCK_LIMIT} bytes`)

@@ -54,9 +54,13 @@ export type PluginUpdaterOptions = {
   readonly manifestUrl: URL
   readonly registry?: string
   readonly adminToken?: () => string
+  /** Test seam: registry lookup. Defaults to the global fetch. */
+  readonly fetchImpl?: typeof fetch
+  /** Test seam: DSH CLI installer. Defaults to `node:child_process.spawn`. */
+  readonly spawnImpl?: typeof spawn
 }
 
-type Runtime = {
+export type UpdaterRuntime = {
   readonly profileName: string
   readonly profileDir: string
   readonly cliEntry?: string
@@ -187,7 +191,7 @@ function profileFromArgv(argv: readonly string[]): { dir: string; name: string }
   return undefined
 }
 
-function runtime(): Runtime {
+function runtime(): UpdaterRuntime {
   const fromArgv = profileFromArgv(process.argv)
   const profileDir = resolve(process.env.DSH_PROFILE_DIR
     ?? fromArgv?.dir
@@ -243,10 +247,14 @@ export function isNewerVersion(currentValue: string, candidateValue: string): bo
   return comparePrerelease(candidate.prerelease, current.prerelease) > 0
 }
 
-async function latestVersion(packageName: string, registry: string): Promise<string | undefined> {
+export async function latestVersion(
+  packageName: string,
+  registry: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | undefined> {
   if (latestCache?.packageName === packageName && latestCache.registry === registry && Date.now() < latestCache.expiresAt) return latestCache.version
   try {
-    const response = await fetch(`${registry.replace(/\/$/, '')}/${encodeURIComponent(packageName)}/latest`, {
+    const response = await fetchImpl(`${registry.replace(/\/$/, '')}/${encodeURIComponent(packageName)}/latest`, {
       signal: AbortSignal.timeout(8_000),
     })
     if (!response.ok) return undefined
@@ -265,9 +273,13 @@ async function currentVersion(manifestUrl: URL): Promise<string> {
   return value.version
 }
 
-async function status(options: PluginUpdaterOptions, target: Runtime): Promise<VersionPayload> {
+async function status(options: PluginUpdaterOptions, target: UpdaterRuntime): Promise<VersionPayload> {
   const current = await currentVersion(options.manifestUrl)
-  const latest = await latestVersion(options.packageName, options.registry ?? 'https://registry.npmjs.org')
+  const latest = await latestVersion(
+    options.packageName,
+    options.registry ?? 'https://registry.npmjs.org',
+    options.fetchImpl,
+  )
   return {
     packageName: options.packageName,
     currentVersion: current,
@@ -279,10 +291,15 @@ async function status(options: PluginUpdaterOptions, target: Runtime): Promise<V
   }
 }
 
-async function installExact(target: Runtime, packageSpec: string, options: PluginUpdaterOptions): Promise<void> {
+export async function installExact(
+  target: UpdaterRuntime,
+  packageSpec: string,
+  options: Pick<PluginUpdaterOptions, 'registry' | 'spawnImpl'>,
+): Promise<void> {
   if (target.cliEntry === undefined) throw new Error('Automatic update is unavailable in this runtime.')
+  const spawnImpl = options.spawnImpl ?? spawn
   await new Promise<void>((resolvePromise, reject) => {
-    const child = spawn(process.execPath, [
+    const child = spawnImpl(process.execPath, [
       target.cliEntry!, 'plugin', '--profile', target.profileName, 'add',
       packageSpec,
       `--registry=${options.registry ?? 'https://registry.npmjs.org/'}`,

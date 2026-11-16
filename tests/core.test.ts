@@ -549,3 +549,20 @@ test('mergeDraft detects conflicting edits on the same field without advancing r
   assert.equal(merged.revision, 1) // Does NOT advance revision
   assert.equal(merged.maxTools, '200') // Retains local edit
 })
+
+test('mergeDraft flags show-all against a remote allowlist change instead of dropping it', () => {
+  const baseState: any = {
+    revision: 1,
+    config: resolveConfig({ visibleModels: ['model-a'] }),
+    models: [{ id: 'model-a' }, { id: 'model-b' }],
+  }
+  const base = draftOf(baseState)
+  const local = { ...base, showAll: true }
+  const remote = { ...base, revision: 2, showAll: false, visibleModels: ['model-b'] }
+
+  const { merged, conflicts } = mergeDraft(base, local, remote)
+  assert.equal(conflicts.includes('visibleModels'), true)
+  assert.equal(merged.revision, 1)
+  // The remote intent survives; saving depends on the user resolving the conflict.
+  assert.deepEqual(merged.visibleModels, ['model-b'])
+})

@@ -204,6 +204,15 @@ export function mergeDraft(
     }
   }
 
+  // `showAll` and `visibleModels` are two draft views of one server field. If
+  // one side toggled show-all while the other changed the allowlist, the merged
+  // draft would write `visibleModels: []` and silently discard the remote list.
+  if (merged.showAll !== base.showAll
+    && JSON.stringify(merged.visibleModels) !== JSON.stringify(base.visibleModels)) {
+    if (!conflicts.includes('visibleModels')) conflicts.push('visibleModels')
+    merged.revision = local.revision
+  }
+
   if (conflicts.length > 0) {
     // If there are conflicts, DO NOT advance revision so save CAS detects it
     merged.revision = local.revision
